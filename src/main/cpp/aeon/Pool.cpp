@@ -10,19 +10,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright (c) 2013-2016, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "FPool.h"
-NS_BEGIN(fusii)
-
+#include "Pool.h"
+namespace
+fusii
+{
 //////////////////////////////////////////////////////////////////////////////
 // Pre-populate a bunch of objects in the pool
-void FPool::preset(s::function<Poolable* ()> f, int count) {
+void Pool::preset(std::function<Poolable* ()> f, int count) {
   for (auto n=0; n < count; ++n) {
     auto rc= f();
-    if (rc) {
-      _objs.push_back(rc);
-    }
+    if (rc) s__conj(_objs,rc);
   }
   _batch=count;
   _ctor=f;
@@ -30,55 +29,53 @@ void FPool::preset(s::function<Poolable* ()> f, int count) {
 
 //////////////////////////////////////////////////////////////////////////
 // Find an object by applying this filter
-Poolable* FPool::select(s::function<bool (Poolable*)> f) {
+Poolable* Pool::select(std::function<bool (Poolable*)> f) {
   F__LOOP(it, _objs) {
     auto e = *it;
-    if (f(e)) {
-      return e;
-    }
+    if (f(e)) return e;
   }
   return P_NIL;
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Get a free object from the pool and set it's status to true
-Poolable* FPool::take(bool create) {
+Poolable* Pool::take(bool create) {
   auto rc= get(create);
-  if (rc) {
-    rc->take();
-  }
+  if (rc) rc->take();
   return rc;
 }
 
 //////////////////////////////////////////////////////////////////////////
-//
-Poolable* FPool::getAt(int pos) {
+Poolable* Pool::getAt(int pos) {
   return _objs.at(pos);
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Get a free object from the pool.  More like a peek
-Poolable* FPool::get(bool create) {
+Poolable* Pool::get(bool create) {
+
   F__LOOP(it, _objs) {
     auto e= *it;
-    if (! e->status()) { return e; }
+    if (! e->status()) {
+      return e;
+    }
   }
+
   if (create &&  _ctor) {
     preset(_ctor, _batch);
     return get();
   }
+
   return P_NIL;
 }
 
 //////////////////////////////////////////////////////////////////////////
-//
-void FPool::checkin(not_null<Poolable*> c) {
-  _objs.push_back(c);
+void Pool::checkin(Poolable* c) {
+  assert(c != nullptr), s__conj(_objs,c);
 }
 
 //////////////////////////////////////////////////////////////////////////
-//
-void FPool::clearAll() {
+void Pool::clearAll() {
   if (_ownObjects) {
     F__LOOP(it, _objs) { delete *it; }
   }
@@ -86,13 +83,12 @@ void FPool::clearAll() {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-//
-const s_vec<Poolable*> FPool::actives() {
-  s_vec<Poolable*> out;
+const std::vector<Poolable*> Pool::actives() {
+  std::vector<Poolable*> out;
   F__LOOP(it, _objs) {
     auto z= *it;
     if (z->status()) {
-      out.push_back(z);
+      s__conj(out,z);
     }
   }
   return out;
@@ -100,7 +96,7 @@ const s_vec<Poolable*> FPool::actives() {
 
 //////////////////////////////////////////////////////////////////////////
 // Get the count of active objects
-int FPool::countActives() {
+int Pool::countActives() {
   auto c=0;
   F__LOOP(it, _objs) {
     auto z= *it;
@@ -112,23 +108,21 @@ int FPool::countActives() {
 }
 
 //////////////////////////////////////////////////////////////////////////
-//
-void FPool::foreach(s::function<void (Poolable*)> f) {
+void Pool::foreach(std::function<void (Poolable*)> f) {
   F__LOOP(it, _objs) {
     f(*it);
   }
 }
 
 //////////////////////////////////////////////////////////////////////////
-//
-bool FPool::some(s::function<bool (Poolable*)> f) {
+bool Pool::some(std::function<bool (Poolable*)> f) {
   F__LOOP(it, _objs) { if (f(*it)) { return true;} }
   return false;
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Hibernate (status off) all objects in the pool
-void FPool::reset() {
+void Pool::reset() {
   F__LOOP(it, _objs) {
     auto z= *it;
     z->yield();
@@ -137,7 +131,10 @@ void FPool::reset() {
 
 
 
-NS_END
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
+
 
 
 

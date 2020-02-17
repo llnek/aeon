@@ -1,3 +1,4 @@
+#pragma once
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -10,19 +11,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright (c) 2013-2016, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#pragma once
 //////////////////////////////////////////////////////////////////////////////
-
 #include "fusilli.h"
-NS_ALIAS(s,std)
-NS_BEGIN(fusii)
-
-//////////////////////////////////////////////////////////////////////////////
-//
+namespace
+fusii
+{
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 class MS_DLL Poolable {
-  __decl_bf(_status)
+  bool _status=false;
 protected:
   Poolable() {}
 public:
@@ -33,22 +31,26 @@ public:
 };
 
 //////////////////////////////////////////////////////////////////////////////
-//
-class MS_DLL FPool {
+class MS_DLL Pool {
 
-  s::function<Poolable* ()> _ctor;
-  s_vec<Poolable*> _objs;
-  __decl_bf(_ownObjects)
-  __decl_iz(_batch)
-  __decl_nocpyass(FPool)
+  std::function<Poolable* ()> _ctor;
+  std::vector<Poolable*> _objs;
+  bool _ownObjects=false;
+  int _batch=0;
+
+  Pool&operator =(const Pool&) = delete;
+  Pool&operator =(Pool&&) = delete;
+
+  Pool(const Pool&) = delete;
+  Pool(Pool&&) = delete;
 
 public:
 
-  const s_vec<Poolable*>& ls() { return _objs; }
-  const s_vec<Poolable*> actives();
+  const std::vector<Poolable*>& list() { return _objs; }
+  const std::vector<Poolable*> actives();
 
-  Poolable* select(s::function<bool (Poolable*)>);
-  void preset(s::function<Poolable* ()>, int);
+  Poolable* select(std::function<bool (Poolable*)>);
+  void preset(std::function<Poolable* ()>, int);
 
   Poolable* take(bool create=false);
   Poolable* get(bool create=false);
@@ -57,21 +59,19 @@ public:
   int size() { return _objs.size(); }
   int countActives();
 
-  void foreach(s::function<void (Poolable*)>);
-  bool some(s::function<bool (Poolable*)>);
+  void foreach(std::function<void (Poolable*)>);
+  bool some(std::function<bool (Poolable*)>);
   void clearAll();
 
-  void checkin(not_null<Poolable*>);
+  void checkin(Poolable*);
   void reset();
 
-  FPool(bool owner) { _ownObjects=owner; }
-  virtual ~FPool() {  clearAll(); }
-
+  Pool(bool owner) { _ownObjects=owner; }
+  virtual ~Pool() {  clearAll(); }
 };
 
 
-NS_END
-
-
-
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
 

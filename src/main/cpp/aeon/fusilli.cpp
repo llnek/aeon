@@ -10,46 +10,44 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright (c) 2013-2016, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
 #include "fusilli.h"
 #include <sstream>
-NS_BEGIN(fusii)
 
 //////////////////////////////////////////////////////////////////////////////
-//
-s_vec<sstr> tokenize(const sstr &src, TChar delim) {
-  s::stringstream ss(src);
-  s_vec<sstr> out;
-  sstr tkn;
-  while (s::getline(ss, tkn, delim)) {
-    if (tkn.length() > 0) {
-      out.push_back(tkn);
+namespace fusii {
+
+  std::vector<std::string> tokenize(const std::string &src, TChar delim) {
+    std::vector<std::string> out;
+    std::stringstream ss(src);
+    std::string tkn;
+    while (std::getline(ss, tkn, delim)) {
+      if (tkn.length() > 0) {
+        s__conj(out, tkn);
+      }
     }
+    return out;
   }
-  return out;
+
+  void randSeed(long x=0) {
+    std::srand ( x > 0 ? x : std::time(nullptr));
+  }
+
+  int modulo(int x, int m) {
+    int r = x % m;
+    return r < 0 ? r+m : r;
+  }
+
+  /*
+  int mod(int x, int m) {
+      return (x%m + m)%m;
+  }
+  */
+
 }
 
-//////////////////////////////////////////////////////////////////////////
-//
-void randSeed() {
-  s::srand (s::time(nullptr));
-}
-
-//////////////////////////////////////////////////////////////////////////
-//
-int modulo(int x, int m) {
-  int r = x%m;
-  return r<0 ? r+m : r;
-}
-/*
-int mod(int x, int m) {
-    return (x%m + m)%m;
-}
-*/
-
-
-NS_END
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
 
 
