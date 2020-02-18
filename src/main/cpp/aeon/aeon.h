@@ -1,3 +1,4 @@
+#pragma once
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -12,40 +13,31 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "fusilli.h"
-#include <sstream>
-
 //////////////////////////////////////////////////////////////////////////////
-namespace fusii {
+#include <functional>
+#include <algorithm>
+#include <queue>
+#include <vector>
+#include <array>
+#include <map>
+#include <string>
+#include <cassert>
+#include <cstdio>
+#include <cstdlib>
+#include "macros.h"
 
-  std::vector<std::string> tokenize(const std::string &src, TChar delim) {
-    std::vector<std::string> out;
-    std::stringstream ss(src);
-    std::string tkn;
-    while (std::getline(ss, tkn, delim)) {
-      if (tkn.length() > 0) {
-        s__conj(out, tkn);
-      }
-    }
-    return out;
-  }
+namespace czlab {
+namespace aeon {
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::vector<std::string> tokenize(const std::string &src, TChar delim);
+int modulo(int, int);
+void randSeed();
+}}
 
-  void randSeed(long x=0) {
-    std::srand ( x > 0 ? x : std::time(nullptr));
-  }
-
-  int modulo(int x, int m) {
-    int r = x % m;
-    return r < 0 ? r+m : r;
-  }
-
-  /*
-  int mod(int x, int m) {
-      return (x%m + m)%m;
-  }
-  */
-
-}
+#include "smptr.h"
+#include "dlist.h"
+#include "pool.h"
+#include "array.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF

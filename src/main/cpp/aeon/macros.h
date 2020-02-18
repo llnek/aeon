@@ -38,24 +38,6 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
-// namespace stuff
-#ifdef __cplusplus
-#define NS_USING(nsp)  using namespace nsp;
-#define NS_BEGIN(nsp)  namespace nsp {
-#define NS_END         };
-#define NS_ALIAS(x,y)  namespace x = y;
-#define BEGIN_NS_UNAMED   namespace {
-#define END_NS_UNAMED   };
-#else
-#define NS_USING(nsp)
-#define NS_BEGIN(nsp)
-#define NS_END
-#define NS_ALIAS(x,y)
-#define BEGIN_NS_UNAMED
-#define END_NS_UNAMED
-#endif
-
-//////////////////////////////////////////////////////////////////////////////
 // memory lifecycle stuff
 #define free_file(x) do {if (x) ::fclose(x); x=nullptr;} while (0)
 #define free_mem(x) do {if (x) ::free(x); x=nullptr;} while (0)
@@ -76,10 +58,9 @@
 
 //////////////////////////////////////////////////////////////////////////////
 // c++ std collection iteration
-#define F__POOP(x,c) for (auto x=c->begin(); x != c->end(); ++x)
-#define F__LOOP(x,c) for (auto x=c.begin(); x != c.end(); ++x)
+//#define F__POOP(x,c) for (auto x=c->begin(); x != c->end(); ++x)
+//#define F__LOOP(x,c) for (auto x=c.begin(); x != c.end(); ++x)
 #define s__pair(T1,T2,v1,v2) std::pair<T1,T2>(v1,v2)
-#define s__copy(f,t) s::copy(s::begin(f), s::end(f), s::begin(t))
 #define s__conj(c,n) c.push_back(n)
 #define s__nil(x) (x = nullptr)
 #define s__mix(c) std::random_shuffle(c.begin(),c.end())
@@ -171,9 +152,6 @@ virtual void set##funName(varType p) { v=p; }
 #define FTOS(n) s::to_string(n)
 // halve this value
 #define HTV(v) ((v) * 0.5)
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-typedef std::function<void ()> VOIDFN;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF

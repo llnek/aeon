@@ -12,125 +12,94 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "Pool.h"
-namespace
-fusii
-{
-//////////////////////////////////////////////////////////////////////////////
-// Pre-populate a bunch of objects in the pool
-void Pool::preset(std::function<Poolable* ()> f, int count) {
-  for (auto n=0; n < count; ++n) {
-    auto rc= f();
-    if (rc) s__conj(_objs,rc);
-  }
-  _batch=count;
-  _ctor=f;
+#include <functional>
+#include <map>
+#include "pool.h"
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+namespace czlab::aeon {
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+MemPool::MemPool(std::function<void* ()> f, size_t batch) {
+  this->batch= batch;
+  this->size= batch;
+  this->next= 0;
+  this->ctor=f;
+  this->slots= (void**) ::malloc(size * sizeof(void*));
+  init();
 }
-
-//////////////////////////////////////////////////////////////////////////
-// Find an object by applying this filter
-Poolable* Pool::select(std::function<bool (Poolable*)> f) {
-  F__LOOP(it, _objs) {
-    auto e = *it;
-    if (f(e)) return e;
-  }
-  return P_NIL;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int MemPool::capacity() {
+  return this->size;
 }
-
-//////////////////////////////////////////////////////////////////////////
-// Get a free object from the pool and set it's status to true
-Poolable* Pool::take(bool create) {
-  auto rc= get(create);
-  if (rc) rc->take();
-  return rc;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int MemPool::count() {
+  return this->next;
 }
-
-//////////////////////////////////////////////////////////////////////////
-Poolable* Pool::getAt(int pos) {
-  return _objs.at(pos);
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void* MemPool::nth(int pos) {
+  return (pos >= 0 && pos < next) ? slots[pos] : nullptr;
 }
-
-//////////////////////////////////////////////////////////////////////////
-// Get a free object from the pool.  More like a peek
-Poolable* Pool::get(bool create) {
-
-  F__LOOP(it, _objs) {
-    auto e= *it;
-    if (! e->status()) {
-      return e;
-    }
-  }
-
-  if (create &&  _ctor) {
-    preset(_ctor, _batch);
-    return get();
-  }
-
-  return P_NIL;
-}
-
-//////////////////////////////////////////////////////////////////////////
-void Pool::checkin(Poolable* c) {
-  assert(c != nullptr), s__conj(_objs,c);
-}
-
-//////////////////////////////////////////////////////////////////////////
-void Pool::clearAll() {
-  if (_ownObjects) {
-    F__LOOP(it, _objs) { delete *it; }
-  }
-  _objs.clear();
-}
-
-//////////////////////////////////////////////////////////////////////////////
-const std::vector<Poolable*> Pool::actives() {
-  std::vector<Poolable*> out;
-  F__LOOP(it, _objs) {
-    auto z= *it;
-    if (z->status()) {
-      s__conj(out,z);
-    }
-  }
-  return out;
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Get the count of active objects
-int Pool::countActives() {
-  auto c=0;
-  F__LOOP(it, _objs) {
-    auto z= *it;
-    if (z->status()) {
-      ++c;
-    }
-  }
-  return c;
-}
-
-//////////////////////////////////////////////////////////////////////////
-void Pool::foreach(std::function<void (Poolable*)> f) {
-  F__LOOP(it, _objs) {
-    f(*it);
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void MemPool::each(std::function<void (void*)> f) {
+  for (auto i = 0; i < next; ++i) {
+    f(slots[i]);
   }
 }
-
-//////////////////////////////////////////////////////////////////////////
-bool Pool::some(std::function<bool (Poolable*)> f) {
-  F__LOOP(it, _objs) { if (f(*it)) { return true;} }
-  return false;
-}
-
-//////////////////////////////////////////////////////////////////////////
-// Hibernate (status off) all objects in the pool
-void Pool::reset() {
-  F__LOOP(it, _objs) {
-    auto z= *it;
-    z->yield();
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void* MemPool::take() {
+  if (next < size) {
+    auto p=slots[next];
+    rego[p]=next;
+    ++next;
+    return p;
+  } else {
+    grow();
+    return take();
   }
 }
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void MemPool::grow() {
+  size += batch;
+  slots = (void**) ::realloc(slots, size * sizeof(void*));
+  for (auto i= next; i < size; ++i) {
+    slots[i] = ctor();
+  }
+  init();
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void MemPool::init() {
+  for (auto i=next; i < size; ++i) {
+    slots[i] = ctor();
+  }
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void MemPool::drop(void* obj) {
+  auto it= rego.find(obj);
+  int pos;
+  if (it != rego.end()) {
+    pos=it->second;
+    rego.erase(it);
+  } else {
+    return;
+  }
+  auto n1 = next-1;
+  auto tail = slots[n1];
+  // move tail
+  slots[pos]=tail;
+  rego[tail]=pos;
+  // slot in obj for reuse
+  slots[n1]=obj;
+  --next;
+}
 
 
 
+
+
+
+
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF

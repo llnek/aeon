@@ -14,119 +14,137 @@
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
 //////////////////////////////////////////////////////////////////////////////
-namespace fusii {
+namespace czlab::aeon {
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//////////////////////////////////////////////////////////////////////////////
+// owns all items in this list
+template <typename T>
+struct MS_DLL DList {
 
-  template<typename T> struct MS_DLL DListItem {
-    T *_prev=nullptr;
-    T *_next=nullptr;
+  struct DListItem {
+    DListItem(T e) {
+      item=e;
+      _prev=_next=nullptr;
+    }
+    ~DListItem() {}
+    DListItem* _prev;
+    T item;
+    DListItem* _next;
+  };
+  struct DListAnchor {
+    DListAnchor() {
+      _head=_tail=nullptr;
+    }
+    ~DListAnchor() {}
+    DListItem* _head;
+    DListItem* _tail;
   };
 
-  template<typename T> struct MS_DLL DListAnchor {
-    T *_head=nullptr;
-    T *_tail=nullptr;
-  };
+  bool isEmpty() { return anchor._head==nullptr; }
+  void remove(T);
+  void add(T);
 
-  //////////////////////////////////////////////////////////////////////////////
-  // owns all items in this list
-  template <typename T>
-  struct MS_DLL DList  {
+  const std::vector<T> list();
+  void clear();
+  int size();
 
-    virtual bool isEmpty() { return _head==nullptr; }
-    virtual void release(T*);
-    virtual void purge(T*);
-    virtual void add(T*);
+  ~DList();
+  DList() {}
 
-    const std::vector<T*> list();
-    void clear();
-    int size();
+  DList& operator=(const DList&) = delete;
+  DList& operator=(DList&&) = delete;
+  DList(const DList&) = delete;
+  DList(DList&&) = delete;
 
-    T *_head=nullptr;
-    T *_tail=nullptr;
+private:
+  void purge(DListItem*);
+  DListAnchor anchor;
+};
 
-    virtual ~DList();
-    DList() {}
-
-    DList& operator=(const DList&) = delete;
-    DList& operator=(DList&&) = delete;
-    DList(const DList&) = delete;
-    DList(DList&&) = delete;
-  };
-
-  template <typename T>
-  void DList<T>::add(T* e) {
-    if (E_NIL(_head)) {
-      assert(E_NIL(_tail));
-      s__nil(e->_prev);
-      s__nil(e->_next);
-      _head = e;
-      _tail = e;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+void DList<T>::add(T e) {
+  auto i= new DListItem(e);
+  if (! anchor._head) {
+    anchor._head = i;
+    anchor._tail = i;
+  } else {
+    i->_prev = anchor._tail;
+    anchor._tail->_next = i;
+    anchor._tail = i;
+  }
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template<typename T>
+int DList<T>::size() {
+  auto n= anchor._head;
+  int c=0;
+  while (X_NIL(n)) {
+    ++c;
+    n = n->_next;
+  }
+  return c;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+void DList<T>::remove(T e) {
+  auto p = anchor._head;
+  while (p) {
+    if (p->item == e) {
+      purge(p);
+      break;
     } else {
-      e->_prev = _tail;
-      s__nil(e->_next);
-      _tail->_next = e;
-      _tail = e;
+      p=p->_next;
     }
   }
-
-  template<typename T>
-  int DList<T>::size() {
-    auto n= _head;
-    int c=0;
-    while (X_NIL(n)) {
-      n = n->_next;
-      ++c;
-    }
-    return c;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+void DList<T>::purge(DListItem* e) {
+  if (anchor._tail == e) { anchor._tail = anchor._tail->_prev; }
+  if (anchor._head == e) { anchor._head = anchor._head->_next; }
+  if (X_NIL(e->_prev)) {
+    e->_prev->_next = e->_next;
   }
-
-  template <typename T>
-  void DList<T>::release(T* e) {
-    if (_tail == e) { _tail = _tail->_prev; }
-    if (_head == e) { _head = _head->_next; }
-    if (X_NIL(e->_prev)) {
-      e->_prev->_next = e->_next;
-    }
-    if (X_NIL(e->_next)) {
-      e->_next->_prev = e->_prev;
-    }
-    s__nil(e->_prev);
-    s__nil(e->_next);
+  if (X_NIL(e->_next)) {
+    e->_next->_prev = e->_prev;
   }
-
-  template <typename T>
-  void DList<T>::purge(T* e) {
-    release(e);
-    delete e.get();
+  delete e;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+void DList<T>::clear() {
+  auto p= anchor._head;
+  while (p) {
+    auto n= p;
+    p=p->_next;
+    delete n;
   }
-
-  template <typename T>
-  void DList<T>::clear() {
-    while (X_NIL(_head)) {
-      auto e= _head;
-      _head = _head->_next;
-      delete e;
-    }
-    s__nil(_head);
-    s__nil(_tail);
+  s__nil(anchor._head);
+  s__nil(anchor._tail);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+const std::vector<T> DList<T>::list() {
+  std::vector<T> v;
+  for (auto p= anchor._head; X_NIL(p); p=p->_next) {
+    s__conj(v,p->item);
   }
-
-  template <typename T>
-  const std::vector<T*> DList<T>::list() {
-    std::vector<T*> v;
-    for (auto p= _head; X_NIL(p); p=p->_next) {
-      s__conj(v,p);
-    }
-    return v;
-  }
-
-  template <typename T>
-  DList<T>::~DList() {
-    //printf("DList dtor\n");
-    clear();
-  }
-
+  return v;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+DList<T>::~DList() {
+  //printf("DList dtor\n");
+  clear();
 }
 
+
+
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
 

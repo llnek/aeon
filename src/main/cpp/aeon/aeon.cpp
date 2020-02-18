@@ -12,44 +12,43 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include <functional>
-#include <map>
+#include "aeon.h"
+#include <sstream>
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::aeon {
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-class MemPool {
-public:
-  MemPool(std::function<void* ()> f, size_t batch= 16);
-  void* nth(int pos);
-  int capacity();
-  int count();
-  void* take();
-  void drop(void*);
-  void each(std::function<void (void*)>);
-private:
-  void grow();
-  void init();
-  int batch;
-  int size;
-  int next;
-  void** slots;
-  std::map<void*,int> rego;
-  std::function<void* ()> ctor;
-};
-
-
-
-
-
-
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//////////////////////////////////////////////////////////////////////////////
+namespace czlab {
+namespace aeon {
+//////////////////////////////////////////////////////////////////////////////
+std::vector<std::string> tokenize(const std::string &src, TChar delim) {
+  std::vector<std::string> out;
+  std::stringstream ss(src);
+  std::string tkn;
+  while (std::getline(ss, tkn, delim)) {
+    if (tkn.length() > 0) {
+      s__conj(out, tkn);
+    }
+  }
+  return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void randSeed(long x=0) {
+  std::srand (x > 0 ? x : std::time(nullptr));
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//int mod(int x, int m) { return (x%m + m)%m; }
+int modulo(int x, int m) {
+  int r = x % m;
+  return r < 0 ? r+m : r;
+}
+
+
+
+
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+}}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
-
-
-
 
 

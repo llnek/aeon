@@ -14,56 +14,55 @@
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
 //////////////////////////////////////////////////////////////////////////////
-#include "fusilli.h"
-namespace
-fusii
-{
-// Dynamic array of pointers to a type.
+#include "aeon.h"
+namespace czlab {
+namespace aeon {
+//////////////////////////////////////////////////////////////////////////////
 template<typename T>
-class MS_DLL ArrayPtr {
+class MS_DLL Array {
 
-  T **_data=nullptr;
+  T *_data=nullptr;
   int _sz=0;
 
 public:
 
-  ArrayPtr<T>& operator=(const ArrayPtr<T>&);
-  ArrayPtr<T>& operator=(ArrayPtr<T>&&);
+  Array<T>& operator=(const Array<T>&);
+  Array<T>& operator=(Array<T>&&);
 
-  ArrayPtr(const ArrayPtr<T>&);
-  ArrayPtr(ArrayPtr<T>&&);
+  Array(const Array<T>&);
+  Array(Array<T>&&);
 
-  explicit ArrayPtr(int z); ArrayPtr();
-  ArrayPtr() = delete;
-  virtual ~ArrayPtr();
+  explicit Array(int z);
+  Array() = delete;
+  virtual ~Array();
 
-  ArrayPtr<T>* clone();
+  Array<T>* clone();
 
-  T* operator[](int pos);
-  T* get(int pos);
-  T* first();
-  T* last();
+  void setFirst(const T &value);
+  void setLast(const T &value);
 
-  void first(T *value);
-  void last(T *value);
+  const T& first();
+  const T& last();
 
-  void set(int pos, T *value);
+  void set(int pos, const T &value);
   int size() { return _sz; }
-  T* swap(int, T*);
 
-  bool notAny(T *v);
-  bool some(T *v);
-  bool every(T *v);
-  int find(T *v);
-  void fill(T *v);
+  bool notAny(const T &v);
+  bool some(const T &v);
+  bool every(const T &v);
+  int find(const T &v);
+  void fill(const T &v);
 
-  void map(std::function<T* (T*)>);
+  const T& operator[](int pos);
+  const T& get(int pos);
+  T& getRef(int pos);
+
 };
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//////////////////////////////////////////////////////////////////////////////
 template<typename T>
-ArrayPtr<T>& ArrayPtr<T>::operator=(ArrayPtr<T> &&src) {
-  del_arr(_data);
+Array<T>& Array<T>::operator=(Array<T> &&src) {
+  del_array(_data);
   _data=src._data;
   _sz=src._sz;
   s__nil(src._data);
@@ -73,7 +72,7 @@ ArrayPtr<T>& ArrayPtr<T>::operator=(ArrayPtr<T> &&src) {
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-ArrayPtr<T>::ArrayPtr(ArrayPtr<T> &&src) {
+Array<T>::Array(Array<T> &&src) {
   _data=src._data;
   _sz=src._sz;
   s__nil(src._data);
@@ -82,11 +81,11 @@ ArrayPtr<T>::ArrayPtr(ArrayPtr<T> &&src) {
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-ArrayPtr<T>& ArrayPtr<T>::operator=(const ArrayPtr<T> &src) {
-  del_arr(_data);
+Array<T>& Array<T>::operator=(const Array<T> &src) {
+  del_array(_data);
   _sz=src._sz;
   if (_sz > 0) {
-    _data= new T* [_sz];
+    _data= new T[_sz];
     for (auto i=0; i < _sz; ++i) {
       _data[i] = src._data[i];
     }
@@ -96,11 +95,11 @@ ArrayPtr<T>& ArrayPtr<T>::operator=(const ArrayPtr<T> &src) {
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-ArrayPtr<T>::ArrayPtr(const ArrayPtr<T> &src) {
+Array<T>::Array(const Array<T> &src) {
+  s__nil(_data);
   _sz=src._sz;
-  s__nil(_data)
   if (_sz > 0) {
-    _data= new T* [_sz];
+    _data= new T[_sz];
     for (auto i=0; i < _sz; ++i) {
       _data[i] = src._data[i];
     }
@@ -109,38 +108,20 @@ ArrayPtr<T>::ArrayPtr(const ArrayPtr<T> &src) {
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-ArrayPtr<T>::ArrayPtr(int z) {
-  _data = z > 0 ? new T* [z] : nullptr;
+Array<T>::Array(int z) {
+  _data = z > 0 ? new T[z] : nullptr;
   _sz=z;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-ArrayPtr<T>::~ArrayPtr() {
-  del_arr(_data);
+Array<T>::~Array() {
+  del_array(_data);
 }
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-T* ArrayPtr<T>::swap(int pos, T *np) {
-  assert(_sz > 0);
-  assert(pos >= 0 && pos < _sz);
-  auto rc= _data[pos];
-  _data[pos]= np;
-  return rc;
-}
-
-//////////////////////////////////////////////////////////////////////////////
-template<typename T>
-void ArrayPtr<T>::map(std::function<T* (T*)> m) {
-  for (auto i = 0; i < _sz; ++i) {
-    _data[i] = m(_data[i]);
-  }
-}
-
-//////////////////////////////////////////////////////////////////////////////
-template<typename T>
-int ArrayPtr<T>::find(T *v) {
+int Array<T>::find(const T &v) {
   for (auto i = 0; i < _sz; ++i) {
     if (v == _data[i]) { return i; }
   }
@@ -149,7 +130,7 @@ int ArrayPtr<T>::find(T *v) {
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-void ArrayPtr<T>::fill(T *v) {
+void Array<T>::fill(const T &v) {
   for (auto i = 0; i < _sz; ++i) {
     _data[i]=v;
   }
@@ -157,7 +138,7 @@ void ArrayPtr<T>::fill(T *v) {
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-bool ArrayPtr<T>::some(T *v) {
+bool Array<T>::some(const T &v) {
   for (auto i = 0; i < _sz; ++i) {
     if (v == _data[i]) { return true; }
   }
@@ -166,7 +147,7 @@ bool ArrayPtr<T>::some(T *v) {
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-bool ArrayPtr<T>::notAny(T *v) {
+bool Array<T>::notAny(const T &v) {
   for (auto i = 0; i < _sz; ++i) {
     if (v == _data[i]) { return false; }
   }
@@ -175,7 +156,7 @@ bool ArrayPtr<T>::notAny(T *v) {
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-bool ArrayPtr<T>::every(T *v) {
+bool Array<T>::every(const T &v) {
   for (auto i = 0; i < _sz; ++i) {
     if (v != _data[i]) { return false; }
   }
@@ -184,8 +165,8 @@ bool ArrayPtr<T>::every(T *v) {
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-ArrayPtr<T>* ArrayPtr<T>::clone() {
-  auto rc= new ArrayPtr<T>(this->_sz);
+Array<T>* Array<T>::clone() {
+  auto rc= new Array<T>(this->_sz);
   for (auto i=0; i < this->_sz; ++i) {
     rc->_data[i] = this->_data[i];
   }
@@ -194,56 +175,68 @@ ArrayPtr<T>* ArrayPtr<T>::clone() {
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-void ArrayPtr<T>::set(int pos, T *v) {
-  swap(pos,v);
+void Array<T>::set(int pos, const T &v) {
+  assert(pos >= 0 && pos < _sz);
+  _data[pos] = v;
 }
 
 //////////////////////////////////////////////////////////////////////////
 template<typename T>
-T* ArrayPtr<T>::first() {
+const T& Array<T>::first() {
   assert(_sz > 0);
   return _data[0];
 }
 
 //////////////////////////////////////////////////////////////////////////
 template<typename T>
-T* ArrayPtr<T>::last() {
+const T& Array<T>::last() {
   assert(_sz > 0);
   return _data[_sz-1];
 }
 
 //////////////////////////////////////////////////////////////////////////
 template<typename T>
-void ArrayPtr<T>::setFirst(T *v) {
+void Array<T>::setFirst(const T &v) {
   assert(_sz > 0);
   _data[0]= v;
 }
 
 //////////////////////////////////////////////////////////////////////////
 template<typename T>
-void ArrayPtr<T>::setLast(T *v) {
+void Array<T>::setLast(const T &v) {
   assert(_sz > 0);
   _data[_sz-1]=v;
 }
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-T* ArrayPtr<T>::get(int pos) {
+T& Array<T>::getRef(int pos) {
   assert(pos >= 0 && pos < _sz);
   return _data[pos];
 }
 
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-T* ArrayPtr<T>::operator[](int pos) {
-  return get(pos);
+const T& Array<T>::get(int pos) {
+  assert(pos >= 0 && pos < _sz);
+  return _data[pos];
 }
 
-
-
-
-
+//////////////////////////////////////////////////////////////////////////////
+template<typename T>
+const T& Array<T>::operator[](int pos) {
+  assert(pos >= 0 && pos < _sz);
+  return _data[pos];
 }
+
+//////////////////////////////////////////////////////////////////////////
+typedef Array<float> FloatArray;
+typedef Array<int> IntArray;
+typedef Array<bool> BoolArray;
+
+
+}}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
+
 
