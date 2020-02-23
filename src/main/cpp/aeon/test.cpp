@@ -115,7 +115,7 @@ void test1() {
 }
 
 
-int main(int ac, char* av[]) {
+int Xmain(int ac, char* av[]) {
   czlab::aeon::test0();
   //czlab::aeon::test1();
   //czlab::aeon::test2();

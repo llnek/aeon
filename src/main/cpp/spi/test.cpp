@@ -13,8 +13,7 @@
 #include "interpreter.h"
 #include "analyzer.h"
 
-using namespace czlab::aeon::interpreter;
-using namespace czlab::aeon::analyzer;
+using namespace czlab::spi;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const char* XARG="BEGIN\n\
 \n\

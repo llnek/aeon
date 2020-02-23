@@ -20,6 +20,8 @@
 #include <vector>
 #include <array>
 #include <map>
+#include <set>
+#include <stack>
 #include <string>
 #include <cassert>
 #include <cstdio>

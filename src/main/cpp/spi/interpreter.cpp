@@ -1,50 +1,49 @@
 #include "interpreter.h"
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::aeon::interpreter {
-namespace l= czlab::aeon::lexer;
-namespace p= czlab::aeon::parser;
+namespace czlab::spi {
+namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Interpreter::Interpreter(const char* src) {
-  auto c= l::lexer(src, "");
-  auto t= p::parser(c);
-  eval(t);
+  Lexer* x= new Lexer(src);
+  SimplePascalParser p(x);
+  eval((Ast*) p.parse());
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Interpreter::Interpreter(p::Ast* tree) {
+Interpreter::Interpreter(Ast* tree) {
   eval(tree);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::eval(p::Ast* tree) {
-  auto f= new p::Frame(tree->name().c_str(),0,1);
+void Interpreter::eval(Ast* tree) {
+  auto f= new d::Frame();
   stack.push(f);
   auto res= tree->eval(this);
-  if (res.type == l::T_INT)
-    ::printf("result = %ld\n\n", res.value.num);
+  if (res.type == d::EXPR_INT)
+    ::printf("result = %ld\n\n", res.value.n);
   else
-    ::printf("result = %lf\n\n", res.value.real);
+    ::printf("result = %lf\n\n", res.value.r);
   auto env= stack.pop();
   auto& m= env->slots;
   ::printf("slots cont = %d\n", (int)m.size());
   for (auto it = m.begin(); it != m.end(); ++it) {
     auto x = it->second;
-    if (x.type == l::T_INT)
-      ::printf("key = %s, value = %ld\n", it->first.c_str(), x.value.num);
-    if (x.type == l::T_REAL)
-      ::printf("key = %s, value = %lf\n", it->first.c_str(), x.value.real);
+    if (x.type == d::EXPR_INT)
+      ::printf("key = %s, value = %ld\n", it->first.c_str(), x.value.n);
+    if (x.type == d::EXPR_REAL)
+      ::printf("key = %s, value = %lf\n", it->first.c_str(), x.value.r);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::setValue(const std::string& name, const p::DataValue& v) {
+void Interpreter::setValue(const char* name, const d::ExprValue& v) {
   auto x = stack.peek();
   if (x) x->set(name, v);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-p::DataValue Interpreter::getValue(const std::string& name) {
+d::ExprValue Interpreter::getValue(const char* name) {
   auto x = stack.peek();
   if (x)
     return x->get(name);
   else
-    return p::DataValue();
+    return d::ExprValue();
 }
 
 

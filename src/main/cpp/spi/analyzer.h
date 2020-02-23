@@ -1,18 +1,20 @@
 #pragma once
 #include "parser.h"
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::aeon::interpreter {
-namespace p= czlab::aeon::parser;
+namespace czlab::spi {
+namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Interpreter : public p::Evaluator {
-  void setValue(const std::string&, const p::DataValue&);
-  p::DataValue getValue(const std::string&);
-  Interpreter(const char* src);
-  Interpreter(p::Ast*);
-  ~Interpreter() {}
+struct Analyzer : public d::IAnalyzer {
+  Analyzer(const char* src);
+  Analyzer(Ast*);
+  virtual ~Analyzer() {}
+  void pushScope();
+  d::SymbolTable* popScope();
+  d::Symbol* lookup(const char*, bool traverse=true);
+  void define(d::Symbol*);
 private:
-  void eval(p::Ast*);
-  p::CallStack stack;
+  void check(Ast*);
+  d::SymbolTable* symbols;
 };
 
 

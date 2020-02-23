@@ -1,38 +1,37 @@
 #include "analyzer.h"
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::aeon::analyzer {
-namespace p= czlab::aeon::parser;
-namespace l= czlab::aeon::lexer;
+namespace czlab::spi {
+namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Analyzer::Analyzer(const char* src) {
-  auto c= l::lexer(src, "");
-  auto t= p::parser(c);
-  check(t);
+  Lexer* c= new Lexer(src);
+  SimplePascalParser p(c);
+  check((Ast*) p.parse());
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Analyzer::Analyzer(p::Ast* tree) {
+Analyzer::Analyzer(Ast* tree) {
   check(tree);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Analyzer::check(p::Ast* tree) {
-  symbols= new p::SymbolTable("root",1);
+void Analyzer::check(Ast* tree) {
+  symbols= new SymTable();
   tree->visit(this);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-p::Symbol* Analyzer::lookup(const std::string& n, bool traverse) {
-  return symbols->lookup(n, traverse ? false : true);
+d::Symbol* Analyzer::lookup(const char* n, bool traverse) {
+  return symbols->lookup(n, traverse);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Analyzer::define(p::Symbol* s) {
+void Analyzer::define(d::Symbol* s) {
   if (s) symbols->insert(s);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Analyzer::pushScope(const std::string& id) {
-  auto s= new p::SymbolTable(id, symbols->scope_level+1, symbols);
+void Analyzer::pushScope() {
+  auto s= new SymTable((SymTable*)symbols);
   symbols=s;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-p::SymbolTable* Analyzer::popScope() {
+d::SymbolTable* Analyzer::popScope() {
   if (! symbols->enclosing) {
     return nullptr;
   } else {
