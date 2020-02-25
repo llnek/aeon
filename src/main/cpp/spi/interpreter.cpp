@@ -4,8 +4,7 @@ namespace czlab::spi {
 namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Interpreter::Interpreter(const char* src) {
-  Lexer* x= new Lexer(src);
-  SimplePascalParser p(x);
+  SimplePascalParser p(src);
   eval((Ast*) p.parse());
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -18,18 +17,18 @@ void Interpreter::eval(Ast* tree) {
   stack.push(f);
   auto res= tree->eval(this);
   if (res.type == d::EXPR_INT)
-    ::printf("result = %ld\n\n", res.value.n);
+    ::printf("result = %ld\n\n", res.value.u.n);
   else
-    ::printf("result = %lf\n\n", res.value.r);
+    ::printf("result = %lf\n\n", res.value.u.r);
   auto env= stack.pop();
   auto& m= env->slots;
   ::printf("slots cont = %d\n", (int)m.size());
   for (auto it = m.begin(); it != m.end(); ++it) {
     auto x = it->second;
     if (x.type == d::EXPR_INT)
-      ::printf("key = %s, value = %ld\n", it->first.c_str(), x.value.n);
+      ::printf("key = %s, value = %ld\n", it->first.c_str(), x.value.u.n);
     if (x.type == d::EXPR_REAL)
-      ::printf("key = %s, value = %lf\n", it->first.c_str(), x.value.r);
+      ::printf("key = %s, value = %lf\n", it->first.c_str(), x.value.u.r);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

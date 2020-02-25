@@ -16,6 +16,7 @@
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::dsl {
+namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<int, std::string> TOKENS {
   {T_INTEGER, "long"},
@@ -47,15 +48,34 @@ std::map<int, std::string> TOKENS {
   {T_LBRACKET, "["},
   {T_RBRACKET, "]"}
 };
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SyntaxError::SyntaxError(const std::string& x)
+  : std::logic_error(x){
+}
+SyntaxError::SyntaxError(const char* x)
+  :std::logic_error(x) {
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+EvalError::EvalError(const std::string& x)
+  : std::logic_error(x){
+}
+EvalError::EvalError(const char* x)
+  :std::logic_error(x) {
+}
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 char peek(Context& ctx) {
   return ctx.src[ctx.pos];
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 char peekNext(Context& ctx) {
   auto nx = ctx.pos + 1;
   return (nx >= ctx.len) ? '\0': ctx.src[nx];
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void advance(Context& ctx) {
   if (ctx.eof) {}
@@ -72,11 +92,13 @@ void advance(Context& ctx) {
     }
   }
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void skipWhitespace(Context& ctx) {
   while (!ctx.eof &&
          ::isspace(peek(ctx))) advance(ctx);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string digits(Context& ctx) {
   std::string res;
@@ -86,6 +108,7 @@ std::string digits(Context& ctx) {
   }
   return res;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string numeric(Context& ctx) {
   auto res = digits(ctx);
@@ -96,6 +119,7 @@ std::string numeric(Context& ctx) {
   }
   return res;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string identifier(Context& ctx) {
   std::string res;
@@ -125,23 +149,20 @@ std::string identifier(Context& ctx) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ExprValue::ExprValue(ExprValueType t, long v) : type(t) {
-  value.n=v;
+  value.u.n=v;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ExprValue::ExprValue(ExprValueType t, double v) : type(t) {
-  value.r=v;
+  value.u.r=v;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ExprValue::ExprValue(ExprValueType t, const char* s) : type(t) {
-  if (s) {
-    value.s=new char[::strlen(s)+1];
-    ::strcpy(value.s,s);
-  } else {
-    value.s=new char[1];
-    value.s[0]='\0';
-  }
+  auto len=0;
+  if (s) { len= ::strlen(s); }
+  value.cs=std::make_shared<a::CString>(len);
+  value.cs.get()->copy(s);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ExprValue::ExprValue() {
@@ -164,19 +185,6 @@ ExprValue::ExprValue(const ExprValue& src) {
 ExprValue& ExprValue::operator=(const ExprValue& src) {
   value=src.value;
   type=src.type;
-  return *this;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue::ExprValue(ExprValue&& src) {
-  value=src.value;
-  type=src.type;
-  src.value.s=nullptr;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue& ExprValue::operator=(ExprValue&& src) {
-  value=src.value;
-  type=src.type;
-  src.value.s=nullptr;
   return *this;
 }
 
@@ -223,8 +231,8 @@ Frame* CallStack::peek() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SymbolTable::SymbolTable(SymbolTable* enclosing_scope)
-  : enclosing(enclosing_scope) {
+SymbolTable::SymbolTable(SymbolTable* outer)
+  : enclosing(outer) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -232,6 +240,9 @@ SymbolTable::SymbolTable() : enclosing(nullptr) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SymbolTable::~SymbolTable() {
+  for (auto x=symbols.begin(); x != symbols.end(); ++x) {
+    delete x->second;
+  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -244,11 +255,10 @@ Symbol* SymbolTable::lookup(const char* name, bool traverse) {
   auto s = symbols.find(name);
   if (s != symbols.end()) {
     return s->second;
+  } else {
+    return (!traverse || !enclosing)
+      ? nullptr : enclosing->lookup(name);
   }
-  if (!traverse)
-    return nullptr;
-  else
-    return enclosing ? enclosing->lookup(name) : nullptr;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

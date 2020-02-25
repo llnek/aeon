@@ -18,13 +18,13 @@ Ast::Ast() : token(nullptr) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BinOp::BinOp(Ast* left, d::IToken* op, Ast* right)
-  : Ast(op), left(left), right(right) {
+  : Ast(op), lhs(left), rhs(right) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void BinOp::visit(d::IAnalyzer* a) {
-  left->visit(a);
-  right->visit(a);
+  lhs->visit(a);
+  rhs->visit(a);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -34,87 +34,39 @@ std::string BinOp::name() {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue BinOp::eval(d::IEvaluator* e) {
-  d::ExprValue lf, rt;
+
+  d::ExprValue lf = lhs->eval(e);
+  d::ExprValue rt = rhs->eval(e);
   double x, y, z;
 
+  if (lf.type == d::EXPR_INT)  {
+    x= (double) lf.value.u.n;
+  } else { x= lf.value.u.r; }
+
+  if (rt.type == d::EXPR_INT)  {
+    y= (double) rt.value.u.n;
+  } else { y= rt.value.u.r; }
+
   switch (this->token->type()) {
-
-    case d::T_MINUS:
-      lf= left->eval(e);
-      rt= right->eval(e);
-      if (lf.type == d::EXPR_INT)  {
-        x= (double) lf.value.n;
-      } else { x= lf.value.r; }
-      if (rt.type == d::EXPR_INT)  {
-        y= (double) rt.value.n;
-      } else { y= rt.value.r; }
-      z = x - y;
-      return (lf.type == d::EXPR_REAL ||
-              rt.type == d::EXPR_REAL)
-        ? d::ExprValue(d::EXPR_REAL, z)
-        : d::ExprValue(d::EXPR_INT, (long) z);
-      break;
-
-    case d::T_PLUS:
-      lf= left->eval(e);
-      rt= right->eval(e);
-      if (lf.type == d::EXPR_INT)  {
-        x= (double) lf.value.n;
-      } else { x= lf.value.r; }
-      if (rt.type == d::EXPR_INT)  {
-        y= (double) rt.value.n;
-      } else { y= rt.value.r; }
-      z = x + y;
-      return (lf.type == d::EXPR_REAL ||
-              rt.type == d::EXPR_REAL)
-        ? d::ExprValue(d::EXPR_REAL, z)
-        : d::ExprValue(d::EXPR_INT, (long) z);
-      break;
-
-    case d::T_MULT:
-      lf= left->eval(e);
-      rt= right->eval(e);
-      if (lf.type == d::EXPR_INT) {
-        x= (double) lf.value.n;
-      } else { x= lf.value.r; }
-      if (rt.type == d::EXPR_INT)  {
-        y= (double) rt.value.n;
-      } else { y= rt.value.r; }
-      z = x * y;
-      return (lf.type == d::EXPR_REAL ||
-              rt.type == d::EXPR_REAL)
-        ? d::ExprValue(d::EXPR_REAL, z)
-        : d::ExprValue(d::EXPR_INT, (long) z);
-      break;
-
-    case d::T_DIV:
-      lf= left->eval(e);
-      rt= right->eval(e);
-      if (lf.type == d::EXPR_INT)  {
-        x= (double) lf.value.n;
-      } else { x= lf.value.r; }
-      if (rt.type == d::EXPR_INT)  {
-        y= (double) rt.value.n;
-      } else { y= rt.value.r; }
-      z = x / y;
-      return d::ExprValue(d::EXPR_REAL, z);
-      break;
-
+    case d::T_MINUS: z = x - y; break;
+    case d::T_PLUS: z = x + y; break;
+    case d::T_MULT: z = x * y; break;
     case T_INT_DIV:
-      lf= left->eval(e);
-      rt= right->eval(e);
-      if (lf.type == d::EXPR_INT) {
-        x= (double) lf.value.n;
-      } else { x= lf.value.r; }
-      if (rt.type == d::EXPR_INT) {
-        y= (double) rt.value.n;
-      } else { y= rt.value.r; }
-      z = x / y;
-      return d::ExprValue(d::EXPR_INT, (long) z);
-      break;
+    case d::T_DIV: z = x / y; break;
+    default: throw d::SyntaxError("Bad Binary Op");
   }
 
-  return d::ExprValue();
+  switch (this->token->type()) {
+    case T_INT_DIV:
+      return d::ExprValue(d::EXPR_INT, (long) z);
+    case d::T_DIV:
+      return d::ExprValue(d::EXPR_REAL, z);
+    default:
+      return (lf.type == d::EXPR_REAL ||
+              rt.type == d::EXPR_REAL)
+        ? d::ExprValue(d::EXPR_REAL, z)
+        : d::ExprValue(d::EXPR_INT, (long) z);
+  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -128,7 +80,7 @@ std::string Num::name() {
   switch (token->type()) {
     case d::T_INTEGER: return "integer";
     case d::T_REAL: return "real";
-    default: return "number?";
+    default: throw d::SyntaxError("Bad numeric type");
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -138,7 +90,7 @@ d::ExprValue Num::eval(d::IEvaluator* e) {
       return d::ExprValue(d::EXPR_INT, token->getLiteralAsInt());
     case d::T_REAL:
       return d::ExprValue(d::EXPR_REAL, token->getLiteralAsReal());
-    default: return d::ExprValue();
+    default: throw d::SyntaxError("Bad numeric type");
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -149,7 +101,7 @@ std::string UnaryOp::name() {
   switch (token->type()) {
     case d::T_PLUS: return "+";
     case d::T_MINUS: return "-";
-    default: return "unary?";
+    default: throw d::SyntaxError("Bad unary op.");
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -158,17 +110,17 @@ void UnaryOp::visit(d::IAnalyzer* a) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue UnaryOp::eval(d::IEvaluator* e) {
-  switch (token->type()) {
-    case d::T_PLUS:
-      return expr->eval(e);
-    case d::T_MINUS:
-      auto x= expr->eval(e);
-      if (x.type == d::EXPR_INT)
-        return d::ExprValue(x.type, - x.value.n);
-      if (x.type == d::EXPR_REAL)
-        return d::ExprValue(x.type, - x.value.r);
+  auto r = expr->eval(e);
+  if (! (r.type == d::EXPR_REAL || r.type == d::EXPR_INT)) {
+    throw d::SyntaxError("Expected numeric value for unary op.");
   }
-  return d::ExprValue();
+  if (token->type() == d::T_MINUS) {
+    if (r.type == d::EXPR_INT)
+      return d::ExprValue(r.type, - r.value.u.n);
+    if (r.type == d::EXPR_REAL)
+      return d::ExprValue(r.type, - r.value.u.r);
+  }
+  return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Compound::Compound() : Ast() {
@@ -192,25 +144,26 @@ d::ExprValue Compound::eval(d::IEvaluator* e) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Assignment::Assignment(Var* left, d::IToken* op, Ast* right)
-  : Ast(op), left(left), right(right) {
+  : Ast(op), lhs(left), rhs(right) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string Assignment::name() {
-  return "=";
+  return ":=";
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Assignment::visit(d::IAnalyzer* a) {
-  auto v = left->token->getLiteralAsStr();
+  auto v = lhs->token->getLiteralAsStr();
   if (! a->lookup(v)) {
-    throw new std::runtime_error("bad symbol");
+    throw d::SyntaxError("Unknown symbol.");
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue Assignment::eval(d::IEvaluator* e) {
-  auto v = left->token->getLiteralAsStr();
+  auto v = lhs->token->getLiteralAsStr();
+  auto r= rhs->eval(e);
   ::printf("Assigning value to %s\n", v);
-  e->setValue(v, right->eval(e));
-  return d::ExprValue();
+  e->setValue(v, r);
+  return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Var::Var(d::IToken* t) : Ast(t) {
@@ -223,7 +176,7 @@ std::string Var::name() {
 void Var::visit(d::IAnalyzer* a) {
   auto n = token->getLiteralAsStr();
   if (! a->lookup(n)) {
-    throw new std::runtime_error("Name error ");
+    throw d::SyntaxError("Unknown var name.");
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -254,6 +207,7 @@ SymTable::SymTable(SymTable* enclosing_scope)
 SymTable::SymTable() {
   insert(new BuiltinTypeSymbol("INTEGER"));
   insert(new BuiltinTypeSymbol("REAL"));
+  ::printf("Added built-in types.");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -268,7 +222,7 @@ std::string Param::name() {
 void Param::visit(d::IAnalyzer* a) {
   auto t= a->lookup(type_node->name().c_str());
   if (!t)
-    throw new std::runtime_error("Param type is bad");
+    throw d::SyntaxError("Unknown param type.");
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue Param::eval(d::IEvaluator* e) {
@@ -288,10 +242,10 @@ void VarDecl::visit(d::IAnalyzer* a) {
   auto var_name = var_node->name();
   auto type_symbol = a->lookup(type_name.c_str());
   if (!type_symbol) {
-    throw new std::runtime_error("What Type?");
+    throw d::SyntaxError("Unknown type.");
   }
   if (a->lookup(var_name.c_str(), false)) {
-    throw new std::runtime_error("Duplicate Var");
+    throw d::SyntaxError("Duplicate var.");
   } else {
     a->define(new d::VarSymbol(var_name.c_str(), type_symbol));
   }
@@ -392,10 +346,6 @@ d::ExprValue Program::eval(d::IEvaluator* e) {
   return block->eval(e);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IToken* error() {
-  return nullptr;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Var* variable(SimplePascalParser* ps) {
   auto node = new Var(ps->lex->ctx.cur);
   ps->eat(d::T_IDENT);
@@ -408,7 +358,7 @@ Ast* factor(SimplePascalParser* ps) {
   switch (t->type()) {
     case d::T_PLUS:
       ps->eat(d::T_PLUS);
-      res = new UnaryOp(t, factor(ps));
+      res= new UnaryOp(t, factor(ps));
       break;
     case d::T_MINUS:
       ps->eat(d::T_MINUS);
@@ -500,6 +450,7 @@ std::vector<VarDecl*> variable_declaration(SimplePascalParser* ps) {
   for (auto &x : vars) {
     out.push_back(new VarDecl(x, type));
   }
+
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -570,7 +521,7 @@ std::vector<Ast*> statement_list(SimplePascalParser* ps) {
   }
 
   if (ps->lex->ctx.cur->type() == d::T_IDENT) {
-    error();
+    throw d::SyntaxError("Unexpected identifier.");
   }
 
   return results;
@@ -588,19 +539,25 @@ Compound* compound_statement(SimplePascalParser* ps) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::vector<Param*> formal_parameters(SimplePascalParser* ps) {
-  std::vector<Param*> pnodes;
+
   std::vector<d::IToken*> param_tokens {ps->lex->ctx.cur};
+  std::vector<Param*> pnodes;
+
   ps->eat(d::T_IDENT);
+
   while (ps->lex->ctx.cur->type() == d::T_COMMA) {
     ps->eat(d::T_COMMA);
     param_tokens.push_back(ps->lex->ctx.cur);
     ps->eat(d::T_IDENT);
   }
+
   ps->eat(d::T_COLON);
   auto type_node = type_spec(ps);
+
   for (auto& t : param_tokens) {
     pnodes.push_back(new Param(new Var(t), type_node));
   }
+
   return pnodes;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -686,7 +643,8 @@ SimplePascalParser::~SimplePascalParser() {
   delete lex;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SimplePascalParser::SimplePascalParser(Lexer* x) : lex(x) {
+SimplePascalParser::SimplePascalParser(const char* src) {
+  lex = new Lexer(src);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::IAst* SimplePascalParser::parse() {
@@ -695,12 +653,11 @@ d::IAst* SimplePascalParser::parse() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::IToken* SimplePascalParser::eat(int wanted) {
   auto t= lex->ctx.cur;
-  if (t->type() == wanted) {
-    lex->ctx.cur=lex->getNextToken();
-    return t;
-  } else {
-    return error();
+  if (t->type() != wanted) {
+    throw d::SyntaxError("Expected a different token.");
   }
+  lex->ctx.cur=lex->getNextToken();
+  return t;
 }
 
 

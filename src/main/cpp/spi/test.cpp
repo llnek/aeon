@@ -81,8 +81,8 @@ int main(int argc, char* argv[]) {
   try {
     //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
 
-    //Interpreter i(ARG);
-    Analyzer z(ARG);
+    Interpreter i(XXARG);
+    //Analyzer z(ARG);
 
   } catch (std::exception& e) {
     ::printf("%s", e.what());

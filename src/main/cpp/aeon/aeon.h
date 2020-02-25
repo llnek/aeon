@@ -28,13 +28,29 @@
 #include <cstdlib>
 #include "macros.h"
 
-namespace czlab {
-namespace aeon {
+namespace czlab::aeon {
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct CString {
+
+  void copy(const char* src);
+  const char* get();
+
+  CString(size_t z);
+  CString();
+  ~CString();
+
+  private:
+
+  size_t z;
+  char* s;
+};
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::vector<std::string> tokenize(const std::string &src, TChar delim);
 int modulo(int, int);
 void randSeed();
-}}
+}
 
 #include "smptr.h"
 #include "dlist.h"

@@ -4,8 +4,7 @@ namespace czlab::spi {
 namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Analyzer::Analyzer(const char* src) {
-  Lexer* c= new Lexer(src);
-  SimplePascalParser p(c);
+  SimplePascalParser p(src);
   check((Ast*) p.parse());
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

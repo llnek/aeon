@@ -20,8 +20,8 @@ struct BinOp : public Ast {
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   std::string name();
-  Ast* left;
-  Ast* right;
+  Ast* lhs;
+  Ast* rhs;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -78,8 +78,8 @@ struct Assignment : public Ast {
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   std::string name();
-  Var* left;
-  Ast* right;
+  Var* lhs;
+  Ast* rhs;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -177,7 +177,7 @@ struct SymTable : public d::SymbolTable {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SimplePascalParser : public d::IParser {
   virtual ~SimplePascalParser();
-  SimplePascalParser(Lexer*);
+  SimplePascalParser(const char* src);
   d::IAst* parse();
   d::IToken* eat(int wanted);
   Lexer* lex;
