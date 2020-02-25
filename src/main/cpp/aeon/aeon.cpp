@@ -19,7 +19,7 @@
 namespace czlab::aeon {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CString::CString(size_t z) {
-  s=new char[z+1];
+  s= (char*) ::malloc((z+1) * sizeof(char));
   s[z]='\0';
   this->z=z;
 }
@@ -30,7 +30,7 @@ CString::CString() {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CString::~CString() {
-  delete[] s;
+  ::free(s);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const char* CString::get() {
@@ -39,10 +39,14 @@ const char* CString::get() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void CString::copy(const char* src) {
   auto n = src ? ::strlen(src) : 0;
-  if (z < n) {
-    throw new std::runtime_error("index out of range for CString.");
+
+  if (n > z) {
+    // grow buffer
+    s = (char*) ::realloc(s, (n+1) * sizeof(char));
+    ::strcpy(s, src);
+    z=n;
   }
-  if (n > 0) {
+  else if (src) {
     ::strcpy(s, src);
   }
   else if (s) {
