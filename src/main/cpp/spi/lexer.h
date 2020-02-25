@@ -12,6 +12,7 @@ enum TokenType {
   T_PROGRAM,
   T_INT_DIV,
   T_VAR,
+  T_STR,
   T_INT,
   T_REAL,
   T_PROCEDURE,
@@ -46,6 +47,7 @@ struct Lexer : public d::IScanner {
   void skipComment();
   d::IToken* number();
   d::IToken* id();
+  d::IToken* string();
 
   Lexer(const char* src);
   virtual ~Lexer();

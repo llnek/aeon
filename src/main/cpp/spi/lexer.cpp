@@ -10,6 +10,7 @@ std::map<int, std::string> TOKENS {
   {T_VAR, "VAR"},
   {T_REAL, "REAL"},
   {T_INT, "INTEGER"},
+  {T_STR, "STRING"},
   {T_INT_DIV, "DIV"},
   {T_BEGIN, "BEGIN"},
   {T_ASSIGN, ":="},
@@ -23,6 +24,7 @@ std::map<std::string,int> KEYWORDS {
   {TOKENS.find(T_PROGRAM)->second, T_PROGRAM},
   {TOKENS.find(T_PROCEDURE)->second, T_PROCEDURE},
   {TOKENS.find(T_VAR)->second, T_VAR},
+  {TOKENS.find(T_STR)->second, T_STR},
   {TOKENS.find(T_INT)->second, T_INT},
   {TOKENS.find(T_REAL)->second, T_REAL},
   {TOKENS.find(T_INT_DIV)->second, T_INT_DIV}
@@ -148,6 +150,12 @@ d::IToken* Lexer::number() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::IToken* Lexer::string() {
+  auto s = d::str(ctx).c_str();
+  return token(ctx.line, ctx.col, d::T_STRING, s);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::IToken* Lexer::id() {
   auto s= d::identifier(ctx);
   auto c=s.c_str();
@@ -167,6 +175,10 @@ d::IToken* Lexer::getNextToken() {
     else
     if (::isdigit(ch)) {
       return number();
+    }
+    else
+    if (ch == '"') {
+      return string();
     }
     else
     if (ch == '*') {

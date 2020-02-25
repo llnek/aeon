@@ -77,20 +77,19 @@ char peekNext(Context& ctx) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void advance(Context& ctx) {
-  if (ctx.eof) {}
-  else {
-    if (peek(ctx) == '\n') {
-      ++ctx.line;
-      ctx.col=0;
-    }
-    ++ctx.pos;
-    if (ctx.pos >= ctx.len) {
-      ctx.eof=true;
-    } else {
-      ++ctx.col;
-    }
+bool advance(Context& ctx) {
+  if (ctx.eof) { return false; }
+  if (peek(ctx) == '\n') {
+    ++ctx.line;
+    ctx.col=0;
   }
+  ++ctx.pos;
+  if (ctx.pos >= ctx.len) {
+    ctx.eof=true;
+  } else {
+    ++ctx.col;
+  }
+  return !ctx.eof;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -117,6 +116,61 @@ std::string numeric(Context& ctx) {
     advance(ctx);
     res.append(digits(ctx));
   }
+  return res;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+char escSeq(char c) {
+  switch (c) {
+    case 'a': return '\a'; //	07	Alert (Beep, Bell) (added in C89)[1]
+    case 'b': return '\b'; //	08	Backspace
+    case 'e': return '\e'; // 1B	Escape character
+    case 'f': return '\f'; //	0C	Formfeed Page Break
+    case 'n': return '\n'; //	0A	Newline (Line Feed)
+    case 'r': return '\r'; //	0D	Carriage Return
+    case 't': return '\t'; //	09	Horizontal Tab
+    case 'v': return '\v'; //	0B	Vertical Tab
+    case '\\': return '\\'; //	5C	Backslash
+    case '\'': return '\''; //	27	Apostrophe or single quotation mark
+    case '"': return '"'; //	22	Double quotation mark
+    case '?': return '\?'; //3F	Question mark (used to avoid trigraphs)
+  }
+  return c;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string str(Context& ctx) {
+
+  std::string res;
+  char ch;
+
+  if (!ctx.eof &&
+      peek(ctx) == '"') {
+    advance(ctx);
+    while (!ctx.eof) {
+      ch= peek(ctx);
+      ::printf("found str-char [%c]\n", ch);
+      if (ch == '"') {
+        break;
+      }
+      if (ch == '\\') {
+        ::printf("found escape seq!\n");
+        if (!advance(ctx)) {
+          throw SyntaxError("Malformed string value, bad escaped char.");
+        }
+        ::printf("found escaped char [%c]\n", peek(ctx));
+        ch=escSeq(peek(ctx));
+      }
+      res.push_back(ch);
+      advance(ctx);
+    }
+    if (ctx.eof || ch != '"') {
+      throw SyntaxError("Malformed string value, missing dquote.");
+    }
+    // good, got the end dquote
+    advance(ctx);
+  }
+
   return res;
 }
 

@@ -74,6 +74,7 @@ struct IScanner {
   virtual IToken* getNextToken()=0;
   virtual IToken* number()=0;
   virtual IToken* id()=0;
+  virtual IToken* string()=0;
   virtual void skipComment() = 0;
 
   protected:
@@ -123,9 +124,10 @@ struct EvalError : public std::logic_error {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void skipWhitespace(Context&);
-void advance(Context&);
+bool advance(Context&);
 char peek(Context&);
 char peekNext(Context&);
+std::string str(Context&);
 std::string numeric(Context&);
 std::string identifier(Context&);
 

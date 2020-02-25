@@ -7,7 +7,7 @@ namespace d = czlab::dsl;
 Compound* compound_statement(SimplePascalParser*);
 Block* block(SimplePascalParser*);
 Ast* expr(SimplePascalParser*);
-
+char MSGBUF[1024];
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Ast::Ast(d::IToken* t) : Ast() {
   token=t;
@@ -67,6 +67,20 @@ d::ExprValue BinOp::eval(d::IEvaluator* e) {
         ? d::ExprValue(d::EXPR_REAL, z)
         : d::ExprValue(d::EXPR_INT, (long) z);
   }
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+String::String(d::IToken* t) : Ast(t) {
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void String::visit(d::IAnalyzer* a) {
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string String::name() {
+  return "string";
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue String::eval(d::IEvaluator* e) {
+  return d::ExprValue(d::EXPR_STR, token->getLiteralAsStr());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -207,6 +221,7 @@ SymTable::SymTable(SymTable* enclosing_scope)
 SymTable::SymTable() {
   insert(new BuiltinTypeSymbol("INTEGER"));
   insert(new BuiltinTypeSymbol("REAL"));
+  insert(new BuiltinTypeSymbol("STRING"));
   ::printf("Added built-in types.");
 }
 
@@ -372,6 +387,10 @@ Ast* factor(SimplePascalParser* ps) {
       ps->eat(d::T_REAL);
       res= new Num(t);
       break;
+    case d::T_STRING:
+      ps->eat(d::T_STRING);
+      res= new String(t);
+      break;
     case d::T_LPAREN:
       ps->eat(d::T_LPAREN);
       res= expr(ps);
@@ -428,10 +447,12 @@ Ast* expr(SimplePascalParser* ps) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Type* type_spec(SimplePascalParser* ps) {
   auto token = ps->lex->ctx.cur;
-  if (token->type() == T_INT)
-    ps->eat(T_INT);
-  else
-    ps->eat(T_REAL);
+  switch (token->type()) {
+    case T_STR: ps->eat(T_STR); break;
+    case T_INT: ps->eat(T_INT); break;
+    case T_REAL: ps->eat(T_REAL); break;
+    default: throw d::SyntaxError("Unsupported type.");
+  }
   return new Type(token);
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -521,7 +542,8 @@ std::vector<Ast*> statement_list(SimplePascalParser* ps) {
   }
 
   if (ps->lex->ctx.cur->type() == d::T_IDENT) {
-    throw d::SyntaxError("Unexpected identifier.");
+    ::sprintf(MSGBUF, "Unexpected identifier `%s`", ps->lex->ctx.cur->getLiteralAsStr());
+    throw d::SyntaxError(MSGBUF);
   }
 
   return results;
@@ -654,17 +676,62 @@ d::IAst* SimplePascalParser::parse() {
 d::IToken* SimplePascalParser::eat(int wanted) {
   auto t= lex->ctx.cur;
   if (t->type() != wanted) {
-    throw d::SyntaxError("Expected a different token.");
+    ::sprintf(MSGBUF, "Expecting token[%d], got[%d] instead.", wanted, t->type());
+    throw d::SyntaxError(MSGBUF);
   }
   lex->ctx.cur=lex->getNextToken();
   return t;
 }
 
+/* GRAMMER
+        program : PROGRAM variable SEMI block DOT
 
+        block : declarations compound_statement
 
+        declarations : (VAR (variable_declaration SEMI)+)? procedure_declaration*
+
+        variable_declaration : ID (COMMA ID)* COLON type_spec
+
+        procedure_declaration :
+             PROCEDURE ID (LPAREN formal_parameter_list RPAREN)? SEMI block SEMI
+
+        formal_params_list : formal_parameters
+                           | formal_parameters SEMI formal_parameter_list
+
+        formal_parameters : ID (COMMA ID)* COLON type_spec
+
+        type_spec : INTEGER | REAL
+
+        compound_statement : BEGIN statement_list END
+
+        statement_list : statement
+                       | statement SEMI statement_list
+
+        statement : compound_statement
+                  | proccall_statement
+                  | assignment_statement
+                  | empty
+
+        proccall_statement : ID LPAREN (expr (COMMA expr)*)? RPAREN
+
+        assignment_statement : variable ASSIGN expr
+
+        empty :
+
+        expr : term ((PLUS | MINUS) term)*
+
+        term : factor ((MUL | INTEGER_DIV | FLOAT_DIV) factor)*
+
+        factor : PLUS factor
+               | MINUS factor
+               | INTEGER_CONST
+               | REAL_CONST
+               | LPAREN expr RPAREN
+               | variable
+
+        variable: ID
+*/
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
-
-

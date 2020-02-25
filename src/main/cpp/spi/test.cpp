@@ -12,7 +12,7 @@
 
 #include "interpreter.h"
 #include "analyzer.h"
-
+using namespace czlab::aeon;
 using namespace czlab::spi;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const char* XARG="BEGIN\n\
@@ -70,9 +70,12 @@ END.  {Part12}\n\
 
 const char* zARG= "\n\
 PROGRAM Main;\n\
-VAR x, y : INTEGER;\n\
+VAR\n\
+    x, y : INTEGER;\n\
+    s : STRING;\n\
 BEGIN { Main }\n\
-   y := 7;\n\
+  s := \"he\tllo\";\n\
+  y := 7;\n\
    x := (y + 3) * 3;\n\
 END.  { Main }\n\
 ";
@@ -80,11 +83,10 @@ END.  { Main }\n\
 int main(int argc, char* argv[]) {
   try {
     //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
-
-    Interpreter i(XXARG);
+    Interpreter i(zARG);
     //Analyzer z(ARG);
 
-  } catch (std::exception& e) {
+  } catch (const std::exception& e) {
     ::printf("%s", e.what());
   }
   return 0;

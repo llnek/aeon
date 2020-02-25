@@ -28,8 +28,18 @@
 #include <cstdlib>
 #include "macros.h"
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::aeon {
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct FileNotFound : public std::logic_error {
+  explicit FileNotFound(const std::string&);
+  explicit FileNotFound(const char* s);
+};
+struct FileError : public std::logic_error {
+  explicit FileError(const std::string&);
+  explicit FileError(const char* s);
+};
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct CString {
 
@@ -50,6 +60,7 @@ struct CString {
 std::vector<std::string> tokenize(const std::string &src, TChar delim);
 int modulo(int, int);
 void randSeed();
+std::string readFile(const char* filepath);
 }
 
 #include "smptr.h"

@@ -34,6 +34,15 @@ struct Num : public Ast {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct String : public Ast {
+  String(d::IToken* t);
+  virtual ~String() {}
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+  std::string name();
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct UnaryOp : public Ast {
   UnaryOp(d::IToken* t, Ast* expr);
   virtual ~UnaryOp() {}

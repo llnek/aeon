@@ -29,6 +29,10 @@ void Interpreter::eval(Ast* tree) {
       ::printf("key = %s, value = %ld\n", it->first.c_str(), x.value.u.n);
     if (x.type == d::EXPR_REAL)
       ::printf("key = %s, value = %lf\n", it->first.c_str(), x.value.u.r);
+    if (x.type == d::EXPR_STR)
+      ::printf("key = %s, value = %s\n",
+          it->first.c_str(),
+          x.value.cs.get()->get());
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

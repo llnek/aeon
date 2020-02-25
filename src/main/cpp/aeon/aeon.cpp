@@ -15,8 +15,22 @@
 #include "aeon.h"
 #include <sstream>
 
-//////////////////////////////////////////////////////////////////////////////
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::aeon {
+char MSGBUF[1024];
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+FileNotFound::FileNotFound(const std::string& s) : std::logic_error(s) {
+}
+FileNotFound::FileNotFound(const char* s) : std::logic_error(s) {
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+FileError::FileError(const std::string& s) : std::logic_error(s) {
+}
+FileError::FileError(const char* s) : std::logic_error(s) {
+}
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CString::CString(size_t z) {
   s= (char*) ::malloc((z+1) * sizeof(char));
@@ -77,7 +91,33 @@ int modulo(int x, int m) {
   return r < 0 ? r+m : r;
 }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string readFile(const char* fpath) {
+  auto fp = ::fopen(fpath, "rb");
 
+  if (! fp) {
+    ::sprintf(MSGBUF, "Failed to open file: %s", fpath);
+    throw FileNotFound(MSGBUF);
+  }
+
+  auto len = (::fseek(fp, 0L, SEEK_END), ::ftell(fp));
+  auto buf = (char*) ::malloc((len+1) * sizeof(char));
+  auto cnt = (::rewind(fp), ::fread(buf, sizeof(char), len, fp));
+
+  ::fclose(fp);
+
+  if (cnt != len) {
+    ::free(buf);
+    ::sprintf(MSGBUF, "Failed to read file: %s", fpath);
+    throw FileError(MSGBUF);
+  } else {
+    buf[cnt]='\0';
+  }
+
+  auto s= std::string(buf);
+  ::free(buf);
+  return s;
+}
 
 
 
