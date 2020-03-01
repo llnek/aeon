@@ -22,7 +22,7 @@ namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Interpreter : public d::IEvaluator, public d::IAnalyzer {
   //evaluator
-  void setValue(const std::string&, const d::ExprValue&);
+  void setValue(const std::string&, const d::ExprValue&, bool localOnly);
   d::ExprValue getValue(const std::string&);
   d::Frame* push(const std::string&);
   d::Frame* pop();

@@ -119,7 +119,7 @@ struct NoOp : public Ast {
     return d::ExprValue();
   }
   void visit(d::IAnalyzer*) {}
-  std::string name() { return ""; }
+  std::string name() { return "709394"; }
   virtual ~NoOp() {}
   NoOp() {}
 };

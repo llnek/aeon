@@ -35,21 +35,7 @@ d::ExprValue Interpreter::interpret() {
 d::ExprValue Interpreter::eval(Ast* tree) {
   auto res= (stack.push("root"), tree->eval(this));
   auto env= stack.pop();
-  if (res.type == d::EXPR_INT)
-    ::printf("result = %ld\n\n", res.value.u.n);
-  else
-    ::printf("result = %lf\n\n", res.value.u.r);
-  auto m= env->keys();
-  ::printf("slots cont = %d\n", (int)m.size());
-  for (auto& k : m) {
-    auto x = env->get(k);
-    if (x.type == d::EXPR_INT)
-      ::printf("key = %s, value = %ld\n", k.c_str(), x.value.u.n);
-    if (x.type == d::EXPR_REAL)
-      ::printf("key = %s, value = %lf\n", k.c_str(), x.value.u.r);
-    if (x.type == d::EXPR_STR)
-      ::printf("key = %s, value = %s\n", k.c_str(), x.value.cs.get()->get());
-  }
+  ::printf("%s\n", env->toString().c_str());
   return res;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -58,7 +44,9 @@ d::Frame* Interpreter::push(const std::string& name) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::Frame* Interpreter::pop() {
-  return stack.pop();
+  auto f= stack.pop();
+  ::printf("Frame poped:=\n%s\n", f->toString().c_str());
+  return f;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::Frame* Interpreter::peek() {
@@ -66,9 +54,9 @@ d::Frame* Interpreter::peek() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::setValue(const std::string& name, const d::ExprValue& v) {
+void Interpreter::setValue(const std::string& name, const d::ExprValue& v, bool localOnly) {
   auto x = stack.peek();
-  if (x) x->set(name, v);
+  if (x) x->set(name, v, localOnly);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue Interpreter::getValue(const std::string& name) {

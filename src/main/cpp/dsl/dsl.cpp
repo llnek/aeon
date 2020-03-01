@@ -237,13 +237,41 @@ ExprValue& ExprValue::operator=(const ExprValue& src) {
   type=src.type;
   return *this;
 }
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string ExprValue::toString() {
+  switch (type) {
+    case EXPR_REAL: return std::to_string(value.u.r);
+    case EXPR_INT: return std::to_string(value.u.n); break;
+    case EXPR_STR: return std::string(value.cs.get()->get()); break;
+    default: return "null";
+  }
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Frame::Frame(const std::string& name, Frame* outer) : name(name) {
+  prev=outer;
+}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Frame::Frame(const std::string& name) : name(name) {
-
+  S_NIL(prev);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Frame::~Frame() {
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string Frame::toString() {
+  std::string b(40,'=');
+  std::string z(40,'+');
+  std::string out;
+  char buf[1024];
+  ::sprintf(buf, "%s\nName: %s\n%s\n", b.c_str(), name.c_str(),b.c_str());
+  out += buf;
+  for (auto& x : slots) {
+    ::sprintf(buf, "%s = %s\n", x.first.c_str(), x.second.toString().c_str());
+    out += buf;
+  }
+  out += z;
+  out += "\n";
+  return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::set<std::string> Frame::keys() {
@@ -256,39 +284,41 @@ std::set<std::string> Frame::keys() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ExprValue Frame::get(const std::string& key) {
   auto x= slots.find(key);
-  return x != slots.end() ? x->second : ExprValue();
+  return x != slots.end() ? x->second : (prev ? prev->get(key) : ExprValue());
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Frame::set(const std::string& key, const ExprValue& v) {
-  slots[key]=v;
+void Frame::set(const std::string& key, const ExprValue& v, bool localOnly) {
+  auto x= slots.find(key);
+
+  if (x != slots.end() || localOnly) {
+    slots[key]=v;
+  } else if (prev) {
+    prev->set(key,v);
+  }
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CallStack::~CallStack() {
-  Frame* f= pop();
-  while (f) {
-    delete f;
-    f=pop();
-  }
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CallStack::CallStack() {
+  S_NIL(top);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Frame* CallStack::push(const std::string& name) {
-  auto f= new Frame(name);
-  frames.push(f);
-  return f;
+  return (top= new Frame(name,top));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Frame* CallStack::pop() {
-  auto x= peek();
-  if (x) frames.pop();
+  auto x= top;
+  if (top) {
+    top = top->prev;
+  }
   return x;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Frame* CallStack::peek() {
-  return frames.empty() ? nullptr : frames.top();
+  return top;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

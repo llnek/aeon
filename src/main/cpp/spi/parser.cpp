@@ -179,10 +179,11 @@ void Compound::visit(d::IAnalyzer* a) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue Compound::eval(d::IEvaluator* e) {
+  d::ExprValue ret;
   for (auto& it : statements) {
-    it->eval(e);
+    ret=it->eval(e);
   }
-  return d::ExprValue();
+  return ret;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Assignment::Assignment(Var* left, Token* op, Ast* right)
@@ -207,8 +208,8 @@ void Assignment::visit(d::IAnalyzer* a) {
 d::ExprValue Assignment::eval(d::IEvaluator* e) {
   auto v = lhs->token->getLiteralAsStr();
   auto r= rhs->eval(e);
-  ::printf("Assigning value to %s\n", v.c_str());
-  e->setValue(v, r);
+  //::printf("Assigning value to %s\n", v.c_str());
+  e->setValue(v, r, false);
   return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -313,7 +314,9 @@ void VarDecl::visit(d::IAnalyzer* a) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue VarDecl::eval(d::IEvaluator* e) {
-  return d::ExprValue();
+  d::ExprValue v;
+  e->setValue(this->name(), v);
+  return v;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Block::Block(std::vector<Ast*>& decls, Compound* compound)
@@ -574,13 +577,19 @@ Ast* statement(SimplePascalParser* ps) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::vector<Ast*> statement_list(SimplePascalParser* ps) {
 
-  std::vector<Ast*> results {
-    statement(ps)
-  };
+  std::vector<Ast*> results;
+  auto s= statement(ps);
+
+  if (!(s->name() == "709394")) {
+    s__conj(results,s);
+  }
 
   while (ps->isCur(d::T_SEMI)) {
     ps->eat();
-    s__conj(results,statement(ps));
+    s= statement(ps);
+    if (!(s->name() == "709394")) {
+      s__conj(results,s);
+    }
   }
 
   if (ps->isCur(d::T_IDENT)) {

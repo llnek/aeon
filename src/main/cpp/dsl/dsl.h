@@ -147,6 +147,7 @@ struct ExprValue {
   ExprValue(ExprValueType t, long v);
   ExprValue(ExprValueType t, double v);
 
+  std::string toString();
   bool isNull();
   ExprValue();
   ~ExprValue();
@@ -163,13 +164,17 @@ struct ExprValue {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Frame {
 
-  void set(const std::string&, const ExprValue&);
+  void set(const std::string&, const ExprValue&, bool localOnly=true);
   ExprValue get(const std::string& n);
   std::set<std::string> keys();
+  std::string toString();
+
+  Frame(const std::string& name, Frame* outer);
   Frame(const std::string& name);
   ~Frame();
 
   std::string name;
+  Frame* prev;
 
   protected:
 
@@ -188,7 +193,7 @@ struct CallStack {
 
   protected:
 
-  std::stack<Frame*> frames;
+  Frame* top;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -259,7 +264,7 @@ struct SymbolTable {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IEvaluator {
 
-  virtual void setValue(const std::string&, const ExprValue&) = 0;
+  virtual void setValue(const std::string&, const ExprValue&, bool localOnly=true) = 0;
   virtual ExprValue getValue(const std::string&) = 0;
   virtual Frame* push(const std::string& name)=0;
   virtual Frame* pop()=0;

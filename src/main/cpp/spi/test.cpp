@@ -82,10 +82,12 @@ END.  { Main }\n\
 
 const char* ARG18= "\n\
 program Main;\n\
+var poo : integer;\n\
 procedure Alpha(a : integer; b : integer);\n\
 var x : integer;\n\
 begin\n\
    x := (a + b ) * 2;\n\
+    poo := x;\n\
 end;\n\
 \n\
 begin { Main }\n\
@@ -98,7 +100,7 @@ int main(int argc, char* argv[]) {
     //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
     Interpreter i(ARG18);
     auto r= i.interpret();
-    ::printf("result type = %d\n", r.type);
+    ::printf("result = %s\n", r.toString().c_str());
     //Analyzer z(ARG);
 
   } catch ( const d::SyntaxError& e) {
