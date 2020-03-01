@@ -1,49 +1,48 @@
 #include "lexer.h"
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
 namespace a=czlab::aeon;
-namespace d = czlab::dsl;
+namespace d=czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::map<std::string,int> TOKENS {
-  {"IF", T_IF},
-  {"ELSE", T_ELSE},
-  {"ENDIF", T_ENDIF},
-  {"WHILE", T_WHILE},
-  {"ENDWHILE", T_ENDWHILE},
-  {"REPEAT", T_REPEAT},
-  {"UNTIL", T_UNTIL},
-  {"FOR", T_FOR},
-  {"ENDFOR", T_ENDFOR},
-  {"READ",T_READ},
-  {"READLN", T_READLN},
-  {"WRITE", T_WRITE},
-  {"WRITELN", T_WRITELN},
-  {"VAR",T_VAR},
-  {"END", T_END},
-  {"PROCEDURE", T_PROCEDURE},
-  {"PROGRAM", T_PROGRAM}
+std::map<int,std::string> TOKENS {
+  {T_PROGRAM, "PROGRAM"},
+  {T_VAR, "VAR"},
+  {T_PROCEDURE, "PROCEDURE"},
+  {T_BEGIN, "BEGIN"},
+  {T_END, "END"},
+  {T_IF, "IF"},
+  {T_ENDIF, "ENDIF"},
+  {T_WHILE, "WHILE"},
+  {T_ENDWHILE, "ENDWHILE"},
+  {T_FOR, "FOR"},
+  {T_ENDFOR,"ENDFOR"},
+  {T_REPEAT, "REPEAT"},
+  {T_UNTIL,"UNTIL"},
+  {T_READ,"READ"},
+  {T_READLN,"READLN"},
+  {T_WRITE,"WRITE"},
+  {T_WRITELN,"WRITELN"},
+  {T_ASSIGN,":="}
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<std::string,int> KEYWORDS {
+  {map__val(TOKENS,T_PROGRAM),T_PROGRAM},
+  {map__val(TOKENS,T_VAR), T_VAR},
+  {map__val(TOKENS,T_PROCEDURE), T_PROCEDURE},
+  {map__val(TOKENS,T_BEGIN), T_BEGIN},
+  {map__val(TOKENS,T_END), T_END},
   {map__val(TOKENS,T_IF), T_IF},
-  {map__val(TOKENS,T_ELSE), T_ELSE},
   {map__val(TOKENS,T_ENDIF), T_ENDIF},
   {map__val(TOKENS,T_WHILE), T_WHILE},
   {map__val(TOKENS,T_ENDWHILE), T_ENDWHILE},
-  {map__val(TOKEN,T_REPEAT), T_REPEAT},
-  {map__val(TOKENS,T_UNTIL), T_UNTIL},
   {map__val(TOKENS,T_FOR), T_FOR},
   {map__val(TOKENS,T_ENDFOR), T_ENDFOR},
-  {map__val(TOKENS,T_READ),T_READ},
+  {map__val(TOKENS,T_REPEAT), T_REPEAT},
+  {map__val(TOKENS,T_UNTIL), T_UNTIL},
+  {map__val(TOKENS,T_READ), T_READ},
   {map__val(TOKENS,T_READLN), T_READLN},
   {map__val(TOKENS,T_WRITE), T_WRITE},
-  {map__val(TOKENS,T_WRITELN), T_WRITELN},
-  {map__val(TOKENS,T_VAR),T_VAR},
-  {map__val(TOKENS,T_END), T_END},
-  {map__val(TOKENS,T_PROGRAM), T_PROGRAM},
-  {map__val(TOKENS,T_PROCEDURE), T_PROCEDURE}
+  {map__val(TOKENS,T_WRITELN), T_WRITELN}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -231,10 +230,48 @@ d::IToken* Lexer::getNextToken() {
       return id();
     }
     else
+    if (ch== '|') {
+      d::advance(ctx);
+      return new Token(ctx.line, ctx.col, T_OR);
+    }
+    else
+    if (ch== '&') {
+      d::advance(ctx);
+      return new Token(ctx.line, ctx.col, T_AND);
+    }
+    else
     if (ch== ':' && '=' == d::peekNext(ctx)) {
       d::advance(ctx);
       d::advance(ctx);
       return new Token(ctx.line, ctx.col, T_ASSIGN);
+    }
+    else
+    if (ch== '=') {
+      d::advance(ctx);
+      return new Token(ctx.line, ctx.col, d::T_EQUALS);
+    }
+    else
+    if (ch== '>') {
+      d::advance(ctx);
+      if ('=' == d::peekNext(ctx)) {
+        d::advance(ctx);
+        return new Token(ctx.line, ctx.col, T_GTEQ);
+      } else {
+        return new Token(ctx.line, ctx.col, d::T_GT);
+      }
+    }
+    else
+    if (ch== '<') {
+      d::advance(ctx);
+      if ('>' == d::peekNext(ctx)) {
+        d::advance(ctx);
+        return new Token(ctx.line, ctx.col, T_NOTEQ);
+      } else if ('=' == d::peekNext(ctx)) {
+        d::advance(ctx);
+        return new Token(ctx.line, ctx.col, T_LTEQ);
+      } else {
+        return new Token(ctx.line, ctx.col, d::T_LT);
+      }
     }
     else
     if (ch == '{') {
@@ -257,6 +294,16 @@ d::IToken* Lexer::getNextToken() {
       return new Token(ctx.line, ctx.col, d::T_COMMA);
     }
     else
+    if (ch == '~') {
+      d::advance(ctx);
+      return new Token(ctx.line, ctx.col, T_XOR);
+    }
+    else
+    if (ch == '!') {
+      d::advance(ctx);
+      return new Token(ctx.line, ctx.col, T_NOT);
+    }
+    else
     if (ch == '.') {
       d::advance(ctx);
       return new Token(ctx.line, ctx.col, d::T_DOT);
@@ -268,9 +315,9 @@ d::IToken* Lexer::getNextToken() {
   return new Token(ctx.line, ctx.col, d::T_EOF);
 }
 
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
-
 

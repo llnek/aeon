@@ -4,28 +4,39 @@
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
-namespace d = czlab::dsl;
+namespace d=czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
 enum TokenType {
-  // keywords
+  T_PROGRAM,
+  T_VAR,
+  T_PROCEDURE,
+  T_BEGIN,
+  T_END,
   T_IF,
   T_ELSE,
   T_ENDIF,
   T_WHILE,
   T_ENDWHILE,
-  T_REPEAT,
-  T_UNTIL,
   T_FOR,
   T_ENDFOR,
+  T_REPEAT,
+  T_UNTIL,
   T_READ,
   T_READLN,
   T_WRITE,
   T_WRITELN,
-  T_VAR,
-  T_END,
-  T_PROCEDURE,
-  T_PROGRAM
+
+  T_NOT,
+  T_AND,
+  T_OR,
+  T_XOR,
+  T_NOTEQ,
+  T_GTEQ,
+  T_LTEQ,
+  T_ASSIGN
 };
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Token : public d::IToken {
 
@@ -55,6 +66,8 @@ struct Lexer : public d::IScanner {
   virtual ~Lexer();
   d::Context ctx;
 };
+
+
 
 
 

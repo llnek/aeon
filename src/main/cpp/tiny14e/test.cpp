@@ -12,8 +12,8 @@
 
 #include "interpreter.h"
 
-namespace czlab::spi {
 using namespace czlab::aeon;
+using namespace czlab::tiny14e;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const char* XARG="BEGIN\n\
 \n\
@@ -82,31 +82,32 @@ END.  { Main }\n\
 
 const char* ARG18= "\n\
 program Main;\n\
-var poo : integer;\n\
+var \n\
+    poo : integer;\n\
+ flag : integer;\n\
 procedure Alpha(a : integer; b : integer);\n\
 var x : integer;\n\
 begin\n\
    x := (a + b ) * 2;\n\
-    poo := x;\n\
+   poo := x;\n\
 end;\n\
 \n\
 begin { Main }\n\
+    flag := 4;\n\
+    while (flag) \n\
+      flag := flag - 1;\n\
+    endwhile;\n\
    Alpha(3 + 5, 7);  { procedure call }\n\
 end.  { Main }\n\
 ";
 
-int Xmain(int argc, char* argv[]) {
+int main(int argc, char* argv[]) {
   try {
-    //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
     Interpreter i(ARG18);
     auto r= i.interpret();
     ::printf("result = %s\n", r.toString().c_str());
-    //Analyzer z(ARG);
-
   } catch ( const d::SyntaxError& e) {
     ::printf("%s", e.what());
   }
   return 0;
 }
-}
-

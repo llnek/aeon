@@ -1,8 +1,8 @@
 #pragma once
+
 #include "lexer.h"
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Ast : public d::IAst {
@@ -14,186 +14,233 @@ struct Ast : public d::IAst {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BinOp : public Ast {
-  BinOp(Ast* left, d::IToken* op, Ast* right);
-  virtual ~BinOp() {}
+struct Type : public Ast {
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Var : public Ast {
+  Var(const char*);
+  std::string name();
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
+
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Reader : public Ast {
+
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Writer : public Ast {
+
+};
+
+struct Factor : public Ast {
+
+};
+
+struct Term : public Ast {
+  Term(Ast*, std::vector<Ast*>&);
+  Term(Ast*);
+  Factor* f;
+  std::vector<Ast>* nodes;
   std::string name();
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+};
+
+struct Expr : public Ast {
+  Expr(Ast*, std::vector<Ast*>&);
+  Expr(Ast*);
+  Expr(std::vector<Ast*>&);
+  std::string name();
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+  std::vector<Ast>* nodes;
+};
+
+struct NotFactor : public Ast {
+  NotFactor(bool, Ast*);
+  std::string name();
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+
+  bool _not ;
+  Ast* factor;
+};
+struct BoolTerm : public Ast {
+  BoolTerm(Ast*, std::vector<Ast*>&);
+  std::string name();
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+
+  Ast* factor;
+  std::vector<Ast*> nodes;
+};
+struct BoolExpr : public Ast {
+  BoolExpr(BoolTerm*, std::vector<Ast*>&);
+  std::string name();
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+
+  BoolTerm* term;
+  std::vector<Ast*> nodes;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Relation : public Ast {
+  Relation(Ast* lhs, d::IToken*, Ast*);
+  std::string name();
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+
   Ast* lhs;
   Ast* rhs;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Num : public Ast {
-  Num(d::IToken* t);
-  virtual ~Num() {}
+  Num(d::IToken*);
+  std::string name();
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  std::string name();
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct String : public Ast {
-  String(d::IToken* t);
-  virtual ~String() {}
-  d::ExprValue eval(d::IEvaluator*);
-  void visit(d::IAnalyzer*);
-  std::string name();
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct UnaryOp : public Ast {
-  UnaryOp(d::IToken* t, Ast* expr);
-  virtual ~UnaryOp() {}
-  d::ExprValue eval(d::IEvaluator*);
-  void visit(d::IAnalyzer*);
-  std::string name();
   Ast* expr;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Compound : public Ast {
-  Compound();
-  virtual ~Compound() {}
+struct Repeat : public Ast {
+  Repeat(Ast*, BoolExpr* cond);
+  std::string name();
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  std::string name();
-  std::vector<Ast*> children;
+
+  BoolExpr* cond;
+  Ast* body;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Var : public Ast {
-  Var(d::IToken* t);
-  virtual ~Var() {}
+struct For : public Ast {
+  For(Var*, Expr*, Expr*, Ast*);
+  std::string name();
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  std::string name();
+
+  Var* var;
+  Ast* body;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Type : public Ast {
-  Type(d::IToken* token);
-  virtual ~Type() {}
+struct While : public Ast {
+  While(BoolExpr* cond, Ast*);
+  std::string name();
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
+
+  BoolExpr* cond;
+  Ast* body;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct If : public Ast {
+  If(BoolExpr* cond, Ast* t, Ast* e);
+  If(BoolExpr* cond, Ast* t);
   std::string name();
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+
+  BoolExpr* cond;
+  Ast* _then;
+  Ast* _else;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Assignment : public Ast {
-  Assignment(Var* left, d::IToken* op, Ast* right);
-  virtual ~Assignment() {}
+  Assignment(Var*, Ast*);
+  std::string name();
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  std::string name();
+
   Var* lhs;
   Ast* rhs;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct NoOp : public Ast {
-  NoOp() {}
-  virtual ~NoOp() {}
-  d::ExprValue eval(d::IEvaluator*) {
-    return d::ExprValue();
-  }
-  void visit(d::IAnalyzer*) {}
-  std::string name() { return ""; }
+struct Compound : public Ast {
+  std::vector<Ast*> children;
 };
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Param : public Ast {
-  Param(Var* v, Type* t);
-  virtual ~Param() {}
-  d::ExprValue eval(d::IEvaluator*);
-  void visit(d::IAnalyzer*);
-  std::string name();
-  Var* var_node;
-  Type* type_node;
+
 };
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct VarDecl : public Ast {
-  VarDecl(Var* v, Type* t);
-  virtual ~VarDecl() {}
-  d::ExprValue eval(d::IEvaluator*);
-  void visit(d::IAnalyzer*);
-  std::string name();
-  Var* var_node;
-  Type* type_node;
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Block : public Ast {
-  Block(std::vector<Ast*>& decls, Compound*);
-  virtual ~Block() {}
-  d::ExprValue eval(d::IEvaluator*);
-  void visit(d::IAnalyzer*);
-  std::string name();
-  Compound* compound_statement;
-  std::vector<Ast*> declarations;
+
 };
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct ProcedureDecl : public Ast {
-  ProcedureDecl(const char* proc, std::vector<Param*>& p, Block* block);
-  virtual ~ProcedureDecl() {}
+struct ProcCall : public Ast {
+  ProcCall(Var*, std::vector<Expr*>&);
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   std::string name();
+};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct ProcDecl : public Ast {
   Block* block;
-  std::string _name;
   std::vector<Param*> params;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct ProcedureCall : public Ast {
-  ProcedureCall(const char* proc,
-                std::vector<Ast*>& p, d::IToken* token);
-  virtual ~ProcedureCall() {}
-  d::ExprValue eval(d::IEvaluator*);
-  void visit(d::IAnalyzer*);
-  std::string name();
-  std::string _name;
-  std::vector<Ast*> params;
+struct VarDecl : public Ast {
+  Var* var;
+  Type* type;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Program : public Ast {
-  Program(const char* name, Block* block);
+  Program(const char* name,
+          std::vector<VarDecl*>& gvars,
+          std::vector<ProcDecl*>& procs, Block*);
   virtual ~Program() {}
+
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   std::string name();
+
   Block* block;
-  std::string _name;
+  std::vector<VarDecl*> gvars;
+  std::vector<ProcDecl*> procs;
 };
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BuiltinTypeSymbol : public d::TypeSymbol {
-  BuiltinTypeSymbol(const char* n) : d::TypeSymbol(n) {}
-  ~BuiltinTypeSymbol() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SymTable : public d::SymbolTable {
-  SymTable(SymTable*);
-  SymTable();
-  ~SymTable() {}
-};
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct CrenshawParser : public d::IParser {
+
+  CrenshawParser(const char*);
   virtual ~CrenshawParser();
-  CrenshawParser(const char* src);
-  d::IAst* parse();
+
   d::IToken* eat(int wanted);
+  d::IToken* eat();
+  d::IAst* parse();
+
+  bool isCur(int token_type);
+  int cur();
+  int peek();
+  d::IToken* token();
+
   Lexer* lex;
-}
+};
 
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
