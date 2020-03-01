@@ -64,19 +64,19 @@ std::string Token::typeToString(int type) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, const char ch, int line, int col) {
+Token::Token(int type, const char ch, d::TokenInfo info) {
   impl.text= std::string();
   impl.text += ch;
-  impl.line=line;
-  impl.col=col;
+  impl.line=info.line;
+  impl.col=info.col;
   impl.type=type;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, const std::string& s, int line, int col) {
+Token::Token(int type, const std::string& s, d::TokenInfo info) {
   impl.text= s;
-  impl.line=line;
-  impl.col=col;
+  impl.line=info.line;
+  impl.col=info.col;
   impl.type=type;
 }
 
@@ -123,22 +123,22 @@ std::string Token::getLiteralAsStr() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IToken* token(int type, const std::string& x, int line, int pos, const std::string& s) {
-  auto t= new Token(type, x, line,pos);
+d::IToken* token(int type, const std::string& x, d::TokenInfo info, const std::string& s) {
+  auto t= new Token(type, x, info);
   auto len= s.length();
   t->impl.value.cs = std::make_shared<a::CString>(len);
   t->impl.value.cs.get()->copy(s.c_str());
   return t;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IToken* token(int type, const std::string& s, int line, int col, long n) {
-  auto t= new Token(type, s, line, col);
+d::IToken* token(int type, const std::string& s, d::TokenInfo info, long n) {
+  auto t= new Token(type, s, info);
   t->impl.value.u.n=n;
   return t;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IToken* token(int type, const std::string& s, int line, int col, double d) {
-  auto t= new Token(type,s, line,col);
+d::IToken* token(int type, const std::string& s, d::TokenInfo info, double d) {
+  auto t= new Token(type,s, info);
   t->impl.value.u.r=d;
   return t;
 }
@@ -181,25 +181,28 @@ void Lexer::skipComment() {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::IToken* Lexer::number() {
+  auto m= ctx.mark();
   auto s = d::numeric(ctx).c_str();
   return ::strchr(s, '.')
-    ? token(d::T_REAL, s, ctx.line, ctx.col, ::atof(s))
-    : token(d::T_INTEGER, s, ctx.line, ctx.col, ::atol(s));
+    ? token(d::T_REAL, s, m, ::atof(s))
+    : token(d::T_INTEGER, s, m, ::atol(s));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::IToken* Lexer::string() {
+  auto m= ctx.mark();
   auto s = d::str(ctx);
-  return token(d::T_STRING, s, ctx.line, ctx.col, s);
+  return token(d::T_STRING, s, m, s);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::IToken* Lexer::id() {
+  auto m= ctx.mark();
   auto s= d::identifier(ctx);
   auto S= a::toupper(s);
   return !isKeyword(S)
-    ? token(d::T_IDENT, s, ctx.line, ctx.col, s)
-    : new Token(KEYWORDS.at(S), S, ctx.line, ctx.col);
+    ? token(d::T_IDENT, s, m, s)
+    : new Token(KEYWORDS.at(S), S, m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -220,33 +223,39 @@ d::IToken* Lexer::getNextToken() {
     }
     else
     if (ch == '*') {
+      auto m= ctx.mark();
       d::advance(ctx);
-      return new Token(d::T_MULT, ch, ctx.line, ctx.col);
+      return new Token(d::T_MULT, ch, m);
     }
     else
     if (ch == '/') {
+      auto m=ctx.mark();
       d::advance(ctx);
-      return new Token(d::T_DIV, ch, ctx.line, ctx.col);
+      return new Token(d::T_DIV, ch, m);
     }
     else
     if (ch == '+') {
+      auto m= ctx.mark();
       d::advance(ctx);
-      return new Token(d::T_PLUS, ch, ctx.line, ctx.col);
+      return new Token(d::T_PLUS, ch, m);
     }
     else
     if (ch == '-') {
+      auto m=ctx.mark();
       d::advance(ctx);
-      return new Token(d::T_MINUS, ch, ctx.line, ctx.col);
+      return new Token(d::T_MINUS, ch, m);
     }
     else
     if (ch == '(') {
+      auto m=ctx.mark();
       d::advance(ctx);
-      return new Token(d::T_LPAREN, ch, ctx.line, ctx.col);
+      return new Token(d::T_LPAREN, ch, m);
     }
     else
     if (ch == ')') {
+      auto m=ctx.mark();
       d::advance(ctx);
-      return new Token(d::T_RPAREN, ch, ctx.line, ctx.col);
+      return new Token(d::T_RPAREN, ch, m);
     }
     else
     if (ch == '_' || ::isalpha(ch)) {
@@ -254,9 +263,10 @@ d::IToken* Lexer::getNextToken() {
     }
     else
     if (ch== ':' && '=' == d::peekNext(ctx)) {
+      auto m= ctx.mark();
       d::advance(ctx);
       d::advance(ctx);
-      return new Token(T_ASSIGN, ":=", ctx.line, ctx.col);
+      return new Token(T_ASSIGN, ":=", m);
     }
     else
     if (ch == '{') {
@@ -265,23 +275,27 @@ d::IToken* Lexer::getNextToken() {
     }
     else
     if (ch == ';') {
+      auto m=ctx.mark();
       d::advance(ctx);
-      return new Token(d::T_SEMI, ch, ctx.line, ctx.col);
+      return new Token(d::T_SEMI, ch, m);
     }
     else
     if (ch == ':') {
+      auto m=ctx.mark();
       d::advance(ctx);
-      return new Token(d::T_COLON, ch, ctx.line, ctx.col);
+      return new Token(d::T_COLON, ch, m);
     }
     else
     if (ch == ',') {
+      auto m= ctx.mark();
       d::advance(ctx);
-      return new Token(d::T_COMMA, ch, ctx.line, ctx.col);
+      return new Token(d::T_COMMA, ch, m);
     }
     else
     if (ch == '.') {
+      auto m=ctx.mark();
       d::advance(ctx);
-      return new Token(d::T_DOT, ch, ctx.line, ctx.col);
+      return new Token(d::T_DOT, ch, m);
     }
     else {
       ::sprintf(BUF,"Unexpected char %c near line %d, col %d.\n", ch, ctx.line, ctx.col);
@@ -289,7 +303,7 @@ d::IToken* Lexer::getNextToken() {
     }
   }
 
-  return new Token(d::T_EOF, "<EOF>", ctx.line, ctx.col);
+  return new Token(d::T_EOF, "<EOF>", ctx.mark());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

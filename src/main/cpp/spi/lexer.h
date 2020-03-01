@@ -42,8 +42,8 @@ struct Token : public d::IToken {
 
   static std::string typeToString(int);
 
-  Token(int type, const std::string&, int line, int col);
-  Token(int type, const char, int line, int col);
+  Token(int type, const std::string&, d::TokenInfo);
+  Token(int type, const char, d::TokenInfo);
 
   virtual ~Token();
 

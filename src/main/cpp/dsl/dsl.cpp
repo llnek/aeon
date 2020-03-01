@@ -102,7 +102,7 @@ void skipWhitespace(Context& ctx) {
 std::string digits(Context& ctx) {
   std::string res;
   while (!ctx.eof && ::isdigit(peek(ctx))) {
-    s__conj(res,peek(ctx));
+    res += peek(ctx);
     advance(ctx);
   }
   return res;
@@ -112,7 +112,7 @@ std::string digits(Context& ctx) {
 std::string numeric(Context& ctx) {
   auto res = digits(ctx);
   if (!ctx.eof && peek(ctx) == '.') {
-    s__conj(res,peek(ctx));
+    res += peek(ctx);
     advance(ctx);
     res += digits(ctx);
   }
@@ -196,6 +196,22 @@ std::string identifier(Context& ctx) {
     }
   }
   return res;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Context::Context() {
+  S_NIL(src);
+  len=0;
+  line=0;
+  col=0;
+  pos=0;
+  eof=false;
+  S_NIL(cur);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+TokenInfo Context::mark() {
+  return TokenInfo(line,col);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

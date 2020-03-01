@@ -100,13 +100,26 @@ struct Lexeme {
   ValueSlot value;
 };
 
+struct TokenInfo {
+  TokenInfo(int line, int col) : line (line), col(col) {
+  }
+  int line;
+  int col;
+};
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Context {
+  ~Context() {}
+  Context();
+
+  TokenInfo mark();
+
   const char* src;
   size_t len;
   int line;
   int col;
   int pos;
+
   bool eof;
   IToken* cur;
 };
