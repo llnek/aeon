@@ -30,7 +30,7 @@ enum {
   T_RPAREN,
   T_LBRACE,
   T_RBRACE,
-  T_EQUALS,
+  T_EQ,
   T_MINUS,
   T_PLUS,
   T_MULT,
@@ -56,11 +56,11 @@ enum {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IToken {
 
-  virtual std::string toString()=0;
-  virtual int type()=0;
+  virtual std::string getLiteralAsStr()=0;
   virtual double getLiteralAsReal()=0;
   virtual long getLiteralAsInt()=0;
-  virtual const char* getLiteralAsStr()=0;
+  virtual std::string toString()=0;
+  virtual int type()=0;
 
   protected:
 
@@ -70,7 +70,7 @@ struct IToken {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IScanner {
 
-  virtual bool isKeyword(const char* s) = 0;
+  virtual bool isKeyword(const std::string&) = 0;
   virtual IToken* getNextToken()=0;
   virtual IToken* number()=0;
   virtual IToken* id()=0;
@@ -93,6 +93,7 @@ struct ValueSlot {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lexeme {
+  std::string text;
   int line;
   int col;
   int type;
@@ -133,7 +134,7 @@ std::string identifier(Context&);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum ExprValueType {
-  EXPR_INT,
+  EXPR_INT = 2000000,
   EXPR_REAL,
   EXPR_STR,
   EXPR_NULL
@@ -142,7 +143,7 @@ enum ExprValueType {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ExprValue {
 
-  ExprValue(ExprValueType t, const char* s);
+  ExprValue(ExprValueType t, const std::string&);
   ExprValue(ExprValueType t, long v);
   ExprValue(ExprValueType t, double v);
 
@@ -160,32 +161,32 @@ struct ExprValue {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-enum FrameType {
-  STACK_FRAME
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Frame {
 
-  Frame(FrameType type=STACK_FRAME);
+  void set(const std::string&, const ExprValue&);
+  ExprValue get(const std::string& n);
+  std::set<std::string> keys();
+  Frame(const std::string& name);
   ~Frame();
 
-  ExprValue get(const char* n);
-  void set(const char*, const ExprValue&);
+  std::string name;
 
-  FrameType type;
+  protected:
+
   std::map<std::string,ExprValue> slots;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct CallStack {
 
+  Frame* push(const std::string& name);
+  Frame* pop();
+  Frame* peek();
+
   CallStack();
   ~CallStack();
 
-  void push(Frame*);
-  Frame* pop();
-  Frame* peek();
+  protected:
 
   std::stack<Frame*> frames;
 };
@@ -193,8 +194,8 @@ struct CallStack {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Symbol {
 
-  Symbol(const char* n, Symbol* t) : Symbol(n) { type=t; }
-  Symbol(const char* n) : name(n) { type=nullptr; }
+  Symbol(const std::string& n, Symbol* t) : Symbol(n) { type=t; }
+  Symbol(const std::string& n) : name(n) { type=nullptr; }
   ~Symbol() {}
 
   Symbol* type;
@@ -204,61 +205,76 @@ struct Symbol {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct TypeSymbol : public Symbol {
 
-  TypeSymbol(const char* n) : Symbol(n) {}
+  TypeSymbol(const std::string& n) : Symbol(n) {}
   ~TypeSymbol() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct ParamSymbol : public Symbol {
+
+  ParamSymbol(const std::string& n, Symbol* t) : Symbol(n,t) {}
+  ~ParamSymbol() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct VarSymbol : public Symbol {
 
-  VarSymbol(const char* n, Symbol* t) : Symbol(n,t) {}
+  VarSymbol(const std::string& n, Symbol* t) : Symbol(n,t) {}
   ~VarSymbol() {}
 };
 
+struct IAst;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct FunctionSymbol : public Symbol {
 
-  FunctionSymbol(const char* name, TypeSymbol* t) : FunctionSymbol(name) {
+  FunctionSymbol(const std::string& name, TypeSymbol* t) : FunctionSymbol(name) {
     result=t;
   }
-  FunctionSymbol(const char* name) : Symbol(name) {
+  FunctionSymbol(const std::string& name) : Symbol(name) {
+    block=nullptr;
     result=nullptr;
   }
   ~FunctionSymbol() {}
 
   TypeSymbol* result;
-  std::vector<VarSymbol*> params;
+  IAst* block;
+  std::vector<ParamSymbol*> params;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SymbolTable {
 
-  SymbolTable(SymbolTable* outer);
-  SymbolTable();
+  Symbol* lookup(const std::string& s, bool traverse=true);
+  void insert(Symbol*);
+
+  SymbolTable(const std::string&, SymbolTable* outer);
+  SymbolTable(const std::string&);
   ~SymbolTable();
 
-  void insert(Symbol*);
-  Symbol* lookup(const char* name, bool traverse=true);
   SymbolTable* enclosing;
-
+  std::string name;
   std::map<std::string, Symbol*> symbols;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IEvaluator {
 
-  virtual void setValue(const char*, const ExprValue&) = 0;
-  virtual ExprValue getValue(const char*) = 0;
+  virtual void setValue(const std::string&, const ExprValue&) = 0;
+  virtual ExprValue getValue(const std::string&) = 0;
+  virtual Frame* push(const std::string& name)=0;
+  virtual Frame* pop()=0;
+  virtual Frame* peek()=0;
 
   protected:
+
   ~IEvaluator() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IAnalyzer {
 
-  virtual Symbol* lookup(const char*, bool traverse=true) = 0;
-  virtual void pushScope() =0;
+  virtual Symbol* lookup(const std::string&, bool traverse=true) = 0;
+  virtual void pushScope(const std::string& name) =0;
   virtual SymbolTable* popScope()=0;
   virtual void define(Symbol*)=0;
 
@@ -282,8 +298,8 @@ struct IAst {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IParser {
 
-  virtual IAst* parse()=0;
   virtual IToken* eat(int wantedToken)=0;
+  virtual IAst* parse()=0;
 
   protected:
 

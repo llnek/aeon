@@ -60,8 +60,9 @@
 // c++ std collection iteration
 //#define F__POOP(x,c) for (auto x=c->begin(); x != c->end(); ++x)
 //#define F__LOOP(x,c) for (auto x=c.begin(); x != c.end(); ++x)
+#define s__ccat(x,y) ((x).insert((x).end(),(y).begin(),(y).end()))
 #define s__pair(T1,T2,v1,v2) std::pair<T1,T2>(v1,v2)
-#define s__conj(c,n) c.push_back(n)
+#define s__conj(c,n) (c).push_back(n)
 #define s__nil(x) (x = nullptr)
 #define s__mix(c) std::random_shuffle(c.begin(),c.end())
 
@@ -72,10 +73,16 @@
 #define PCAST(type,expr) ((type*)(expr))
 
 //////////////////////////////////////////////////////////////////////////////
+// c++ STL
+#define contains(C,x) ((C).find((x)) != (C).end())
+#define map__val(M,K) (M).find(K)->second
+
+//////////////////////////////////////////////////////////////////////////////
 // pointer macros
 #define X_NIL(p) (p) != nullptr
 #define E_NIL(p) (p) == nullptr
 #define P_NIL nullptr
+#define S_NIL(x) (x = nullptr)
 
 //////////////////////////////////////////////////////////////////////////////
 // magic numbers

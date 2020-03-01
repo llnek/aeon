@@ -29,7 +29,7 @@ std::map<int, std::string> TOKENS {
   {T_RPAREN, ")"},
   {T_LBRACE, "{"},
   {T_RBRACE, "}"},
-  {T_EQUALS, "="},
+  {T_EQ, "="},
   {T_MINUS, "-"},
   {T_PLUS, "+"},
   {T_MULT, "*"},
@@ -102,7 +102,7 @@ void skipWhitespace(Context& ctx) {
 std::string digits(Context& ctx) {
   std::string res;
   while (!ctx.eof && ::isdigit(peek(ctx))) {
-    res.push_back(peek(ctx));
+    s__conj(res,peek(ctx));
     advance(ctx);
   }
   return res;
@@ -112,9 +112,9 @@ std::string digits(Context& ctx) {
 std::string numeric(Context& ctx) {
   auto res = digits(ctx);
   if (!ctx.eof && peek(ctx) == '.') {
-    res.push_back(peek(ctx));
+    s__conj(res,peek(ctx));
     advance(ctx);
-    res.append(digits(ctx));
+    res += digits(ctx);
   }
   return res;
 }
@@ -149,19 +149,16 @@ std::string str(Context& ctx) {
     advance(ctx);
     while (!ctx.eof) {
       ch= peek(ctx);
-      ::printf("found str-char [%c]\n", ch);
       if (ch == '"') {
         break;
       }
       if (ch == '\\') {
-        ::printf("found escape seq!\n");
         if (!advance(ctx)) {
           throw SyntaxError("Malformed string value, bad escaped char.");
         }
-        ::printf("found escaped char [%c]\n", peek(ctx));
         ch=escSeq(peek(ctx));
       }
-      res.push_back(ch);
+      res += ch;
       advance(ctx);
     }
     if (ctx.eof || ch != '"') {
@@ -182,7 +179,7 @@ std::string identifier(Context& ctx) {
     ch=peek(ctx);
     if (res.empty()) {
       if (ch == '_' || ::isalpha(ch)) {
-        res.push_back(ch);
+        res += ch;
         advance(ctx);
       } else {
         break;
@@ -190,7 +187,7 @@ std::string identifier(Context& ctx) {
       }
     } else {
       if (ch == '_' || ::isalpha(ch) || ::isdigit(ch)) {
-        res.push_back(ch);
+        res += ch;
         advance(ctx);
       } else {
         break;
@@ -212,11 +209,10 @@ ExprValue::ExprValue(ExprValueType t, double v) : type(t) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue::ExprValue(ExprValueType t, const char* s) : type(t) {
-  auto len=0;
-  if (s) { len= ::strlen(s); }
+ExprValue::ExprValue(ExprValueType t, const std::string& s) : type(t) {
+  auto len=s.length();
   value.cs=std::make_shared<a::CString>(len);
-  value.cs.get()->copy(s);
+  value.cs.get()->copy(s.c_str());
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ExprValue::ExprValue() {
@@ -243,18 +239,27 @@ ExprValue& ExprValue::operator=(const ExprValue& src) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Frame::Frame(FrameType type) : type(type) {
+Frame::Frame(const std::string& name) : name(name) {
+
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Frame::~Frame() {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue Frame::get(const char* key) {
+std::set<std::string> Frame::keys() {
+  std::set<std::string> out;
+  for (auto &x : slots) {
+    out.insert(x.first);
+  }
+  return out;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ExprValue Frame::get(const std::string& key) {
   auto x= slots.find(key);
   return x != slots.end() ? x->second : ExprValue();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Frame::set(const char* key, const ExprValue& v) {
+void Frame::set(const std::string& key, const ExprValue& v) {
   slots[key]=v;
 }
 
@@ -270,8 +275,10 @@ CallStack::~CallStack() {
 CallStack::CallStack() {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void CallStack::push(Frame* f) {
-  if (f) frames.push(f);
+Frame* CallStack::push(const std::string& name) {
+  auto f= new Frame(name);
+  frames.push(f);
+  return f;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Frame* CallStack::pop() {
@@ -285,18 +292,18 @@ Frame* CallStack::peek() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SymbolTable::SymbolTable(SymbolTable* outer)
-  : enclosing(outer) {
+SymbolTable::SymbolTable(const std::string& n, SymbolTable* outer)
+  : SymbolTable(n) {
+  enclosing=outer;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SymbolTable::SymbolTable() : enclosing(nullptr) {
+SymbolTable::SymbolTable(const std::string& n) {
+  name=n;
+  enclosing=nullptr;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SymbolTable::~SymbolTable() {
-  for (auto x=symbols.begin(); x != symbols.end(); ++x) {
-    delete x->second;
-  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -305,7 +312,7 @@ void SymbolTable::insert(Symbol* s) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Symbol* SymbolTable::lookup(const char* name, bool traverse) {
+Symbol* SymbolTable::lookup(const std::string& name, bool traverse) {
   auto s = symbols.find(name);
   if (s != symbols.end()) {
     return s->second;

@@ -81,6 +81,18 @@ std::vector<std::string> tokenize(const std::string &src, TChar delim) {
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string toupper(const std::string& s) {
+  std::string t(s);
+  for (auto& c : t) { c= ::toupper(c); }
+  return t;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string tolower(const std::string& s) {
+  std::string t(s);
+  for (auto& c : t) { c= ::tolower(c); }
+  return t;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void randSeed(long x=0) {
   std::srand (x > 0 ? x : std::time(nullptr));
 }

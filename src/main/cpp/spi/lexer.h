@@ -1,4 +1,17 @@
 #pragma once
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
 #include "../dsl/dsl.h"
 
@@ -27,14 +40,18 @@ enum TokenType {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Token : public d::IToken {
 
-  Token(int line, int col, int type);
+  static std::string typeToString(int);
+
+  Token(int type, const std::string&, int line, int col);
+  Token(int type, const char, int line, int col);
+
   virtual ~Token();
 
-  std::string toString();
-  int type();
+  std::string getLiteralAsStr();
   double getLiteralAsReal();
   long getLiteralAsInt();
-  const char* getLiteralAsStr();
+  std::string toString();
+  int type();
 
   d::Lexeme impl;
 };
@@ -42,7 +59,7 @@ struct Token : public d::IToken {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lexer : public d::IScanner {
 
-  bool isKeyword(const char* s);
+  bool isKeyword(const std::string&);
   d::IToken* getNextToken();
   void skipComment();
   d::IToken* number();
@@ -51,6 +68,7 @@ struct Lexer : public d::IScanner {
 
   Lexer(const char* src);
   virtual ~Lexer();
+
   d::Context ctx;
 };
 

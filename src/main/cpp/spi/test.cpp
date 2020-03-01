@@ -11,7 +11,7 @@
 #include <stdexcept>
 
 #include "interpreter.h"
-#include "analyzer.h"
+
 using namespace czlab::aeon;
 using namespace czlab::spi;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -69,24 +69,39 @@ END.  {Part12}\n\
 ";
 
 const char* zARG= "\n\
-PROGRAM Main;\n\
-VAR\n\
-    x, y : INTEGER;\n\
+program Main;\n\
+var\n\
+    x, y : integer;\n\
     s : STRING;\n\
-BEGIN { Main }\n\
+begin { Main }\n\
   s := \"he\tllo\";\n\
   y := 7;\n\
    x := (y + 3) * 3;\n\
 END.  { Main }\n\
 ";
 
+const char* ARG18= "\n\
+program Main;\n\
+procedure Alpha(a : integer; b : integer);\n\
+var x : integer;\n\
+begin\n\
+   x := (a + b ) * 2;\n\
+end;\n\
+\n\
+begin { Main }\n\
+   Alpha(3 + 5, 7);  { procedure call }\n\
+end.  { Main }\n\
+";
+
 int main(int argc, char* argv[]) {
   try {
     //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
-    Interpreter i(zARG);
+    Interpreter i(ARG18);
+    auto r= i.interpret();
+    ::printf("result type = %d\n", r.type);
     //Analyzer z(ARG);
 
-  } catch (const std::exception& e) {
+  } catch ( const d::SyntaxError& e) {
     ::printf("%s", e.what());
   }
   return 0;

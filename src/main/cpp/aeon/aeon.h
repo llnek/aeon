@@ -58,6 +58,8 @@ struct CString {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::vector<std::string> tokenize(const std::string &src, TChar delim);
+std::string toupper(const std::string&);
+std::string tolower(const std::string&);
 int modulo(int, int);
 void randSeed();
 std::string readFile(const char* filepath);
