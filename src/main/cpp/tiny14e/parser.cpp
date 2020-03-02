@@ -19,10 +19,20 @@ namespace czlab::tiny14e {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Compound* compound_statement(SimplePascalParser*, bool);
-Block* block(SimplePascalParser*);
-Ast* expr(SimplePascalParser*);
+Compound* compound_statement(CrenshawParser*, bool);
+Block* block(CrenshawParser*);
+Ast* expr(CrenshawParser*);
+Ast* b_expr(CrenshawParser*);
 static char BUF[1024];
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue boolFalse() {
+  return d::ExprValue(d::EXPR_INT, 0L);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue boolTrue() {
+  return d::ExprValue(d::EXPR_INT, 1L);
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 long toInt(const d::ExprValue& e) {
@@ -338,6 +348,134 @@ d::ExprValue VarDecl::eval(d::IEvaluator* e) {
   return v;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+BoolExpr::BoolExpr(std::vector<Ast*>& ts, std::vector<Token*>& ops) : Ast() {
+  s__ccat(this->ops, ops);
+  s__ccat(this->terms, ts);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue BoolExpr::eval(d::IEvaluator* e) {
+  auto z1= terms.size();
+  auto t1 = ops.size();
+  assert(z1 == (t1+1));
+  auto i=0;
+  auto lhs= terms[0]->eval(e);
+  auto res= toBool(lhs);
+  if (z1==1) {
+    return lhs;
+  }
+  while (i < t1) {
+    auto t= ops[i];
+    if (t->type() == T_OR && res) return boolTrue();
+    auto rhs= terms[i+1]->eval(e);
+    if (t->type() == T_XOR) {
+      if (res != toBool(rhs)) {
+        return boolTrue();
+      }
+    } else {
+      if (toBool(rhs)) {
+        return boolTrue();
+      }
+    }
+    res=false;
+    ++i;
+  }
+  return boolFalse();
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void BoolExpr::visit(d::IAnalyzer* a) {
+  for (auto& x : terms) {
+    x->visit(a);
+  }
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string BoolExpr::name() {
+  return "BoolExpr";
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+BoolTerm::BoolTerm(std::vector<Ast*>& ts) : Ast() {
+  s__ccat(terms, ts);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string BoolTerm::name() {
+  return "bterm";
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void BoolTerm::visit(d::IAnalyzer* a) {
+  for (auto& x : terms) {
+    x->visit(a);
+  }
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue BoolTerm::eval(d::IEvaluator* e) {
+  assert(terms.size() > 0);
+  auto i=0;
+  auto z= terms.size();
+  auto lhs = terms[i]->eval(e);
+  auto res= toBool(lhs);
+  if (z==1) {
+    return lhs;
+  }
+  else if (!res) {
+    return boolFalse();
+  }
+  ++i;
+  while (i < z) {
+    auto rhs = toBool(terms[i]->eval(e));
+    res= (res && rhs);
+    if (res) return boolTrue();
+    ++i;
+  }
+  return boolFalse();
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+NotFactor::NotFactor(Ast* e) : Ast() {
+  expr=e;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue NotFactor::eval(d::IEvaluator* e) {
+  return !toBool(expr->eval(e)) ? boolTrue() : boolFalse();
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void NotFactor::visit(d::IAnalyzer* a) {
+  expr->visit(a);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string NotFactor::name() {
+  return "notfactor";
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+RelationOp::RelationOp(Ast* left, Token* op, Ast* right) : Ast(op) {
+  lhs=left;
+  rhs=right;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string RelationOp::name() {
+  return token->impl.text;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void RelationOp::visit(d::IAnalyzer* a) {
+  lhs->visit(a);
+  rhs->visit(a);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue RelationOp::eval(d::IEvaluator* e) {
+  auto l = toInt(lhs->eval(e));
+  auto r = toInt(rhs->eval(e));
+  auto res=false;
+  switch (token->type()) {
+    case d::T_GT: res = l > r; break;
+    case d::T_LT: res = l < r; break;
+    case T_GTEQ: res = l >= r; break;
+    case T_LTEQ: res = l <= r; break;
+    case d::T_EQ: res = l == r; break;
+    case T_NOTEQ: res = l != r; break;
+    default:
+      throw d::SyntaxError("never!");
+    break;
+  }
+  return res ? boolTrue() : boolFalse();
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Block::Block(std::vector<Ast*>& decls, Compound* compound)
   : Ast(), compound(compound) {
   s__ccat(declarations, decls);
@@ -453,13 +591,14 @@ d::ExprValue Program::eval(d::IEvaluator* e) {
   return block->eval(e);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Var* variable(SimplePascalParser* ps) {
+Var* variable(CrenshawParser* ps) {
   auto node = new Var((Token*) ps->token());
   ps->eat(d::T_IDENT);
   return node;
 }
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* factor(SimplePascalParser* ps) {
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast* factor(CrenshawParser* ps) {
   auto t= (Token*) ps->token();
   Ast* res=nullptr;
   switch (t->type()) {
@@ -479,7 +618,7 @@ Ast* factor(SimplePascalParser* ps) {
       res= (ps->eat(), new String(t));
       break;
     case d::T_LPAREN:
-      res= (ps->eat(), expr(ps));
+      res= (ps->eat(), b_expr(ps));
       ps->eat(d::T_RPAREN);
       break;
     default:
@@ -489,7 +628,7 @@ Ast* factor(SimplePascalParser* ps) {
   return res;
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* term(SimplePascalParser* ps) {
+Ast* term(CrenshawParser* ps) {
   static std::set<int> ops {d::T_MULT,d::T_DIV, T_INT_DIV};
   auto res= factor(ps);
   while (contains(ops,ps->cur())) {
@@ -498,7 +637,7 @@ Ast* term(SimplePascalParser* ps) {
   return res;
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* expr(SimplePascalParser* ps) {
+Ast* expr(CrenshawParser* ps) {
   static std::set<int> ops {d::T_PLUS, d::T_MINUS};
   Ast* res= term(ps);
   while (contains(ops,ps->cur())) {
@@ -507,7 +646,51 @@ Ast* expr(SimplePascalParser* ps) {
   return res;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Type* type_spec(SimplePascalParser* ps) {
+Ast* relation(CrenshawParser* ps) {
+  static std::set<int> ops1 { d::T_GT, d::T_LT, T_GTEQ };
+  static std::set<int> ops2 { T_LTEQ, d::T_EQ, T_NOTEQ };
+  auto res = expr(ps);
+  while (contains(ops1, ps->cur()) ||
+      contains(ops2, ps->cur()) ) {
+    res= new RelationOp(res, (Token*)ps->eat(), expr(ps));
+  }
+  return res;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast* b_factor(CrenshawParser* ps) {
+  return relation(ps);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast* not_factor(CrenshawParser* ps) {
+  if (ps->isCur(T_NOT)) {
+    ps->eat();
+    return new NotFactor(b_factor(ps));
+  } else {
+    return b_factor(ps);
+  }
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast* b_term(CrenshawParser* ps) {
+  std::vector<Ast*> res {not_factor(ps)};
+  while (ps->isCur(T_AND)) {
+    s__conj(res, not_factor(ps));
+  }
+  return new BoolTerm(res);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast* b_expr(CrenshawParser* ps) {
+  static std::set<int> ops {T_OR, T_XOR};
+  std::vector<Ast*> res {b_term(ps)};
+  std::vector<Token*> ts;
+  while (contains(ops, ps->cur())) {
+    s__conj(ts, (Token*)ps->token());
+    ps->eat();
+    s__conj(res, b_term(ps));
+  }
+  return new BoolExpr(res, ts);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Type* type_spec(CrenshawParser* ps) {
   auto t = (Token*)ps->token();
   switch (t->type()) {
     case T_STR:
@@ -521,7 +704,7 @@ Type* type_spec(SimplePascalParser* ps) {
   return new Type(t);
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<VarDecl*> variable_declaration(SimplePascalParser* ps) {
+std::vector<VarDecl*> variable_declaration(CrenshawParser* ps) {
   std::vector<Var*> vars { new Var((Token*) ps->eat(d::T_IDENT)) };
   while (ps->isCur(d::T_COMMA)) {
     ps->eat();
@@ -537,18 +720,18 @@ std::vector<VarDecl*> variable_declaration(SimplePascalParser* ps) {
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Assignment* assignment_statement(SimplePascalParser* ps) {
+Assignment* assignment_statement(CrenshawParser* ps) {
   auto left = variable(ps);
   auto t= ps->eat(T_ASSIGN);
   auto right = expr(ps);
   return new Assignment(left, (Token*)t, right);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NoOp* empty(SimplePascalParser* ps) {
+NoOp* empty(CrenshawParser* ps) {
   return new NoOp();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ProcedureCall* proccall_statement(SimplePascalParser* ps) {
+ProcedureCall* proccall_statement(CrenshawParser* ps) {
   auto token = ps->token();
   auto proc_name = token->getLiteralAsStr();
   std::vector<Ast*> pms;
@@ -692,20 +875,20 @@ std::string WhileLoop::name() {
   return token->impl.text;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* doRepeat(SimplePascalParser* ps) {
+Ast* doRepeat(CrenshawParser* ps) {
   auto w= (Token*)ps->eat(T_REPEAT);
   auto c = compound_statement(ps,false);
   ps->eat(T_UNTIL);
   ps->eat(d::T_LPAREN);
-  auto e = expr(ps);
+  auto e = b_expr(ps);
   ps->eat(d::T_RPAREN);
   return new RepeatUntil(w, e, c);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* doIf(SimplePascalParser* ps) {
+Ast* doIf(CrenshawParser* ps) {
   auto w= (Token*)ps->eat(T_IF);
   ps->eat(d::T_LPAREN);
-  auto c = expr(ps);
+  auto c = b_expr(ps);
   ps->eat(d::T_RPAREN);
   auto t = compound_statement(ps,false);
   Compound* e=nullptr;
@@ -717,7 +900,7 @@ Ast* doIf(SimplePascalParser* ps) {
   return new IfThenElse(w, c, t, e);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* doFor(SimplePascalParser* ps) {
+Ast* doFor(CrenshawParser* ps) {
   auto w= (Token*)ps->eat(T_FOR);
   auto v = new Var((Token*) ps->eat(d::T_IDENT));
   ps->eat(T_ASSIGN);
@@ -728,17 +911,17 @@ Ast* doFor(SimplePascalParser* ps) {
   return new ForLoop(w, v, i, e, c);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* doWhile(SimplePascalParser* ps) {
+Ast* doWhile(CrenshawParser* ps) {
   auto w= (Token*)ps->eat(T_WHILE);
   ps->eat(d::T_LPAREN);
-  auto e = expr(ps);
+  auto e = b_expr(ps);
   ps->eat(d::T_RPAREN);
   auto c = compound_statement(ps,false);
   ps->eat(T_ENDWHILE);
   return new WhileLoop(w, e, c);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* statement(SimplePascalParser* ps) {
+Ast* statement(CrenshawParser* ps) {
   Ast* node;
   switch (ps->cur()) {
     case T_BEGIN:
@@ -776,7 +959,7 @@ Ast* statement(SimplePascalParser* ps) {
   return node;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<Ast*> statement_list(SimplePascalParser* ps) {
+std::vector<Ast*> statement_list(CrenshawParser* ps) {
 
   std::vector<Ast*> results;
   auto s= statement(ps);
@@ -801,7 +984,7 @@ std::vector<Ast*> statement_list(SimplePascalParser* ps) {
   return results;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Compound* compound_statement(SimplePascalParser* ps, bool beginend) {
+Compound* compound_statement(CrenshawParser* ps, bool beginend) {
   if (beginend) ps->eat(T_BEGIN);
   auto nodes = statement_list(ps);
   if (beginend) ps->eat(T_END);
@@ -812,7 +995,7 @@ Compound* compound_statement(SimplePascalParser* ps, bool beginend) {
   return root;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<Param*> formal_parameters(SimplePascalParser* ps) {
+std::vector<Param*> formal_parameters(CrenshawParser* ps) {
 
   std::vector<Token*> param_tokens { (Token*)ps->eat(d::T_IDENT)};
   std::vector<Param*> pnodes;
@@ -832,7 +1015,7 @@ std::vector<Param*> formal_parameters(SimplePascalParser* ps) {
   return pnodes;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<Param*> formal_parameter_list(SimplePascalParser* ps) {
+std::vector<Param*> formal_parameter_list(CrenshawParser* ps) {
   std::vector<Param*> out;
 
   if (!ps->isCur(d::T_IDENT)) {
@@ -848,7 +1031,7 @@ std::vector<Param*> formal_parameter_list(SimplePascalParser* ps) {
   return pnodes;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ProcedureDecl* procedure_declaration(SimplePascalParser* ps) {
+ProcedureDecl* procedure_declaration(CrenshawParser* ps) {
 
   auto proc_name = (ps->eat(T_PROCEDURE), ps->eat(d::T_IDENT));
   std::vector<Param*> params;
@@ -865,7 +1048,7 @@ ProcedureDecl* procedure_declaration(SimplePascalParser* ps) {
   return (ps->eat(d::T_SEMI), decl);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<Ast*> declarations(SimplePascalParser* ps) {
+std::vector<Ast*> declarations(CrenshawParser* ps) {
   std::vector<Ast*> ds;
 
   if (ps->isCur(T_VAR)) {
@@ -885,12 +1068,12 @@ std::vector<Ast*> declarations(SimplePascalParser* ps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Block* block(SimplePascalParser* ps) {
+Block* block(CrenshawParser* ps) {
   auto decls=declarations(ps);
   return new Block(decls, compound_statement(ps, true));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Program* program(SimplePascalParser* ps) {
+Program* program(CrenshawParser* ps) {
   auto var_node = (ps->eat(T_PROGRAM),variable(ps));
   auto prog_name = var_node->name();
   auto prog = new Program(prog_name.c_str(),
@@ -899,41 +1082,41 @@ Program* program(SimplePascalParser* ps) {
   return (ps->eat(d::T_DOT), prog);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SimplePascalParser::~SimplePascalParser() {
+CrenshawParser::~CrenshawParser() {
   delete lex;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SimplePascalParser::SimplePascalParser(const char* src) {
+CrenshawParser::CrenshawParser(const char* src) {
   lex = new Lexer(src);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IAst* SimplePascalParser::parse() {
+d::IAst* CrenshawParser::parse() {
   return program(this);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int SimplePascalParser::cur() {
+int CrenshawParser::cur() {
   return lex->ctx.cur->type();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-char SimplePascalParser::peek() {
+char CrenshawParser::peek() {
   return d::peek(lex->ctx);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool SimplePascalParser::isCur(int type) {
+bool CrenshawParser::isCur(int type) {
   return lex->ctx.cur->type() == type;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IToken* SimplePascalParser::token() {
+d::IToken* CrenshawParser::token() {
   return lex->ctx.cur;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IToken* SimplePascalParser::eat() {
+d::IToken* CrenshawParser::eat() {
   auto t= lex->ctx.cur;
   lex->ctx.cur=lex->getNextToken();
   return t;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IToken* SimplePascalParser::eat(int wanted) {
+d::IToken* CrenshawParser::eat(int wanted) {
   auto t= (Token*) lex->ctx.cur;
   if (t->type() != wanted) {
     ::sprintf(BUF, "Expected token %s, found token %s near line %d, col %d.\n",
@@ -981,9 +1164,7 @@ d::IToken* SimplePascalParser::eat(int wanted) {
         empty :
 
         expr : term ((PLUS | MINUS) term)*
-
         term : factor ((MUL | INTEGER_DIV | FLOAT_DIV) factor)*
-
         factor : PLUS factor
                | MINUS factor
                | INTEGER_CONST
@@ -993,6 +1174,19 @@ d::IToken* SimplePascalParser::eat(int wanted) {
 
         variable: ID
 */
+/*
+<b-expression> ::= <b-term> [<orop> <b-term>]*
+ <b-term>       ::= <not-factor> [AND <not-factor>]*
+ <not-factor>   ::= [NOT] <b-factor>
+ <b-factor>     ::= <b-literal> | <b-variable> | <relation>
+ <relation>     ::= | <expression> [<relop> <expression]
+
+ <expression>   ::= <term> [<addop> <term>]*
+ <term>         ::= <signed factor> [<mulop> factor]*
+ <signed factor>::= [<addop>] <factor>
+ <factor>       ::= <integer> | <variable> | (<b-expression>)
+
+ */
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -33,6 +33,43 @@ struct Ast : public d::IAst {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct BoolExpr : public Ast {
+
+  BoolExpr(std::vector<Ast*>&, std::vector<Token*>&);
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+  std::string name();
+  virtual ~BoolExpr() {}
+
+  std::vector<Ast*> terms;
+  std::vector<Token*> ops;
+};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct BoolTerm : public Ast {
+
+  d::ExprValue eval(d::IEvaluator*);
+  BoolTerm(std::vector<Ast*>&);
+  void visit(d::IAnalyzer*);
+  std::string name();
+  virtual ~BoolTerm() {}
+
+  std::vector<Ast*> terms;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct RelationOp : public Ast {
+
+  RelationOp(Ast* left, Token* op, Ast* right);
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+  std::string name();
+  virtual ~RelationOp() {}
+
+  Ast* lhs;
+  Ast* rhs;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BinOp : public Ast {
 
   BinOp(Ast* left, Token* op, Ast* right);
@@ -63,6 +100,15 @@ struct String : public Ast {
   std::string name();
 };
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct NotFactor : public Ast {
+  d::ExprValue eval(d::IEvaluator*);
+  NotFactor(Ast* expr);
+  void visit(d::IAnalyzer*);
+  virtual ~NotFactor() {}
+  std::string name();
+  Ast* expr;
+};
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct UnaryOp : public Ast {
   d::ExprValue eval(d::IEvaluator*);
@@ -250,9 +296,9 @@ struct SymTable : public d::SymbolTable {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SimplePascalParser : public d::IParser {
-  SimplePascalParser(const char* src);
-  virtual ~SimplePascalParser();
+struct CrenshawParser : public d::IParser {
+  CrenshawParser(const char* src);
+  virtual ~CrenshawParser();
   d::IAst* parse();
   int cur();
   char peek();

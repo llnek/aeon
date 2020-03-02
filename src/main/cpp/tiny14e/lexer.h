@@ -42,6 +42,13 @@ enum TokenType {
   T_END,
 
   // symbols
+  T_GTEQ,
+  T_LTEQ,
+  T_NOTEQ,
+  T_NOT,
+  T_XOR,
+  T_OR,
+  T_AND,
   T_ASSIGN
 
 };

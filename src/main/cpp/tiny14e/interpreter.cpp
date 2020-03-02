@@ -26,7 +26,7 @@ Interpreter::Interpreter(const char* src) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue Interpreter::interpret() {
-  SimplePascalParser p(source);
+  CrenshawParser p(source);
   auto tree= (Ast*) p.parse();
   return check(tree), eval(tree);
 }
@@ -45,7 +45,7 @@ d::Frame* Interpreter::push(const std::string& name) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::Frame* Interpreter::pop() {
   auto f= stack.pop();
-  ::printf("Frame poped:=\n%s\n", f->toString().c_str());
+  ::printf("Frame pop'ed:=\n%s\n", f->toString().c_str());
   return f;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

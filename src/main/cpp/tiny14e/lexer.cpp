@@ -37,7 +37,7 @@ std::map<int, std::string> TOKENS {
   {T_STR, "STRING"},
   {T_INT_DIV, "DIV"},
   {T_BEGIN, "BEGIN"},
-  {T_ASSIGN, ":="},
+  //{T_ASSIGN, ":="},
   {T_END, "END"}
 };
 
@@ -292,10 +292,70 @@ d::IToken* Lexer::getNextToken() {
       skipComment();
     }
     else
+    if (ch == '<') {
+      auto m=ctx.mark();
+      if (d::peekNext(ctx) == '=') {
+        d::advance(ctx);
+        d::advance(ctx);
+        return new Token(T_LTEQ, "<=", m);
+      }
+      else if (d::peekNext(ctx) == '>') {
+        d::advance(ctx);
+        d::advance(ctx);
+        return new Token(T_NOTEQ, "<>", m);
+      }
+      else {
+        d::advance(ctx);
+        return new Token(d::T_LT, ch, m);
+      }
+    }
+    else
+    if (ch == '>') {
+      auto m=ctx.mark();
+      if (d::peekNext(ctx) == '=') {
+        d::advance(ctx);
+        d::advance(ctx);
+        return new Token(T_GTEQ, ">=", m);
+      } else {
+        d::advance(ctx);
+        return new Token(d::T_GT, ch, m);
+      }
+    }
+    else
+    if (ch == '|') {
+      if (d::peekNext(ctx) == '|') {
+        auto m=ctx.mark();
+        d::advance(ctx);
+        d::advance(ctx);
+        return new Token(T_OR, "||", m);
+      }
+    }
+    else
+    if (ch == '&') {
+      if (d::peekNext(ctx) == '&') {
+        auto m=ctx.mark();
+        d::advance(ctx);
+        d::advance(ctx);
+        return new Token(T_AND, "&&", m);
+      }
+    }
+    else
     if (ch == ';') {
       auto m=ctx.mark();
       d::advance(ctx);
       return new Token(d::T_SEMI, ch, m);
+    }
+    else
+    if (ch == '!') {
+      auto m=ctx.mark();
+      d::advance(ctx);
+      return new Token(T_NOT, ch, m);
+    }
+    else
+    if (ch == '~') {
+      auto m=ctx.mark();
+      d::advance(ctx);
+      return new Token(T_XOR, ch, m);
     }
     else
     if (ch == ':') {
