@@ -24,7 +24,16 @@ Block* block(SimplePascalParser*);
 Ast* expr(SimplePascalParser*);
 static char BUF[1024];
 
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+long toInt(const d::ExprValue& e) {
+  long x = 0L;
+  switch (e.type) {
+    case d::EXPR_REAL: x = (long) e.value.u.r; break;
+    case d::EXPR_INT: x = e.value.u.n; break;
+    default: break;
+  }
+  return x;
+}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool toBool(const d::ExprValue& e) {
   long x = 0L;
@@ -558,6 +567,105 @@ ProcedureCall* proccall_statement(SimplePascalParser* ps) {
 
   return (ps->eat(d::T_RPAREN), new ProcedureCall(proc_name, pms, (Token*)token));
 }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+RepeatUntil::RepeatUntil(Token* t, Ast* e, Compound* c) : Ast(t) {
+  cond=e;
+  code= c;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue RepeatUntil::eval(d::IEvaluator* e) {
+  d::ExprValue ret= code->eval(e);
+  auto c= cond->eval(e);
+  while (toBool(c)) {
+    ret=code->eval(e);
+    c = cond->eval(e);
+    ::printf("looping.....\n");
+  }
+  return ret;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void RepeatUntil::visit(d::IAnalyzer* a) {
+  code->visit(a);
+  cond->visit(a);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string RepeatUntil::name() {
+  return token->impl.text;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+IfThenElse::IfThenElse(Token* t, Ast* cond, Compound* then, Compound* elze)
+  : IfThenElse(t,cond,then) {
+  this->elze=elze;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+IfThenElse::IfThenElse(Token* t, Ast* cond, Compound* then)
+  : Ast(t) {
+  this->cond=cond;
+  this->then=then;
+  S_NIL(elze);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue IfThenElse::eval(d::IEvaluator* e) {
+  auto c= cond->eval(e);
+  d::ExprValue ret;
+
+  if (toBool(c)) {
+    ret= then->eval(e);
+  } else if (elze) {
+    ret= elze->eval(e);
+  }
+
+  return ret;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void IfThenElse::visit(d::IAnalyzer* a) {
+  cond->visit(a);
+  then->visit(a);
+  if (elze) elze->visit(a);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string IfThenElse::name() {
+  return token->impl.text;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ForLoop::ForLoop(Token* t, Var* v, Ast* i, Ast* e, Compound* code) : Ast(t) {
+  var_node=v;
+  init=i;
+  term=e;
+  this->code= code;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue ForLoop::eval(d::IEvaluator* e) {
+  auto vn= var_node->name();
+  d::ExprValue ret;
+  e->setValue(vn, init->eval(e));
+  ::printf("ready\n");
+  while (1) {
+    auto z= toInt(term->eval(e));
+    auto i= toInt(e->getValue(vn));
+    ::printf("z = %ld, i= %ld\n", z ,i);
+    if (z > i) {
+      ret= code->eval(e);
+      e->setValue(vn, d::ExprValue(d::EXPR_INT, i+1));
+    } else {
+      break;
+    }
+  }
+
+  return ret;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void ForLoop::visit(d::IAnalyzer* a) {
+  var_node->visit(a);
+  init->visit(a);
+  term->visit(a);
+  code->visit(a);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string ForLoop::name() {
+  return token->impl.text;
+}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 WhileLoop::WhileLoop(Token* t, Ast* e, Compound* c) : Ast(t) {
   cond=e;
@@ -583,7 +691,42 @@ void WhileLoop::visit(d::IAnalyzer* a) {
 std::string WhileLoop::name() {
   return token->impl.text;
 }
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast* doRepeat(SimplePascalParser* ps) {
+  auto w= (Token*)ps->eat(T_REPEAT);
+  auto c = compound_statement(ps,false);
+  ps->eat(T_UNTIL);
+  ps->eat(d::T_LPAREN);
+  auto e = expr(ps);
+  ps->eat(d::T_RPAREN);
+  return new RepeatUntil(w, e, c);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast* doIf(SimplePascalParser* ps) {
+  auto w= (Token*)ps->eat(T_IF);
+  ps->eat(d::T_LPAREN);
+  auto c = expr(ps);
+  ps->eat(d::T_RPAREN);
+  auto t = compound_statement(ps,false);
+  Compound* e=nullptr;
+  if (ps->isCur(T_ELSE)) {
+    ps->eat();
+    e = compound_statement(ps,false);
+  }
+  ps->eat(T_ENDIF);
+  return new IfThenElse(w, c, t, e);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast* doFor(SimplePascalParser* ps) {
+  auto w= (Token*)ps->eat(T_FOR);
+  auto v = new Var((Token*) ps->eat(d::T_IDENT));
+  ps->eat(T_ASSIGN);
+  auto i = expr(ps);
+  auto e = expr(ps);
+  auto c = compound_statement(ps,false);
+  ps->eat(T_ENDFOR);
+  return new ForLoop(w, v, i, e, c);
+}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Ast* doWhile(SimplePascalParser* ps) {
   auto w= (Token*)ps->eat(T_WHILE);
@@ -601,8 +744,17 @@ Ast* statement(SimplePascalParser* ps) {
     case T_BEGIN:
       node = compound_statement(ps, true);
       break;
+    case T_FOR:
+      node= doFor(ps);
+      break;
+    case T_IF:
+      node= doIf(ps);
+      break;
     case T_WHILE:
       node = doWhile(ps);
+      break;
+    case T_REPEAT:
+      node= doRepeat(ps);
       break;
     case d::T_IDENT:
       if (ps->peek() == '(') {

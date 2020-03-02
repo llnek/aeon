@@ -93,17 +93,21 @@ begin\n\
 end;\n\
 \n\
 begin { Main }\n\
-    flag := 4;\n\
-    while (flag) \n\
-      flag := flag - 1;\n\
-    endwhile;\n\
+    flag := 0;\n\
+    if (flag) \n\
+      flag := flag + 1;\n\
+    else \n\
+      flag := 999;\n\
+      flag := flag + 1;\n\
+    endif; \n\
    Alpha(3 + 5, 7);  { procedure call }\n\
 end.  { Main }\n\
 ";
 
 int main(int argc, char* argv[]) {
   try {
-    Interpreter i(ARG18);
+    auto src= readFile("/tmp/poo.pas");
+    Interpreter i(src.c_str());
     auto r= i.interpret();
     ::printf("result = %s\n", r.toString().c_str());
   } catch ( const d::SyntaxError& e) {

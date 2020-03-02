@@ -111,6 +111,40 @@ struct WhileLoop : public Ast {
   Ast* cond;
   Compound* code;
 };
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct ForLoop : public Ast {
+  ForLoop(Token*, Var* v, Ast* i, Ast* e, Compound*);
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+  virtual ~ForLoop() {}
+  std::string name();
+  Var* var_node;
+  Ast* init;
+  Ast* term;
+  Compound* code;
+};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct IfThenElse : public Ast {
+  IfThenElse(Token*, Ast* cond, Compound* then, Compound* elze);
+  IfThenElse(Token*, Ast* cond, Compound* then);
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+  virtual ~IfThenElse() {}
+  std::string name();
+  Ast* cond;
+  Compound* then;
+  Compound* elze;
+};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct RepeatUntil : public Ast {
+  RepeatUntil(Token*, Ast* cond, Compound* code);
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+  virtual ~RepeatUntil() {}
+  std::string name();
+  Ast* cond;
+  Compound* code;
+};
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Assignment : public Ast {
