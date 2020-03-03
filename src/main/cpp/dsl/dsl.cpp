@@ -309,7 +309,7 @@ void Frame::set(const std::string& key, const ExprValue& v, bool localOnly) {
   if (x != slots.end() || localOnly) {
     slots[key]=v;
   } else if (prev) {
-    prev->set(key,v);
+    prev->set(key,v,localOnly);
   }
 }
 

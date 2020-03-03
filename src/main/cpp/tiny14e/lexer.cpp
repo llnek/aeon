@@ -295,6 +295,13 @@ d::IToken* Lexer::getNextToken() {
       return new Token(T_ASSIGN, ":=", m);
     }
     else
+    if (ch== '=' && '=' == d::peekNext(ctx)) {
+      auto m= ctx.mark();
+      d::advance(ctx);
+      d::advance(ctx);
+      return new Token(T_EQUALS, "==", m);
+    }
+    else
     if (ch == '{') {
       d::advance(ctx);
       skipComment();

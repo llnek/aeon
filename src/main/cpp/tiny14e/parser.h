@@ -136,6 +136,7 @@ struct Var : public Ast {
   Var(Token* t);
   virtual ~Var() {}
   std::string name();
+  d::TypeSymbol* type_symbol;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

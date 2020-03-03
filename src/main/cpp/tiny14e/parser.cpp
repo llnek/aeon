@@ -33,7 +33,27 @@ d::ExprValue boolFalse() {
 d::ExprValue boolTrue() {
   return d::ExprValue(d::EXPR_INT, 1L);
 }
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string toStr(const d::ExprValue& e) {
+  std::string x;
+  switch (e.type) {
+    case d::EXPR_REAL: x = std::to_string(e.value.u.r); break;
+    case d::EXPR_INT: x = std::to_string(e.value.u.n); break;
+    case d::EXPR_STR: x = e.value.cs.get()->get(); break;
+    default: break;
+  }
+  return x;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+long toReal(const d::ExprValue& e) {
+  double x = 0L;
+  switch (e.type) {
+    case d::EXPR_REAL: x = e.value.u.r; break;
+    case d::EXPR_INT: x = (double) e.value.u.n; break;
+    default: break;
+  }
+  return x;
+}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 long toInt(const d::ExprValue& e) {
   long x = 0L;
@@ -43,6 +63,18 @@ long toInt(const d::ExprValue& e) {
     default: break;
   }
   return x;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue cast(const d::ExprValue& v, d::TypeSymbol* t) {
+  auto s = t->name;
+  if (s == "INTEGER") {
+    return d::ExprValue(d::EXPR_INT, toInt(v));
+  } else if (s== "REAL") {
+    return d::ExprValue(d::EXPR_REAL, toReal(v));
+  } else if (s== "STRING") {
+    return d::ExprValue(d::EXPR_STR, toStr(v));
+  }
+  return v;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool toBool(const d::ExprValue& e) {
@@ -225,24 +257,27 @@ std::string Assignment::name() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Assignment::visit(d::IAnalyzer* a) {
   auto t = lhs->token;
-  auto v = t->getLiteralAsStr();
-  if (! a->lookup(v)) {
+  auto s= a->lookup(lhs->name());
+  if (E_NIL(s)) {
     ::sprintf(BUF,
               "Unknown var %s near line %d col %d.\n",
-              v.c_str(), t->impl.line, t->impl.col);
+              lhs->name().c_str(), t->impl.line, t->impl.col);
     throw d::SyntaxError(BUF);
   }
+  lhs->type_symbol= (d::TypeSymbol*)s->type;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue Assignment::eval(d::IEvaluator* e) {
   auto v = lhs->token->getLiteralAsStr();
+  auto t= lhs->type_symbol;
   auto r= rhs->eval(e);
-  //::printf("Assigning value to %s\n", v.c_str());
-  e->setValue(v, r, false);
+  //::printf("Assigning value %s to %s\n", r.toString().c_str(), v.c_str());
+  e->setValue(v, cast(r,t),false);
   return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Var::Var(Token* t) : Ast(t) {
+  S_NIL(type_symbol);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string Var::name() {
@@ -287,7 +322,7 @@ SymTable::SymTable(const std::string& n) : d::SymbolTable(n) {
   insert(new BuiltinTypeSymbol("INTEGER"));
   insert(new BuiltinTypeSymbol("REAL"));
   insert(new BuiltinTypeSymbol("STRING"));
-  ::printf("Added built-in types.\n");
+  //::printf("Added built-in types.\n");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -308,6 +343,7 @@ void Param::visit(d::IAnalyzer* a) {
               n.c_str(), token->impl.line, token->impl.col);
     throw d::SyntaxError("Unknown param type.");
   }
+  var_node->type_symbol= (d::TypeSymbol*) t;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue Param::eval(d::IEvaluator* e) {
@@ -338,13 +374,14 @@ void VarDecl::visit(d::IAnalyzer* a) {
               var_name.c_str(), token->impl.line, token->impl.col);
     throw d::SyntaxError(BUF);
   } else {
+    var_node->type_symbol= (d::TypeSymbol*)type_symbol;
     a->define(new d::VarSymbol(var_name, type_symbol));
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue VarDecl::eval(d::IEvaluator* e) {
   d::ExprValue v;
-  e->setValue(this->name(), v);
+  e->setValue(this->name(), cast(v, var_node->type_symbol), true);
   return v;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -466,7 +503,7 @@ d::ExprValue RelationOp::eval(d::IEvaluator* e) {
     case d::T_LT: res = l < r; break;
     case T_GTEQ: res = l >= r; break;
     case T_LTEQ: res = l <= r; break;
-    case d::T_EQ: res = l == r; break;
+    case T_EQUALS: res = l == r; break;
     case T_NOTEQ: res = l != r; break;
     default:
       throw d::SyntaxError("never!");
@@ -565,8 +602,9 @@ d::ExprValue ProcedureCall::eval(d::IEvaluator* e) {
 
   for (auto i=0; i < args.size(); ++i) {
     auto& p= proc_symbol->params[i];
+    auto tt= (d::TypeSymbol*)p->type;
     auto v= args[i]->eval(e);
-    e->setValue(p->name, v);
+    e->setValue(p->name, cast(v, tt), true);
   }
 
   auto r= proc_symbol->block->eval(e);
@@ -647,7 +685,7 @@ Ast* expr(CrenshawParser* ps) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Ast* relation(CrenshawParser* ps) {
   static std::set<int> ops1 { d::T_GT, d::T_LT, T_GTEQ };
-  static std::set<int> ops2 { T_LTEQ, d::T_EQ, T_NOTEQ };
+  static std::set<int> ops2 { T_LTEQ, T_EQUALS, T_NOTEQ };
   auto res = expr(ps);
   while (contains(ops1, ps->cur()) ||
       contains(ops2, ps->cur()) ) {
@@ -762,7 +800,7 @@ d::ExprValue RepeatUntil::eval(d::IEvaluator* e) {
   while (toBool(c)) {
     ret=code->eval(e);
     c = cond->eval(e);
-    ::printf("looping.....\n");
+    //::printf("looping.....\n");
   }
   return ret;
 }
@@ -821,15 +859,15 @@ ForLoop::ForLoop(Token* t, Var* v, Ast* i, Ast* e, Compound* code) : Ast(t) {
 d::ExprValue ForLoop::eval(d::IEvaluator* e) {
   auto vn= var_node->name();
   d::ExprValue ret;
-  e->setValue(vn, init->eval(e));
-  ::printf("ready\n");
+  e->setValue(vn, cast(init->eval(e), var_node->type_symbol),false);
+  //::printf("ready\n");
   while (1) {
     auto z= toInt(term->eval(e));
     auto i= toInt(e->getValue(vn));
-    ::printf("z = %ld, i= %ld\n", z ,i);
-    if (z > i) {
+    //::printf("z = %ld, i= %ld\n", z ,i);
+    if (z >= i) {
       ret= code->eval(e);
-      e->setValue(vn, d::ExprValue(d::EXPR_INT, i+1));
+      e->setValue(vn, cast(d::ExprValue(d::EXPR_INT, i+1), var_node->type_symbol),false);
     } else {
       break;
     }
@@ -839,7 +877,13 @@ d::ExprValue ForLoop::eval(d::IEvaluator* e) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ForLoop::visit(d::IAnalyzer* a) {
+  auto vn= var_node->name();
+  auto s= a->lookup(vn);
+  if (s==nullptr) {
+    throw d::SyntaxError("Missing type");
+  }
   var_node->visit(a);
+  var_node->type_symbol = (d::TypeSymbol*) s->type;
   init->visit(a);
   term->visit(a);
   code->visit(a);

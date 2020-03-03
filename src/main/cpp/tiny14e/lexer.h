@@ -24,6 +24,7 @@ enum TokenType {
   // keywords
   T_PROGRAM,
   T_INT_DIV,
+  T_EQUALS,
   T_VAR,
   T_STR,
   T_INT,

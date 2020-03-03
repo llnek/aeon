@@ -106,10 +106,10 @@ end.  { Main }\n\
 
 int main(int argc, char* argv[]) {
   try {
-    auto src= readFile("/tmp/poo.pas");
+    auto src= readFile("/Users/kenl/Desktop/pas_triangle.pas");
     Interpreter i(src.c_str());
-    auto r= i.interpret();
-    ::printf("result = %s\n", r.toString().c_str());
+    i.interpret();
+    //::printf("result = %s\n", r.toString().c_str());
   } catch ( const d::SyntaxError& e) {
     ::printf("%s", e.what());
   }

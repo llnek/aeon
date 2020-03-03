@@ -35,8 +35,8 @@ d::ExprValue Interpreter::interpret() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::ExprValue Interpreter::eval(Ast* tree) {
   auto res= (stack.push("root"), tree->eval(this));
-  auto env= stack.pop();
-  ::printf("%s\n", env->toString().c_str());
+  //auto env= stack.pop();
+  //::printf("%s\n", env->toString().c_str());
   return res;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -46,7 +46,7 @@ d::Frame* Interpreter::push(const std::string& name) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::Frame* Interpreter::pop() {
   auto f= stack.pop();
-  ::printf("Frame pop'ed:=\n%s\n", f->toString().c_str());
+  //::printf("Frame pop'ed:=\n%s\n", f->toString().c_str());
   return f;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
