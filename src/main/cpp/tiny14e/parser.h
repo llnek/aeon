@@ -129,7 +129,6 @@ struct Compound : public Ast {
 
   std::vector<Ast*> statements;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Var : public Ast {
   d::ExprValue eval(d::IEvaluator*);
@@ -140,12 +139,39 @@ struct Var : public Ast {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct VarInput : public Var {
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+  VarInput(Token* t);
+  virtual ~VarInput() {}
+  d::TypeSymbol* type_symbol;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Type : public Ast {
   d::ExprValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   Type(Token* token);
   virtual ~Type() {}
   std::string name();
+};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Write : public Ast {
+  Write(Token*, std::vector<Ast*>&);
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+  virtual ~Write() {}
+  std::string name();
+  std::vector<Ast*> terms;
+};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Read : public Ast {
+  d::ExprValue eval(d::IEvaluator*);
+  void visit(d::IAnalyzer*);
+  Read(Token*, VarInput*);
+  virtual ~Read() {}
+  std::string name();
+  VarInput* var_node;
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct WhileLoop : public Ast {

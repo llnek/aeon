@@ -27,6 +27,16 @@ struct Interpreter : public d::IEvaluator, public d::IAnalyzer {
   d::Frame* push(const std::string&);
   d::Frame* pop();
   d::Frame* peek();
+
+  std::string readString() { return "";}
+  double readFloat() { return 0;}
+  long readInt() { return 0L;}
+  void writeString(const std::string&) {}
+  void writeFloat(double) {}
+  void writeInt(long) {}
+  void writeln() {}
+
+
   //analyzer
   void pushScope(const std::string&);
   d::SymbolTable* popScope();

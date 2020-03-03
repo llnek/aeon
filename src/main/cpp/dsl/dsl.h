@@ -283,6 +283,15 @@ struct IEvaluator {
   virtual Frame* pop()=0;
   virtual Frame* peek()=0;
 
+  virtual std::string readString()=0;
+  virtual double readFloat()=0;
+  virtual long readInt()=0;
+
+  virtual void writeString(const std::string&)=0;
+  virtual void writeFloat(double)=0;
+  virtual void writeInt(long)=0;
+  virtual void writeln()=0;
+
   protected:
 
   ~IEvaluator() {}

@@ -27,11 +27,21 @@ struct Interpreter : public d::IEvaluator, public d::IAnalyzer {
   d::Frame* push(const std::string&);
   d::Frame* pop();
   d::Frame* peek();
+
+  std::string readString();
+  double readFloat();
+  long readInt();
+  void writeString(const std::string&);
+  void writeFloat(double);
+  void writeInt(long);
+  void writeln();
+
   //analyzer
   void pushScope(const std::string&);
   d::SymbolTable* popScope();
   d::Symbol* lookup(const std::string&, bool traverse);
   void define(d::Symbol*);
+
 
   Interpreter(const char* src);
   d::ExprValue interpret();

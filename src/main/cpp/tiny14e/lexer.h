@@ -42,6 +42,10 @@ enum TokenType {
   T_END,
 
   // symbols
+  T_WRITELN,
+  T_WRITE,
+  T_READLN,
+  T_READ,
   T_GTEQ,
   T_LTEQ,
   T_NOTEQ,

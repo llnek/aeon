@@ -369,17 +369,16 @@ d::ExprValue BoolExpr::eval(d::IEvaluator* e) {
     auto rhs= terms[i+1]->eval(e);
     if (t->type() == T_XOR) {
       if (res != toBool(rhs)) {
-        return boolTrue();
+        res=true;
       }
     } else {
       if (toBool(rhs)) {
-        return boolTrue();
+        res=true;
       }
     }
-    res=false;
     ++i;
   }
-  return boolFalse();
+  return res ? boolTrue() : boolFalse();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void BoolExpr::visit(d::IAnalyzer* a) {
@@ -861,7 +860,6 @@ d::ExprValue WhileLoop::eval(d::IEvaluator* e) {
   while (toBool(c)) {
     ret=code->eval(e);
     c = cond->eval(e);
-    ::printf("looping.....\n");
   }
   return ret;
 }
@@ -872,6 +870,82 @@ void WhileLoop::visit(d::IAnalyzer* a) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string WhileLoop::name() {
+  return token->impl.text;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+VarInput::VarInput(Token* t) : Var(t) {
+  S_NIL(type_symbol);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue VarInput::eval(d::IEvaluator* e) {
+  auto s= type_symbol->name;
+  d::ExprValue res;
+
+  if (s == "INTEGER") {
+    res = d::ExprValue(d::EXPR_INT, e->readInt());
+  } else if (s == "REAL") {
+    res = d::ExprValue(d::EXPR_REAL, e->readFloat());
+  } else if (s == "STRING") {
+    res = d::ExprValue(d::EXPR_STR, e->readString());
+  }
+  e->setValue(name(), res,false);
+  return res;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void VarInput::visit(d::IAnalyzer* a) {
+  d::VarSymbol* s = (d::VarSymbol*) a->lookup(this->name());
+  if (s) {
+    type_symbol= (d::TypeSymbol*) s->type;
+  } else {
+    ::sprintf(BUF, "Unknown var %s near line %d, col %d.\n",
+        name().c_str(), token->impl.line, token->impl.col);
+    throw d::SyntaxError(BUF);
+  }
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Read::Read(Token* t, VarInput* v) : Ast(t) {
+  var_node=v;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue Read::eval(d::IEvaluator* e) {
+  auto r= var_node->eval(e);
+  if (token->type() == T_READLN) {
+    e->writeln();
+  }
+  return r;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Read::visit(d::IAnalyzer* a) {
+  var_node->visit(a);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string Read::name() {
+  return token->impl.text;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Write::Write(Token* t, std::vector<Ast*>& ts) : Ast(t) {
+  s__ccat(terms,ts);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::ExprValue Write::eval(d::IEvaluator* e) {
+  std::string out;
+  for (auto& x : terms) {
+    out += x->eval(e).toString();
+  }
+  e->writeString(out);
+  if (token->type() == T_WRITELN) {
+    e->writeln();
+  }
+  return d::ExprValue();
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Write::visit(d::IAnalyzer* a) {
+  for (auto& x : terms) {
+    x->visit(a);
+  }
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string Write::name() {
   return token->impl.text;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -921,11 +995,47 @@ Ast* doWhile(CrenshawParser* ps) {
   return new WhileLoop(w, e, c);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast* doWrite(CrenshawParser* ps, bool nl) {
+  std::vector<Ast*> ts;
+  d::IToken* t;
+  if (nl) t= ps->eat(T_WRITELN); else t= ps->eat(T_WRITE);
+  ps->eat(d::T_LPAREN);
+  while (!ps->isCur(d::T_RPAREN)) {
+    s__conj(ts, expr(ps));
+    if (!ps->isCur(d::T_RPAREN)) {
+      ps->eat(d::T_COMMA);
+    }
+  }
+  ps->eat(d::T_RPAREN);
+  return new Write((Token*)t, ts);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast* doRead(CrenshawParser* ps, bool nl) {
+  d::IToken* t;
+  if (nl) t= ps->eat(T_READLN); else t= ps->eat(T_READ);
+  ps->eat(d::T_LPAREN);
+  auto v= new VarInput((Token*)ps->eat(d::T_IDENT));
+  ps->eat(d::T_RPAREN);
+  return new Read((Token*)t, v);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Ast* statement(CrenshawParser* ps) {
   Ast* node;
   switch (ps->cur()) {
     case T_BEGIN:
       node = compound_statement(ps, true);
+      break;
+    case T_WRITELN:
+      node= doWrite(ps,true);
+      break;
+    case T_WRITE:
+      node= doWrite(ps,false);
+      break;
+    case T_READLN:
+      node= doRead(ps,true);
+      break;
+    case T_READ:
+      node= doRead(ps,false);
       break;
     case T_FOR:
       node= doFor(ps);
