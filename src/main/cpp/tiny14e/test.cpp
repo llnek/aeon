@@ -1,19 +1,5 @@
-#include <iostream>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <cctype>
-#include <vector>
-#include <map>
-#include <set>
-#include <string>
-#include <stdexcept>
-
 #include "interpreter.h"
 
-using namespace czlab::aeon;
-using namespace czlab::tiny14e;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const char* XARG="BEGIN\n\
 \n\
@@ -103,6 +89,8 @@ begin { Main }\n\
    Alpha(3 + 5, 7);  { procedure call }\n\
 end.  { Main }\n\
 ";
+namespace czlab::tiny14e {
+using namespace czlab::aeon;
 
 int main(int argc, char* argv[]) {
   try {
@@ -111,7 +99,31 @@ int main(int argc, char* argv[]) {
     i.interpret();
     //::printf("result = %s\n", r.toString().c_str());
   } catch ( const d::SyntaxError& e) {
-    ::printf("%s", e.what());
+    ::printf("%s", e.what().c_str());
   }
   return 0;
 }
+
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
+/*
+using namespace czlab::aeon;
+using namespace czlab::tiny14e;
+namespace d=czlab::dsl;
+
+int main(int argc, char* argv[]) {
+  try {
+    auto src= readFile("/Users/kenl/Desktop/pas_triangle.pas");
+    Interpreter i(src.c_str());
+    i.interpret();
+    //::printf("result = %s\n", r.get()->toString().c_str());
+  } catch ( const d::SyntaxError& e) {
+    ::printf("%s", e.what().c_str());
+  }
+  return 0;
+}
+*/

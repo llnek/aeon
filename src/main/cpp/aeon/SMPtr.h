@@ -1,97 +1,107 @@
 #pragma once
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-// from stdc++
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 #include "aeon.h"
-namespace czlab {
-namespace aeon {
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-// Simple smart pointer.
-//-----------------------------------------------------------------------------
-template<typename _Tp1> struct MS_DLL SMPtr_ref {
-  _Tp1 *_M_ptr;
-  explicit SMPtr_ref(_Tp1 *__p) : _M_ptr(__p) {}
+namespace czlab::aeon {
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct MS_DLL Counted {
+
+  Counted() : count(0) {}
+  virtual ~Counted() {}
+
+  Counted* retain() {
+    ++count;
+    return this;
+  }
+
+  int release() {
+    if (count > 0) {
+      --count;
+    }
+    return count;
+  }
+
+  int refs() {
+    return count;
+  }
+
+private:
+  Counted& operator= (const Counted&&);
+  Counted& operator= (const Counted&);
+  Counted(const Counted&&) ;
+  Counted(const Counted&) ;
+  int count;
 };
-//////////////////////////////////////////////////////////////////////////////
-template<typename _Tp> class MS_DLL SMPtr {
-  _Tp *_M_ptr;
-  public:
-  typedef _Tp pType;
-  explicit SMPtr(pType *__p = nullptr) throw() : _M_ptr(__p) {}
-  SMPtr(SMPtr &__a) throw() : _M_ptr(__a.release()) {}
 
-  template<typename _Tp1>
-  SMPtr(SMPtr<_Tp1> &__a) throw() : _M_ptr(__a.release()) {}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template<class T>
+struct MS_DLL ManagedPtr {
 
-  SMPtr& operator=(SMPtr &__a) throw() {
-    reset(__a.release());
+  ManagedPtr(const ManagedPtr& rhs) : ManagedPtr() { retain(rhs.pObj); }
+
+  ManagedPtr(T* obj) : ManagedPtr() { retain(obj); }
+
+  ManagedPtr() { S_NIL(pObj); }
+
+  const ManagedPtr& operator = (const ManagedPtr& rhs) {
+    retain(rhs.pObj);
     return *this;
   }
 
-  template<typename _Tp1>
-  SMPtr& operator=(SMPtr<_Tp1> &__a) throw() {
-    reset(__a.release());
-    return *this;
+  bool operator == (const ManagedPtr& rhs) {
+    return pObj == rhs.pObj;
   }
 
-  ~SMPtr() { delete _M_ptr; }
-
-  pType& operator*() const throw() {
-    assert(_M_ptr != nullptr);
-    return *_M_ptr;
+  bool operator != (const ManagedPtr& rhs) {
+    return pObj != rhs.pObj;
   }
 
-  pType* operator->() const throw() {
-    assert(_M_ptr != nullptr);
-    return _M_ptr;
+  ~ManagedPtr() { release(); }
+
+  T* operator -> () const { return get(); }
+
+  T* get() const { return pObj; }
+
+private:
+
+  void retain(T* obj) {
+    if (X_NIL(obj)) {
+      obj->retain();
+    }
+    release();
+    pObj = obj;
   }
 
-  pType* get() const throw() {
-    return _M_ptr;
-  }
-
-  pType* release() throw() {
-    pType *__tmp = _M_ptr;
-    _M_ptr = nullptr;
-    return __tmp;
-  }
-
-  void reset(pType* __p = 0) throw() {
-    if (__p != _M_ptr) {
-      delete _M_ptr;
-      _M_ptr = __p;
+  void release() {
+    if (X_NIL(pObj) && pObj->release() == 0) {
+      del_ptr(pObj);
     }
   }
 
-  SMPtr(SMPtr_ref<pType> __ref) throw()
-  : _M_ptr(__ref._M_ptr) {}
-
-  SMPtr& operator=(SMPtr_ref<pType> __ref) throw() {
-    if (__ref._M_ptr != this->get()) {
-      delete _M_ptr;
-      _M_ptr = __ref._M_ptr;
-    }
-    return *this;
-  }
-
-  template<typename _Tp1>
-  operator SMPtr_ref<_Tp1>() throw() {
-    return SMPtr_ref<_Tp1>(this->release());
-  }
-
-  template<typename _Tp1>
-  operator SMPtr<_Tp1>() throw() {
-    return SMPtr<_Tp1>(this->release());
-  }
+  T* pObj;
 };
-
-
 
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-}}
+}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
 

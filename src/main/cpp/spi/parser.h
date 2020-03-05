@@ -18,8 +18,18 @@
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::spi {
 namespace d = czlab::dsl;
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Ast : public d::IAst {
+struct IAst : public d::IAst {
+
+  virtual d::ExprValue eval(d::IEvaluator*) = 0;
+  virtual void visit(d::IAnalyzer*) = 0;
+  virtual ~IAst() {}
+};
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Ast : public IAst {
 
   virtual ~Ast() {}
   Ast(Token*);

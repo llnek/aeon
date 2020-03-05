@@ -16,6 +16,7 @@
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::dsl {
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<int, std::string> TOKENS {
@@ -50,19 +51,15 @@ std::map<int, std::string> TOKENS {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SyntaxError::SyntaxError(const std::string& x)
-  : std::logic_error(x){
+SemanticError::SemanticError(const std::string& x) : msg(x) {
 }
-SyntaxError::SyntaxError(const char* x)
-  :std::logic_error(x) {
+SemanticError::SemanticError(const char* x) : msg(x) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-EvalError::EvalError(const std::string& x)
-  : std::logic_error(x){
+SyntaxError::SyntaxError(const std::string& x) : msg(x) {
 }
-EvalError::EvalError(const char* x)
-  :std::logic_error(x) {
+SyntaxError::SyntaxError(const char* x) : msg(x) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -214,54 +211,7 @@ TokenInfo Context::mark() {
   return TokenInfo(line,col);
 }
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue::ExprValue(ExprValueType t, long v) : type(t) {
-  value.u.n=v;
-}
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue::ExprValue(ExprValueType t, double v) : type(t) {
-  value.u.r=v;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue::ExprValue(ExprValueType t, const std::string& s) : type(t) {
-  auto len=s.length();
-  value.cs=std::make_shared<a::CString>(len);
-  value.cs.get()->copy(s.c_str());
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue::ExprValue() {
-  type=EXPR_NULL;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool ExprValue::isNull() {
-  return type == EXPR_NULL;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue::~ExprValue() {
-  //if (type == EXPR_STR) { del_array(value.s); }
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue::ExprValue(const ExprValue& src) {
-  value=src.value;
-  type=src.type;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue& ExprValue::operator=(const ExprValue& src) {
-  value=src.value;
-  type=src.type;
-  return *this;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string ExprValue::toString() {
-  switch (type) {
-    case EXPR_REAL: return std::to_string(value.u.r);
-    case EXPR_INT: return std::to_string(value.u.n); break;
-    case EXPR_STR: return std::string(value.cs.get()->get()); break;
-    default: return "null";
-  }
-}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Frame::Frame(const std::string& name, Frame* outer) : name(name) {
   prev=outer;
@@ -282,7 +232,9 @@ std::string Frame::toString() {
   ::sprintf(buf, "%s\nName: %s\n%s\n", b.c_str(), name.c_str(),b.c_str());
   out += buf;
   for (auto& x : slots) {
-    ::sprintf(buf, "%s = %s\n", x.first.c_str(), x.second.toString().c_str());
+    ::sprintf(buf, "%s = %s\n",
+        x.first.c_str(),
+        x.second.get()->toString().c_str());
     out += buf;
   }
   out += z;
@@ -300,11 +252,17 @@ std::set<std::string> Frame::keys() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ExprValue Frame::get(const std::string& key) {
   auto x= slots.find(key);
-  return x != slots.end() ? x->second : (prev ? prev->get(key) : ExprValue());
+  auto r= x != slots.end()
+    ? x->second
+    : (prev ? prev->get(key) : ExprValue(new SNothing()));
+  //::printf("frame:setting %s to %s\n", key.c_str(), r.get()->toString().c_str());
+  return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Frame::set(const std::string& key, const ExprValue& v, bool localOnly) {
   auto x= slots.find(key);
+
+  //::printf("frame:setting %s to %s\n", key.c_str(), v.get()->toString().c_str());
 
   if (x != slots.end() || localOnly) {
     slots[key]=v;

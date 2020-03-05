@@ -413,7 +413,7 @@ d::ExprValue ProcedureCall::eval(d::IEvaluator* e) {
     e->setValue(p->name, v);
   }
 
-  auto r= proc_symbol->block->eval(e);
+  auto r= ((Ast*)proc_symbol->block)->eval(e);
   e->pop();
   return r;
 }

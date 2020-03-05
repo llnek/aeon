@@ -17,18 +17,81 @@
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Ast : public d::IAst {
+struct SInt : public d::SValue {
+  virtual std::string toString() const { return std::to_string(value); }
+  virtual bool equals(const SValue* rhs) const { return false; }
+  SInt(long n) {
+    value=n;
+  }
+  long value;
+};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct SReal : public d::SValue {
+  virtual std::string toString() const { return std::to_string(value); }
+  virtual bool equals(const SValue* rhs) const { return false; }
+  SReal(double d)  {
+    value=d;
+  }
+  double value;
+};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct SStr : public d::SValue {
+  virtual std::string toString() const { return value; }
+  virtual bool equals(const SValue* rhs) const { return false; }
+  SStr(const std::string& s) : value(s) {}
+  SStr(const char* s) : value(s) {}
+  std::string value;
+};
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Reader {
+  virtual std::string readString()=0;
+  virtual double readFloat()=0;
+  virtual long readInt()=0;
+  virtual ~Reader() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Writer {
+  virtual void writeString(const std::string&)=0;
+  virtual void writeFloat(double)=0;
+  virtual void writeInt(long)=0;
+  virtual void writeln()=0;
+  virtual ~Writer() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct EvaluatorAPI : public d::IEvaluator, public Reader, public Writer {
+  virtual void setValue(const std::string&, const d::ExprValue&, bool localOnly=true) = 0;
+  virtual d::ExprValue getValue(const std::string&) = 0;
+  virtual d::Frame* push(const std::string& name)=0;
+  virtual d::Frame* pop()=0;
+  virtual d::Frame* peek()=0;
+  virtual ~EvaluatorAPI() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct AnalyzerAPI : public d::IAnalyzer {
+  virtual d::Symbol* lookup(const std::string&, bool traverse=true) = 0;
+  virtual void pushScope(const std::string& name) =0;
+  virtual d::SymbolTable* popScope()=0;
+  virtual void define(d::Symbol*)=0;
+  virtual ~AnalyzerAPI() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Ast : public d::IAst {
+  virtual d::ExprValue eval(d::IEvaluator* e)=0;
+  virtual void visit(d::IAnalyzer*) = 0;
+  virtual std::string name() = 0;
   virtual ~Ast() {}
   Ast(Token*);
   Ast();
-
   Token* token;
-
   protected:
-
   std::string _name;
 };
 

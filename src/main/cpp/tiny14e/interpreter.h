@@ -20,7 +20,7 @@ namespace czlab::tiny14e {
 namespace d= czlab::dsl;
 //
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Interpreter : public d::IEvaluator, public d::IAnalyzer {
+struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
   //evaluator
   void setValue(const std::string&, const d::ExprValue&, bool localOnly);
   d::ExprValue getValue(const std::string&);

@@ -38,6 +38,32 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
+#define DEBUG_TRACE_FILE    stderr
+#define DEBUG_TRACE   1
+#define NO_OP  do {} while (0)
+#define NO_LOG(...)    NO_OP
+
+#if DEBUG_TRACE
+    #define LOG(...) ::fprintf(DEBUG_TRACE_FILE, __VA_ARGS__)
+#else
+    #define LOG NO_LOG
+#endif
+
+#define ____ASSERT(file, line, condition, ...) \
+    if (!(condition)) { \
+        ::printf("Assertion failed near %s(%d): ", file, line); \
+        ::printf(__VA_ARGS__); \
+        exit(1); \
+    } else { }
+
+#define ASSERT1(condition) \
+    ____ASSERT(__FILE__, __LINE__, condition, "%s", "\n")
+
+#define ASSERT(condition, ...) \
+    ____ASSERT(__FILE__, __LINE__, condition, __VA_ARGS__)
+
+
+//////////////////////////////////////////////////////////////////////////////
 // memory lifecycle stuff
 #define free_file(x) do {if (x) ::fclose(x); x=nullptr;} while (0)
 #define free_mem(x) do {if (x) ::free(x); x=nullptr;} while (0)
@@ -76,6 +102,7 @@
 // c++ STL
 #define contains(C,x) ((C).find((x)) != (C).end())
 #define map__val(M,K) (M).find(K)->second
+typedef std::string SString;
 
 //////////////////////////////////////////////////////////////////////////////
 // pointer macros

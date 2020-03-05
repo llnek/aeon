@@ -14,11 +14,16 @@
 
 #include "../aeon/aeon.h"
 
+#define DSL_ERROR(EXP, fmt, ...) \
+  do { char buf[1024]; \
+  ::sprintf(buf, (const char*)fmt, __VA_ARGS__); throw EXP(buf);} while (0)
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::dsl {
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum {
   T_INTEGER = 1000000,
   T_REAL,
@@ -100,11 +105,11 @@ struct Lexeme {
   ValueSlot value;
 };
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct TokenInfo {
   TokenInfo(int line, int col) : line (line), col(col) {
   }
-  int line;
-  int col;
+  int line,col;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -125,15 +130,21 @@ struct Context {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SyntaxError : public std::logic_error {
-  explicit SyntaxError(const std::string&);
-  explicit SyntaxError(const char*);
+struct SyntaxError {
+  const std::string what() const { return msg; }
+  SyntaxError(const std::string&);
+  SyntaxError(const char*);
+  private:
+  std::string msg;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct EvalError : public std::logic_error {
-  explicit EvalError(const std::string&);
-  explicit EvalError(const char*);
+struct SemanticError {
+  const std::string what() const { return msg; }
+  SemanticError(const std::string&);
+  SemanticError(const char*);
+  private:
+  std::string msg;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -146,32 +157,65 @@ std::string numeric(Context&);
 std::string identifier(Context&);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-enum ExprValueType {
-  EXPR_INT = 2000000,
-  EXPR_REAL,
-  EXPR_STR,
-  EXPR_NULL
+struct SValue : public a::Counted {
+  virtual bool equals(const SValue*) const = 0;
+  virtual std::string toString() const = 0;
+  virtual ~SValue() {}
+  SValue() {}
+};
+
+struct SNothing : public SValue {
+  virtual bool equals(const SValue*) const {
+    return false;
+  }
+  virtual std::string toString() const { return "nothing";}
+  virtual ~SNothing() {}
+  SNothing() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct ExprValue {
+typedef a::ManagedPtr<SValue> ExprValue;
 
-  ExprValue(ExprValueType t, const std::string&);
-  ExprValue(ExprValueType t, long v);
-  ExprValue(ExprValueType t, double v);
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct IEvaluator {
+/*
+  virtual void setValue(const std::string&, const ExprValue&, bool localOnly=true) = 0;
+  virtual ExprValue getValue(const std::string&) = 0;
+  virtual Frame* push(const std::string& name)=0;
+  virtual Frame* pop()=0;
+  virtual Frame* peek()=0;
 
-  std::string toString();
-  bool isNull();
-  ExprValue();
-  ~ExprValue();
+  virtual std::string readString()=0;
+  virtual double readFloat()=0;
+  virtual long readInt()=0;
 
-  ExprValue& operator=(const ExprValue&);
-  ExprValue(const ExprValue&);
-  //ExprValue(ExprValue&&);
-  //ExprValue& operator=(ExprValue&&);
+  virtual void writeString(const std::string&)=0;
+  virtual void writeFloat(double)=0;
+  virtual void writeInt(long)=0;
+  virtual void writeln()=0;
 
-  ExprValueType type;
-  ValueSlot value;
+  protected:
+*/
+  ~IEvaluator() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct IAnalyzer {
+/*
+  virtual Symbol* lookup(const std::string&, bool traverse=true) = 0;
+  virtual void pushScope(const std::string& name) =0;
+  virtual SymbolTable* popScope()=0;
+  virtual void define(Symbol*)=0;
+
+  protected:
+*/
+  ~IAnalyzer() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct IAst {
+  virtual ExprValue eval(IEvaluator*)=0;
+  virtual ~IAst() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -241,7 +285,6 @@ struct VarSymbol : public Symbol {
   ~VarSymbol() {}
 };
 
-struct IAst;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct FunctionSymbol : public Symbol {
 
@@ -275,54 +318,6 @@ struct SymbolTable {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct IEvaluator {
-
-  virtual void setValue(const std::string&, const ExprValue&, bool localOnly=true) = 0;
-  virtual ExprValue getValue(const std::string&) = 0;
-  virtual Frame* push(const std::string& name)=0;
-  virtual Frame* pop()=0;
-  virtual Frame* peek()=0;
-
-  virtual std::string readString()=0;
-  virtual double readFloat()=0;
-  virtual long readInt()=0;
-
-  virtual void writeString(const std::string&)=0;
-  virtual void writeFloat(double)=0;
-  virtual void writeInt(long)=0;
-  virtual void writeln()=0;
-
-  protected:
-
-  ~IEvaluator() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct IAnalyzer {
-
-  virtual Symbol* lookup(const std::string&, bool traverse=true) = 0;
-  virtual void pushScope(const std::string& name) =0;
-  virtual SymbolTable* popScope()=0;
-  virtual void define(Symbol*)=0;
-
-  protected:
-
-  ~IAnalyzer() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct IAst {
-
-  virtual ExprValue eval(IEvaluator*) = 0;
-  virtual void visit(IAnalyzer*) = 0;
-  virtual std::string name() = 0;
-
-  protected:
-
-  ~IAst() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IParser {
 
   virtual IToken* eat(int wantedToken)=0;
@@ -332,7 +327,6 @@ struct IParser {
 
   ~IParser() {}
 };
-
 
 
 
