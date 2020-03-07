@@ -20,27 +20,27 @@ namespace czlab::tiny14e {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SInt : public d::SValue {
+struct SInt : public d::Data {
   virtual std::string toString() const { return std::to_string(value); }
-  virtual bool equals(const SValue* rhs) const { return false; }
+  virtual bool equals(const Data* rhs) const { return false; }
   SInt(long n) {
     value=n;
   }
   long value;
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SReal : public d::SValue {
+struct SReal : public d::Data {
   virtual std::string toString() const { return std::to_string(value); }
-  virtual bool equals(const SValue* rhs) const { return false; }
+  virtual bool equals(const Data* rhs) const { return false; }
   SReal(double d)  {
     value=d;
   }
   double value;
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SStr : public d::SValue {
+struct SStr : public d::Data {
   virtual std::string toString() const { return value; }
-  virtual bool equals(const SValue* rhs) const { return false; }
+  virtual bool equals(const Data* rhs) const { return false; }
   SStr(const std::string& s) : value(s) {}
   SStr(const char* s) : value(s) {}
   std::string value;
@@ -65,26 +65,17 @@ struct Writer {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct EvaluatorAPI : public d::IEvaluator, public Reader, public Writer {
-  virtual void setValue(const std::string&, const d::ExprValue&, bool localOnly=true) = 0;
-  virtual d::ExprValue getValue(const std::string&) = 0;
-  virtual d::Frame* push(const std::string& name)=0;
-  virtual d::Frame* pop()=0;
-  virtual d::Frame* peek()=0;
   virtual ~EvaluatorAPI() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct AnalyzerAPI : public d::IAnalyzer {
-  virtual d::Symbol* lookup(const std::string&, bool traverse=true) = 0;
-  virtual void pushScope(const std::string& name) =0;
-  virtual d::SymbolTable* popScope()=0;
-  virtual void define(d::Symbol*)=0;
   virtual ~AnalyzerAPI() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Ast : public d::IAst {
-  virtual d::ExprValue eval(d::IEvaluator* e)=0;
+  virtual d::DslValue eval(d::IEvaluator* e)=0;
   virtual void visit(d::IAnalyzer*) = 0;
   virtual std::string name() = 0;
   virtual ~Ast() {}
@@ -99,7 +90,7 @@ struct Ast : public d::IAst {
 struct BoolExpr : public Ast {
 
   BoolExpr(std::vector<Ast*>&, std::vector<Token*>&);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   std::string name();
   virtual ~BoolExpr() {}
@@ -110,7 +101,7 @@ struct BoolExpr : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BoolTerm : public Ast {
 
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   BoolTerm(std::vector<Ast*>&);
   void visit(d::IAnalyzer*);
   std::string name();
@@ -123,7 +114,7 @@ struct BoolTerm : public Ast {
 struct RelationOp : public Ast {
 
   RelationOp(Ast* left, Token* op, Ast* right);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   std::string name();
   virtual ~RelationOp() {}
@@ -136,7 +127,7 @@ struct RelationOp : public Ast {
 struct BinOp : public Ast {
 
   BinOp(Ast* left, Token* op, Ast* right);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   std::string name();
   virtual ~BinOp() {}
@@ -147,7 +138,7 @@ struct BinOp : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Num : public Ast {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   Num(Token* t);
   std::string name();
@@ -156,7 +147,7 @@ struct Num : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct String : public Ast {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   String(Token* t);
   virtual ~String() {}
@@ -165,7 +156,7 @@ struct String : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct NotFactor : public Ast {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   NotFactor(Ast* expr);
   void visit(d::IAnalyzer*);
   virtual ~NotFactor() {}
@@ -174,7 +165,7 @@ struct NotFactor : public Ast {
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct UnaryOp : public Ast {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   UnaryOp(Token* t, Ast* expr);
   void visit(d::IAnalyzer*);
   virtual ~UnaryOp() {}
@@ -184,7 +175,7 @@ struct UnaryOp : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Compound : public Ast {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~Compound() {}
   Compound();
@@ -194,7 +185,7 @@ struct Compound : public Ast {
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Var : public Ast {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   Var(Token* t);
   virtual ~Var() {}
@@ -204,7 +195,7 @@ struct Var : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct VarInput : public Var {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   VarInput(Token* t);
   virtual ~VarInput() {}
@@ -213,7 +204,7 @@ struct VarInput : public Var {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Type : public Ast {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   Type(Token* token);
   virtual ~Type() {}
@@ -222,7 +213,7 @@ struct Type : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Write : public Ast {
   Write(Token*, std::vector<Ast*>&);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~Write() {}
   std::string name();
@@ -230,7 +221,7 @@ struct Write : public Ast {
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Read : public Ast {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   Read(Token*, VarInput*);
   virtual ~Read() {}
@@ -240,7 +231,7 @@ struct Read : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct WhileLoop : public Ast {
   WhileLoop(Token*, Ast* cond, Compound* code);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~WhileLoop() {}
   std::string name();
@@ -250,7 +241,7 @@ struct WhileLoop : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ForLoop : public Ast {
   ForLoop(Token*, Var* v, Ast* i, Ast* e, Compound*);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~ForLoop() {}
   std::string name();
@@ -263,7 +254,7 @@ struct ForLoop : public Ast {
 struct IfThenElse : public Ast {
   IfThenElse(Token*, Ast* cond, Compound* then, Compound* elze);
   IfThenElse(Token*, Ast* cond, Compound* then);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~IfThenElse() {}
   std::string name();
@@ -274,7 +265,7 @@ struct IfThenElse : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct RepeatUntil : public Ast {
   RepeatUntil(Token*, Ast* cond, Compound* code);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~RepeatUntil() {}
   std::string name();
@@ -285,7 +276,7 @@ struct RepeatUntil : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Assignment : public Ast {
   Assignment(Var* left, Token* op, Ast* right);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~Assignment() {}
   std::string name();
@@ -295,8 +286,8 @@ struct Assignment : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct NoOp : public Ast {
-  d::ExprValue eval(d::IEvaluator*) {
-    return d::ExprValue();
+  d::DslValue eval(d::IEvaluator*) {
+    return d::DslValue();
   }
   void visit(d::IAnalyzer*) {}
   std::string name() { return "709394"; }
@@ -306,7 +297,7 @@ struct NoOp : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Param : public Ast {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   Param(Var* v, Type* t);
   virtual ~Param() {}
@@ -317,7 +308,7 @@ struct Param : public Ast {
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct VarDecl : public Ast {
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   VarDecl(Var* v, Type* t);
   virtual ~VarDecl() {}
@@ -329,7 +320,7 @@ struct VarDecl : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Block : public Ast {
   Block(std::vector<Ast*>& decls, Compound*);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~Block() {}
   std::string name();
@@ -340,7 +331,7 @@ struct Block : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ProcedureDecl : public Ast {
   ProcedureDecl(const std::string&, std::vector<Param*>&, Block* block);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   virtual ~ProcedureDecl() {}
   void visit(d::IAnalyzer*);
   std::string name();
@@ -352,7 +343,7 @@ struct ProcedureDecl : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ProcedureCall : public Ast {
   ProcedureCall(const std::string&, std::vector<Ast*>&, Token*);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   virtual ~ProcedureCall() {}
   void visit(d::IAnalyzer*);
   std::string name();
@@ -364,7 +355,7 @@ struct ProcedureCall : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Program : public Ast {
   Program(const std::string&, Block* block);
-  d::ExprValue eval(d::IEvaluator*);
+  d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~Program() {}
   std::string name();

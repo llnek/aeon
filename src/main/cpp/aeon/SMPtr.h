@@ -73,13 +73,23 @@ struct MS_DLL ManagedPtr {
     return pObj != rhs.pObj;
   }
 
+  bool isNull() {
+    return E_NIL(pObj);
+  }
+
+  bool isSome() {
+    return X_NIL(pObj);
+  }
+
   ~ManagedPtr() { release(); }
 
-  T* operator -> () const { return get(); }
+  T* operator -> () const { return ptr(); }
 
-  T* get() const { return pObj; }
+  T* ptr() const { return pObj; }
 
 private:
+
+  // will fail to compile if not subclass of Counted
 
   void retain(T* obj) {
     if (X_NIL(obj)) {

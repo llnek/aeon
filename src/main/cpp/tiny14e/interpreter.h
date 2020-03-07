@@ -22,11 +22,11 @@ namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
   //evaluator
-  void setValue(const std::string&, const d::ExprValue&, bool localOnly);
-  d::ExprValue getValue(const std::string&);
-  d::Frame* push(const std::string&);
-  d::Frame* pop();
-  d::Frame* peek();
+  void setValue(const std::string&, const d::DslValue&, bool localOnly);
+  d::DslValue getValue(const std::string&);
+  d::DslFrame push(const std::string&);
+  d::DslFrame pop();
+  d::DslFrame peek();
 
   std::string readString();
   double readFloat();
@@ -44,14 +44,14 @@ struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
 
 
   Interpreter(const char* src);
-  d::ExprValue interpret();
+  d::DslValue interpret();
   virtual ~Interpreter() {}
 
 private:
   const char* source;
-  d::ExprValue eval(Ast*);
+  d::DslValue eval(Ast*);
   void check(Ast*);
-  d::CallStack stack;
+  d::DslFrame stack;
   d::SymbolTable* symbols;
 };
 

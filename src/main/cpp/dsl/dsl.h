@@ -14,7 +14,7 @@
 
 #include "../aeon/aeon.h"
 
-#define DSL_ERROR(EXP, fmt, ...) \
+#define dsl_error(EXP, fmt, ...) \
   do { char buf[1024]; \
   ::sprintf(buf, (const char*)fmt, __VA_ARGS__); throw EXP(buf);} while (0)
 
@@ -23,6 +23,11 @@ namespace czlab::dsl {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Data;
+struct Frame;
+typedef a::ManagedPtr<Data> DslValue;
+typedef a::ManagedPtr<Frame> DslFrame;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum {
   T_INTEGER = 1000000,
@@ -60,38 +65,30 @@ enum {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IToken {
-
   virtual std::string getLiteralAsStr()=0;
   virtual double getLiteralAsReal()=0;
   virtual long getLiteralAsInt()=0;
   virtual std::string toString()=0;
   virtual int type()=0;
-
-  protected:
-
-  ~IToken() {}
+  virtual ~IToken() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IScanner {
-
   virtual bool isKeyword(const std::string&) = 0;
   virtual IToken* getNextToken()=0;
   virtual IToken* number()=0;
   virtual IToken* id()=0;
   virtual IToken* string()=0;
   virtual void skipComment() = 0;
-
-  protected:
-
-  ~IScanner() {}
+  virtual ~IScanner() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ValueSlot {
   std::shared_ptr<a::CString> cs;
   union {
-    long n;
+    llong n;
     double r;
   } u;
 };
@@ -107,24 +104,21 @@ struct Lexeme {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct TokenInfo {
-  TokenInfo(int line, int col) : line (line), col(col) {
-  }
+  TokenInfo(int line, int col) : line (line), col(col) {}
   int line,col;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Context {
+  TokenInfo mark();
   ~Context() {}
   Context();
-
-  TokenInfo mark();
-
+  //
   const char* src;
   size_t len;
   int line;
   int col;
   int pos;
-
   bool eof;
   IToken* cur;
 };
@@ -155,151 +149,17 @@ char peekNext(Context&);
 std::string str(Context&);
 std::string numeric(Context&);
 std::string identifier(Context&);
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SValue : public a::Counted {
-  virtual bool equals(const SValue*) const = 0;
-  virtual std::string toString() const = 0;
-  virtual ~SValue() {}
-  SValue() {}
-};
-
-struct SNothing : public SValue {
-  virtual bool equals(const SValue*) const {
-    return false;
-  }
-  virtual std::string toString() const { return "nothing";}
-  virtual ~SNothing() {}
-  SNothing() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-typedef a::ManagedPtr<SValue> ExprValue;
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct IEvaluator {
-/*
-  virtual void setValue(const std::string&, const ExprValue&, bool localOnly=true) = 0;
-  virtual ExprValue getValue(const std::string&) = 0;
-  virtual Frame* push(const std::string& name)=0;
-  virtual Frame* pop()=0;
-  virtual Frame* peek()=0;
-
-  virtual std::string readString()=0;
-  virtual double readFloat()=0;
-  virtual long readInt()=0;
-
-  virtual void writeString(const std::string&)=0;
-  virtual void writeFloat(double)=0;
-  virtual void writeInt(long)=0;
-  virtual void writeln()=0;
-
-  protected:
-*/
-  ~IEvaluator() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct IAnalyzer {
-/*
-  virtual Symbol* lookup(const std::string&, bool traverse=true) = 0;
-  virtual void pushScope(const std::string& name) =0;
-  virtual SymbolTable* popScope()=0;
-  virtual void define(Symbol*)=0;
-
-  protected:
-*/
-  ~IAnalyzer() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct IAst {
-  virtual ExprValue eval(IEvaluator*)=0;
-  virtual ~IAst() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Frame {
-
-  void set(const std::string&, const ExprValue&, bool localOnly=true);
-  ExprValue get(const std::string& n);
-  std::set<std::string> keys();
-  std::string toString();
-
-  Frame(const std::string& name, Frame* outer);
-  Frame(const std::string& name);
-  ~Frame();
-
-  std::string name;
-  Frame* prev;
-
-  protected:
-
-  std::map<std::string,ExprValue> slots;
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct CallStack {
-
-  Frame* push(const std::string& name);
-  Frame* pop();
-  Frame* peek();
-
-  CallStack();
-  ~CallStack();
-
-  protected:
-
-  Frame* top;
-};
+Data* nothing();
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Symbol {
 
   Symbol(const std::string& n, Symbol* t) : Symbol(n) { type=t; }
-  Symbol(const std::string& n) : name(n) { type=nullptr; }
+  Symbol(const std::string& n) : name(n) { S_NIL(type); }
   ~Symbol() {}
 
   Symbol* type;
   std::string name;
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct TypeSymbol : public Symbol {
-
-  TypeSymbol(const std::string& n) : Symbol(n) {}
-  ~TypeSymbol() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct ParamSymbol : public Symbol {
-
-  ParamSymbol(const std::string& n, Symbol* t) : Symbol(n,t) {}
-  ~ParamSymbol() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct VarSymbol : public Symbol {
-
-  VarSymbol(const std::string& n, Symbol* t) : Symbol(n,t) {}
-  ~VarSymbol() {}
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct FunctionSymbol : public Symbol {
-
-  FunctionSymbol(const std::string& name, TypeSymbol* t) : FunctionSymbol(name) {
-    result=t;
-  }
-  FunctionSymbol(const std::string& name) : Symbol(name) {
-    block=nullptr;
-    result=nullptr;
-  }
-  ~FunctionSymbol() {}
-
-  TypeSymbol* result;
-  IAst* block;
-  std::vector<ParamSymbol*> params;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -317,16 +177,114 @@ struct SymbolTable {
   std::map<std::string, Symbol*> symbols;
 };
 
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Data : public a::Counted {
+  virtual bool equals(const Data*) const = 0;
+  virtual std::string toString() const = 0;
+  virtual ~Data() {}
+  Data() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Nothing : public Data {
+  virtual std::string toString() const { return "nothing";}
+  virtual bool equals(const Data* rhs) const {
+    Nothing X;
+    return X_NIL(rhs) && typeid(*rhs) == typeid(X);
+  }
+  virtual ~Nothing() {}
+  Nothing() {}
+};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct IEvaluator {
+  virtual void setValue(const std::string&, const DslValue&, bool localOnly) = 0;
+  virtual DslValue getValue(const std::string&) = 0;
+  virtual DslFrame push(const std::string& name)=0;
+  virtual DslFrame pop()=0;
+  virtual DslFrame peek()=0;
+  virtual ~IEvaluator() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct IAnalyzer {
+  virtual Symbol* lookup(const std::string&, bool traverse=true) = 0;
+  virtual void pushScope(const std::string& name) =0;
+  virtual SymbolTable* popScope()=0;
+  virtual void define(Symbol*)=0;
+  virtual ~IAnalyzer() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct IAst {
+  virtual DslValue eval(IEvaluator*)=0;
+  virtual ~IAst() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Frame : public a::Counted {
+
+  Frame(const std::string&, const DslFrame& outer);
+  Frame(const std::string&);
+
+  std::string toString();
+  ~Frame();
+
+  void set(const std::string& sym, const DslValue&, bool localOnly);
+  DslValue get(const std::string& sym);
+  std::set<std::string> keys();
+
+  //DslFrame find(const std::string& sym);
+  DslFrame getOuter();
+
+  private:
+
+  std::map<std::string,DslValue> slots;
+  std::string name;
+  DslFrame prev;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct TypeSymbol : public Symbol {
+  TypeSymbol(const std::string& n) : Symbol(n) {}
+  ~TypeSymbol() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct ParamSymbol : public Symbol {
+  ParamSymbol(const std::string& n, Symbol* t) : Symbol(n,t) {}
+  ~ParamSymbol() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct VarSymbol : public Symbol {
+  VarSymbol(const std::string& n, Symbol* t) : Symbol(n,t) {}
+  ~VarSymbol() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct FunctionSymbol : public Symbol {
+  FunctionSymbol(const std::string& name, TypeSymbol* t) : FunctionSymbol(name) {
+    result=t;
+  }
+  FunctionSymbol(const std::string& name) : Symbol(name) {
+    S_NIL(block);
+    S_NIL(result);
+  }
+  ~FunctionSymbol() {}
+
+  TypeSymbol* result;
+  IAst* block;
+  std::vector<ParamSymbol*> params;
+};
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IParser {
-
   virtual IToken* eat(int wantedToken)=0;
   virtual IAst* parse()=0;
-
-  protected:
-
-  ~IParser() {}
+  virtual ~IParser() {}
 };
+
 
 
 

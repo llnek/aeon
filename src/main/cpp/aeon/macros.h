@@ -38,8 +38,11 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
-#define DEBUG_TRACE_FILE    stderr
-#define DEBUG_TRACE   1
+typedef int64_t llong;
+
+//////////////////////////////////////////////////////////////////////////////
+#define DEBUG_TRACE_FILE    stdout
+#define DEBUG_TRACE   0
 #define NO_OP  do {} while (0)
 #define NO_LOG(...)    NO_OP
 
@@ -94,9 +97,11 @@
 
 //////////////////////////////////////////////////////////////////////////////
 // c++ casting
-#define DCAST(type,expr) dynamic_cast<type>(expr)
-#define SCAST(type,expr) static_cast<type>(expr)
-#define PCAST(type,expr) ((type*)(expr))
+#define d__cast(type,expr) dynamic_cast<type*>(expr)
+#define s__cast(type,expr) static_cast<type*>(expr)
+#define v__cast(type,expr) static_cast<type>(expr)
+
+//#define PCAST(type,expr) ((type*)(expr))
 
 //////////////////////////////////////////////////////////////////////////////
 // c++ STL

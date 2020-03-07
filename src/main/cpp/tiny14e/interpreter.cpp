@@ -26,46 +26,51 @@ Interpreter::Interpreter(const char* src) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::ExprValue Interpreter::interpret() {
+d::DslValue Interpreter::interpret() {
   CrenshawParser p(source);
   auto tree= (Ast*) p.parse();
   return check(tree), eval(tree);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::ExprValue Interpreter::eval(Ast* tree) {
-  auto res= (stack.push("root"), tree->eval(this));
-  //auto env= stack.pop();
+d::DslValue Interpreter::eval(Ast* tree) {
+  auto res= (push("root"), tree->eval(this));
+  //auto env= pop();
   //::printf("%s\n", env->toString().c_str());
   return res;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Frame* Interpreter::push(const std::string& name) {
-  return stack.push(name);
+d::DslFrame Interpreter::push(const std::string& name) {
+  stack = d::DslFrame(new d::Frame(name, stack));
+  return stack;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Frame* Interpreter::pop() {
-  auto f= stack.pop();
+d::DslFrame Interpreter::pop() {
+  d::DslFrame f;
+  if (stack.isSome()) {
+    f= stack;
+    stack= stack.ptr()->getOuter();
+  }
   //::printf("Frame pop'ed:=\n%s\n", f->toString().c_str());
   return f;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Frame* Interpreter::peek() {
-  return stack.peek();
+d::DslFrame Interpreter::peek() {
+  return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::setValue(const std::string& name, const d::ExprValue& v, bool localOnly) {
-  auto x = stack.peek();
-  if (x) x->set(name, v, localOnly);
+void Interpreter::setValue(const std::string& name, const d::DslValue& v, bool localOnly) {
+  auto x = peek();
+  if (x.isSome()) x->set(name, v, localOnly);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::ExprValue Interpreter::getValue(const std::string& name) {
-  auto x = stack.peek();
-  if (x)
+d::DslValue Interpreter::getValue(const std::string& name) {
+  auto x = peek();
+  if (x.isSome())
     return x->get(name);
   else
-    return d::ExprValue();
+    return d::DslValue();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

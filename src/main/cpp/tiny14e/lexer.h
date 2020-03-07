@@ -20,7 +20,6 @@ namespace czlab::tiny14e {
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
-
   // keywords
   T_PROGRAM,
   T_INT_DIV,

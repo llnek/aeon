@@ -61,6 +61,9 @@ std::vector<std::string> tokenize(const std::string &src, TChar delim);
 std::string toupper(const std::string&);
 std::string tolower(const std::string&);
 int modulo(int, int);
+template <typename T> bool isEven(T x) {
+  return (x % 2) == 0;
+}
 void randSeed();
 std::string readFile(const char* filepath);
 }

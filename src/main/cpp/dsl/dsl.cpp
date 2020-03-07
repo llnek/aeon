@@ -19,6 +19,8 @@ namespace czlab::dsl {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Data* nothing() { return new Nothing(); }
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<int, std::string> TOKENS {
   {T_INTEGER, "long"},
   {T_REAL, "double"},
@@ -51,16 +53,12 @@ std::map<int, std::string> TOKENS {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SemanticError::SemanticError(const std::string& x) : msg(x) {
-}
-SemanticError::SemanticError(const char* x) : msg(x) {
-}
+SemanticError::SemanticError(const std::string& x) : msg(x) { }
+SemanticError::SemanticError(const char* x) : msg(x) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SyntaxError::SyntaxError(const std::string& x) : msg(x) {
-}
-SyntaxError::SyntaxError(const char* x) : msg(x) {
-}
+SyntaxError::SyntaxError(const std::string& x) : msg(x) { }
+SyntaxError::SyntaxError(const char* x) : msg(x) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 char peek(Context& ctx) {
@@ -151,7 +149,8 @@ std::string str(Context& ctx) {
       }
       if (ch == '\\') {
         if (!advance(ctx)) {
-          throw SyntaxError("Malformed string value, bad escaped char.");
+          dsl_error(SyntaxError,
+              "Malformed string value, bad escaped char %c\n.", ch);
         }
         ch=escSeq(peek(ctx));
       }
@@ -159,7 +158,8 @@ std::string str(Context& ctx) {
       advance(ctx);
     }
     if (ctx.eof || ch != '"') {
-      throw SyntaxError("Malformed string value, missing dquote.");
+      dsl_error(SyntaxError,
+          "Malformed string value, missing %s\n.", "dquote");
     }
     // good, got the end dquote
     advance(ctx);
@@ -213,12 +213,11 @@ TokenInfo Context::mark() {
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Frame::Frame(const std::string& name, Frame* outer) : name(name) {
+Frame::Frame(const std::string& name, const DslFrame& outer) : name(name) {
   prev=outer;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Frame::Frame(const std::string& name) : name(name) {
-  S_NIL(prev);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Frame::~Frame() {
@@ -229,12 +228,12 @@ std::string Frame::toString() {
   std::string z(40,'+');
   std::string out;
   char buf[1024];
-  ::sprintf(buf, "%s\nName: %s\n%s\n", b.c_str(), name.c_str(),b.c_str());
+  ::sprintf(buf, "%s\nkey: %s\n%s\n", b.c_str(), name.c_str(),b.c_str());
   out += buf;
   for (auto& x : slots) {
     ::sprintf(buf, "%s = %s\n",
         x.first.c_str(),
-        x.second.get()->toString().c_str());
+        x.second.ptr()->toString().c_str());
     out += buf;
   }
   out += z;
@@ -250,49 +249,29 @@ std::set<std::string> Frame::keys() {
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ExprValue Frame::get(const std::string& key) {
+DslValue Frame::get(const std::string& key) {
   auto x= slots.find(key);
   auto r= x != slots.end()
     ? x->second
-    : (prev ? prev->get(key) : ExprValue(new SNothing()));
-  //::printf("frame:setting %s to %s\n", key.c_str(), r.get()->toString().c_str());
+    : (prev.isSome() ? prev.ptr()->get(key) : DslValue(nothing()));
+  LOG("frame:setting %s to %s\n", key.c_str(), r.ptr()->toString().c_str());
   return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Frame::set(const std::string& key, const ExprValue& v, bool localOnly) {
+void Frame::set(const std::string& key, const DslValue& v, bool localOnly) {
   auto x= slots.find(key);
 
-  //::printf("frame:setting %s to %s\n", key.c_str(), v.get()->toString().c_str());
+  LOG("frame:setting %s to %s\n", key.c_str(), v.ptr()->toString().c_str());
 
   if (x != slots.end() || localOnly) {
     slots[key]=v;
-  } else if (prev) {
-    prev->set(key,v,localOnly);
+  } else if (prev.isSome()) {
+    prev.ptr()->set(key,v,localOnly);
   }
 }
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-CallStack::~CallStack() {
-}
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-CallStack::CallStack() {
-  S_NIL(top);
-}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Frame* CallStack::push(const std::string& name) {
-  return (top= new Frame(name,top));
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Frame* CallStack::pop() {
-  auto x= top;
-  if (top) {
-    top = top->prev;
-  }
-  return x;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Frame* CallStack::peek() {
-  return top;
+DslFrame Frame::getOuter() {
+  return prev;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
