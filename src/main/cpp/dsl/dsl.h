@@ -135,21 +135,13 @@ struct Context {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SyntaxError {
-  const stdstr what() const { return msg; }
+struct SyntaxError : public a::Exception {
   SyntaxError(const stdstr&);
-  SyntaxError(const char*);
-  private:
-  stdstr msg;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SemanticError {
-  const stdstr what() const { return msg; }
+struct SemanticError : public a::Exception {
   SemanticError(const stdstr&);
-  SemanticError(const char*);
-  private:
-  stdstr msg;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

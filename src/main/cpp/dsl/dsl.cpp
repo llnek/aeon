@@ -53,12 +53,10 @@ std::map<int, std::string> TOKENS {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SemanticError::SemanticError(const std::string& x) : msg(x) { }
-SemanticError::SemanticError(const char* x) : msg(x) { }
+SemanticError::SemanticError(const std::string& x) : a::Exception(x) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SyntaxError::SyntaxError(const std::string& x) : msg(x) { }
-SyntaxError::SyntaxError(const char* x) : msg(x) { }
+SyntaxError::SyntaxError(const std::string& x) : a::Exception(x) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 char peek(Context& ctx) {
