@@ -17,7 +17,7 @@
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
-namespace d = czlab::dsl;
+using namespace czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
   // keywords
@@ -58,38 +58,37 @@ enum TokenType {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Token : public d::IToken {
+struct Token : public Chunk {
 
-  static std::string typeToString(int);
+  static stdstr typeToString(int);
 
-  Token(int type, const std::string&, d::TokenInfo);
-  Token(int type, const char, d::TokenInfo);
+  Token(int type, const stdstr&, SrcInfo);
+  Token(int type, const char, SrcInfo);
 
-  virtual ~Token();
-
-  std::string getLiteralAsStr();
+  stdstr getLiteralAsStr();
   double getLiteralAsReal();
-  long getLiteralAsInt();
-  std::string toString();
-  int type();
+  llong getLiteralAsInt();
+  stdstr toString();
 
-  d::Lexeme impl;
+  virtual ~Token() {};
+  Lexeme impl;
+
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Lexer : public d::IScanner {
+struct Lexer : public IScanner {
 
-  bool isKeyword(const std::string&);
-  d::IToken* getNextToken();
+  bool isKeyword(const stdstr&);
+  DslToken getNextToken();
   void skipComment();
-  d::IToken* number();
-  d::IToken* id();
-  d::IToken* string();
+  DslToken number();
+  DslToken id();
+  DslToken string();
 
   Lexer(const char* src);
-  virtual ~Lexer();
+  virtual ~Lexer() {};
 
-  d::Context ctx;
+  Context ctx;
 };
 
 

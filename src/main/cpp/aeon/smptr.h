@@ -65,19 +65,19 @@ struct MS_DLL ManagedPtr {
     return *this;
   }
 
-  bool operator == (const ManagedPtr& rhs) {
+  bool operator == (const ManagedPtr& rhs) const {
     return pObj == rhs.pObj;
   }
 
-  bool operator != (const ManagedPtr& rhs) {
+  bool operator != (const ManagedPtr& rhs) const {
     return pObj != rhs.pObj;
   }
 
-  bool isNull() {
+  bool isNull() const {
     return E_NIL(pObj);
   }
 
-  bool isSome() {
+  bool isSome() const {
     return X_NIL(pObj);
   }
 

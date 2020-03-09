@@ -17,35 +17,35 @@
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
+using namespace czlab::dsl;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Interpreter::Interpreter(const char* src) {
   source = src;
-  S_NIL(symbols);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::interpret() {
+DslValue Interpreter::interpret() {
   CrenshawParser p(source);
-  auto tree= (Ast*) p.parse();
+  auto tree= p.parse();
   return check(tree), eval(tree);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::eval(Ast* tree) {
-  auto res= (push("root"), tree->eval(this));
+DslValue Interpreter::eval(DslAst tree) {
+  auto res= (push("root"), tree.ptr()->eval(this));
   //auto env= pop();
   //::printf("%s\n", env->toString().c_str());
   return res;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::push(const std::string& name) {
-  stack = d::DslFrame(new d::Frame(name, stack));
+DslFrame Interpreter::push(const stdstr& name) {
+  stack = DslFrame(new d::Frame(name, stack));
   return stack;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::pop() {
+DslFrame Interpreter::pop() {
   d::DslFrame f;
   if (stack.isSome()) {
     f= stack;
@@ -55,56 +55,62 @@ d::DslFrame Interpreter::pop() {
   return f;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::peek() {
+DslFrame Interpreter::peek() {
   return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::setValue(const std::string& name, const d::DslValue& v, bool localOnly) {
+DslValue Interpreter::setValue(const stdstr& name, d::DslValue v, bool localOnly) {
   auto x = peek();
-  if (x.isSome()) x->set(name, v, localOnly);
+  if (x.isSome()) x.ptr()->set(name, v, localOnly);
+  return v;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::getValue(const std::string& name) {
+DslValue Interpreter::getValue(const stdstr& name) {
   auto x = peek();
   if (x.isSome())
-    return x->get(name);
+    return x.ptr()->get(name);
   else
     return d::DslValue();
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::check(Ast* tree) {
-  symbols= new SymTable("root");
-  tree->visit(this);
+std::map<stdstr,DslSymbol> BITS {
+  {"INTEGER", DslSymbol(new Symbol("INTEGER"))},
+  {"REAL", DslSymbol(new Symbol("REAL"))},
+  {"STRING", DslSymbol(new Symbol("STRING"))}
+};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Interpreter::check(DslAst tree) {
+  symbols= DslSymbolTable(new SymbolTable("root", BITS));
+  tree.ptr()->visit(this);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Symbol* Interpreter::lookup(const std::string& n, bool traverse) {
-  return symbols->lookup(n, traverse);
+DslSymbol Interpreter::lookup(const stdstr& n, bool traverse) {
+  if (symbols.isSome())
+    return symbols.ptr()->lookup(n, traverse);
+  else
+    return DslSymbol();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::define(d::Symbol* s) {
-  if (s) symbols->insert(s);
+void Interpreter::define(DslSymbol s) {
+  if (symbols.isSome()) symbols.ptr()->insert(s);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::pushScope(const std::string& name) {
-  auto s= new SymTable(name, (SymTable*)symbols);
-  symbols=s;
+void Interpreter::pushScope(const stdstr& name) {
+  symbols= DslSymbolTable(new SymbolTable(name, symbols));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::SymbolTable* Interpreter::popScope() {
-  if (! symbols->enclosing) {
-    return nullptr;
-  } else {
-    auto cur = symbols;
-    symbols = cur->enclosing;
-    S_NIL(cur->enclosing);
-    return cur;
+DslSymbolTable Interpreter::popScope() {
+  if (symbols.isNull()) {
+    return DslSymbolTable();
   }
+  auto cur = symbols;
+  symbols = cur.ptr()->enclosing;
+  return cur;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Interpreter::readString() {
-  std::string s;
+stdstr Interpreter::readString() {
+  stdstr s;
   std::cin >> s;
   return s;
 }
@@ -115,13 +121,13 @@ double Interpreter::readFloat() {
   return d;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-long Interpreter::readInt() {
-  long n;
+llong Interpreter::readInt() {
+  llong n;
   std::cin >> n;
   return n;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::writeString(const std::string& s) {
+void Interpreter::writeString(const stdstr& s) {
   ::printf("%s", s.c_str());
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -129,8 +135,9 @@ void Interpreter::writeFloat(double d) {
   ::printf("%lf", d);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::writeInt(long n) {
-  ::printf("%ld", n);
+void Interpreter::writeInt(llong n) {
+  std::cout << n;
+  //::printf("%ld", n);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Interpreter::writeln() {

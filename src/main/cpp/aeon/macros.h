@@ -41,17 +41,38 @@
 typedef int64_t llong;
 
 //////////////////////////////////////////////////////////////////////////////
-#define DEBUG_TRACE_FILE    stdout
-#define DEBUG_TRACE   0
+#define ERROR_FILE    stderr
+#define LOG_FILE    stdout
 #define NO_OP  do {} while (0)
-#define NO_LOG(...)    NO_OP
+#define NO_LOG(...) NO_OP
 
+//////////////////////////////////////////////////////////////////////////////
+#define ERROR_TRACE   0
+#define LOG_TRACE   0
+#define DEBUG_TRACE   0
+
+//////////////////////////////////////////////////////////////////////////////
 #if DEBUG_TRACE
-    #define LOG(...) ::fprintf(DEBUG_TRACE_FILE, __VA_ARGS__)
+  #define DEBUG(...) ::fprintf(LOG_FILE, __VA_ARGS__)
 #else
-    #define LOG NO_LOG
+  #define DEBUG NO_LOG
+#endif
+//////////////////////////////////////////////////////////////////////////////
+#if LOG_TRACE
+  #define LOG(...) ::fprintf(LOG_FILE, __VA_ARGS__)
+#else
+  #define LOG NO_LOG
+#endif
+//////////////////////////////////////////////////////////////////////////////
+#if ERROR_TRACE
+  #define ERROR(...) ::fprintf(ERROR_FILE, __VA_ARGS__)
+#else
+  #define ERROR NO_LOG
 #endif
 
+
+
+//////////////////////////////////////////////////////////////////////////////
 #define ____ASSERT(file, line, condition, ...) \
     if (!(condition)) { \
         ::printf("Assertion failed near %s(%d): ", file, line); \
@@ -64,6 +85,13 @@ typedef int64_t llong;
 
 #define ASSERT(condition, ...) \
     ____ASSERT(__FILE__, __LINE__, condition, __VA_ARGS__)
+
+//////////////////////////////////////////////////////////////////////////////
+#define raise(EXP, fmt, ...) \
+  do { char buf[1024]; \
+  ::sprintf(buf, (const char*)fmt, __VA_ARGS__); \
+    ::printf("bad shit in file %s, line %d\b", __FILE__,__LINE__); \
+    throw EXP(buf);} while (0)
 
 
 //////////////////////////////////////////////////////////////////////////////
@@ -107,7 +135,8 @@ typedef int64_t llong;
 // c++ STL
 #define contains(C,x) ((C).find((x)) != (C).end())
 #define map__val(M,K) (M).find(K)->second
-typedef std::string SString;
+typedef std::string stdstr;
+typedef std::vector<std::string> strvec;
 
 //////////////////////////////////////////////////////////////////////////////
 // pointer macros

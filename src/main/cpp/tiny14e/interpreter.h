@@ -17,42 +17,43 @@
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
+using namespace czlab::dsl;
 namespace d= czlab::dsl;
 //
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
   //evaluator
-  void setValue(const std::string&, const d::DslValue&, bool localOnly);
-  d::DslValue getValue(const std::string&);
-  d::DslFrame push(const std::string&);
-  d::DslFrame pop();
-  d::DslFrame peek();
+  DslValue setValue(const stdstr&, d::DslValue, bool localOnly);
+  DslValue getValue(const stdstr&);
+  DslFrame push(const stdstr&);
+  DslFrame pop();
+  DslFrame peek();
 
-  std::string readString();
+  stdstr readString();
   double readFloat();
-  long readInt();
-  void writeString(const std::string&);
+  llong readInt();
+  void writeString(const stdstr&);
   void writeFloat(double);
-  void writeInt(long);
+  void writeInt(llong);
   void writeln();
 
   //analyzer
-  void pushScope(const std::string&);
-  d::SymbolTable* popScope();
-  d::Symbol* lookup(const std::string&, bool traverse);
-  void define(d::Symbol*);
+  void pushScope(const stdstr&);
+  DslSymbolTable popScope();
+  DslSymbol lookup(const stdstr&, bool traverse);
+  void define(DslSymbol);
 
 
   Interpreter(const char* src);
-  d::DslValue interpret();
+  DslValue interpret();
   virtual ~Interpreter() {}
 
 private:
   const char* source;
-  d::DslValue eval(Ast*);
-  void check(Ast*);
-  d::DslFrame stack;
-  d::SymbolTable* symbols;
+  DslValue eval(DslAst);
+  void check(DslAst);
+  DslFrame stack;
+  DslSymbolTable symbols;
 };
 
 

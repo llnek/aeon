@@ -32,13 +32,18 @@
 namespace czlab::aeon {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct FileNotFound : public std::logic_error {
-  explicit FileNotFound(const std::string&);
-  explicit FileNotFound(const char* s);
+struct Exception {
+  const stdstr what() const { return msg; }
+  protected:
+  Exception(const stdstr& s) { msg=s; }
+  stdstr msg;
 };
-struct FileError : public std::logic_error {
-  explicit FileError(const std::string&);
-  explicit FileError(const char* s);
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct FileNotFound : public Exception {
+  FileNotFound(const stdstr&);
+};
+struct FileError : public Exception {
+  FileError(const stdstr&);
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct CString {
@@ -57,15 +62,16 @@ struct CString {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<std::string> tokenize(const std::string &src, TChar delim);
-std::string toupper(const std::string&);
-std::string tolower(const std::string&);
+strvec tokenize(const stdstr& src, TChar delim);
+stdstr toupper(const stdstr&);
+stdstr tolower(const stdstr&);
+bool dbl_equals(double d1, double d2);
 int modulo(int, int);
 template <typename T> bool isEven(T x) {
   return (x % 2) == 0;
 }
 void randSeed();
-std::string readFile(const char* filepath);
+stdstr readFile(const char* filepath);
 }
 
 #include "smptr.h"

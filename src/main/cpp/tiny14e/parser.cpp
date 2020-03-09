@@ -14,16 +14,21 @@
 
 #include <typeinfo>
 #include "parser.h"
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+#define ptoke(ps) s__cast(Token, ps->token().ptr())
+#define past(a) s__cast(Ast, a.ptr())
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
+using namespace czlab::dsl;
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Compound* compound_statement(CrenshawParser*, bool);
-Block* block(CrenshawParser*);
-Ast* expr(CrenshawParser*);
-Ast* b_expr(CrenshawParser*);
+DslAst compound_statement(CrenshawParser*, bool);
+DslAst block(CrenshawParser*);
+DslAst expr(CrenshawParser*);
+DslAst b_expr(CrenshawParser*);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue boolFalse() {
@@ -34,42 +39,39 @@ d::DslValue boolTrue() {
   return d::DslValue(new SInt(1L));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string toStr(const d::DslValue& e) {
-  return e.ptr()->toString();
+stdstr toStr(DslValue e) {
+  return e.isSome() ? e.ptr()->toString() : "";
 }
 SReal r_(0);
 SInt n_(0);
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-double toReal(const d::DslValue& e) {
+double toReal(DslValue e) {
   auto v= e.ptr();
-  if (typeid(*v) == typeid(r_)) {
-    return static_cast<SReal*>(v)->value;
+  auto ret= 0.0;
+  if (v && typeid(*v) == typeid(r_)) {
+    ret= s__cast(SReal,v)->value;
   }
-  if (typeid(*v) == typeid(n_)) {
-    return (double) static_cast<SInt*>(v)->value;
+  if (v && typeid(*v) == typeid(n_)) {
+    ret=(double) s__cast(SInt,v)->value;
   }
-  return 0.0;
-  dsl_error(d::SemanticError,
-      "Not numeric %s", v->toString().c_str());
+  return ret;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-long toInt(const d::DslValue& e) {
+llong toInt(DslValue e) {
   auto v= e.ptr();
-  if (typeid(*v) == typeid(n_)) {
-    return s__cast(SInt,v)->value;
+  llong ret=0;
+
+  if (v && typeid(*v) == typeid(n_)) {
+    ret= v__cast(llong, s__cast(SInt,v)->value);
   }
-  if (typeid(*v) == typeid(r_)) {
-    return v__cast(long, s__cast(SReal,v)->value);
+  if (v && typeid(*v) == typeid(r_)) {
+    ret= v__cast(llong, s__cast(SReal,v)->value);
   }
-  return 0;
-  /*
-  dsl_error(d::SemanticError,
-      "Not numeric %s", v->toString().c_str());
-      */
+  return ret;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue cast(const d::DslValue& v, d::TypeSymbol* t) {
-  auto s = t->name;
+d::DslValue cast(DslValue v, DslSymbol t) {
+  auto s = t.ptr()->name;
   if (s == "INTEGER") {
     return d::DslValue(new SInt(toInt(v)));
   }
@@ -79,43 +81,33 @@ d::DslValue cast(const d::DslValue& v, d::TypeSymbol* t) {
   if (s== "STRING") {
     return d::DslValue(new SStr(toStr(v)));
   }
-  dsl_error(d::SemanticError, "Unknown type %s", s.c_str());
+  raise(d::SemanticError, "Unknown type %s", s.c_str());
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool toBool(const d::DslValue& e) {
+bool toBool(DslValue e) {
   return toInt(e) != 0L;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast::Ast(Token* t) : Ast() {
-  token=t;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast::Ast() : token(nullptr) {
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BinOp::BinOp(Ast* left, Token* op, Ast* right)
+BinOp::BinOp(DslAst left, DslToken op, DslAst right)
   : Ast(op), lhs(left), rhs(right) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void BinOp::visit(d::IAnalyzer* a) {
-  lhs->visit(a);
-  rhs->visit(a);
+  lhs.ptr()->visit(a);
+  rhs.ptr()->visit(a);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string BinOp::name() {
-  return "BinOp";
-}
+stdstr BinOp::name() { return "BinOp"; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue BinOp::eval(d::IEvaluator* e) {
 
-  auto lf = lhs->eval(e);
-  auto rt = rhs->eval(e);
+  auto lf = lhs.ptr()->eval(e);
+  auto rt = rhs.ptr()->eval(e);
   auto plf = lf.ptr();
-  auto prt= rt.ptr();
+  auto prt = rt.ptr();
   double x, y, z;
 
   if (typeid(n_) == typeid(*plf)) {
@@ -130,110 +122,106 @@ d::DslValue BinOp::eval(d::IEvaluator* e) {
     y= s__cast(SReal,prt)->value;
   }
 
-  switch (token->type()) {
+  switch (token()->type()) {
     case d::T_MINUS: z = x - y; break;
     case d::T_PLUS: z = x + y; break;
     case d::T_MULT: z = x * y; break;
     case T_INT_DIV:
     case d::T_DIV: z = x / y; break;
     default:
-      dsl_error(d::SemanticError,
+      raise(d::SemanticError,
           "Bad op near line %d(%d).\n",
-          token->impl.line, token->impl.col);
+          token()->impl.line, token()->impl.col);
   }
 
   //::printf("x = %lf, y = %lf, z= %lf\n", x, y, z);
 
-  switch (token->type()) {
+  switch (token()->type()) {
     case T_INT_DIV:
-      return d::DslValue(new SInt(v__cast(long,z)));
+      return d::DslValue(new SInt(v__cast(llong,z)));
     case d::T_DIV:
       return d::DslValue(new SReal(z));
     default:
       return (typeid(*plf) == typeid(r_) ||
               typeid(*prt) == typeid(r_))
         ? d::DslValue(new SReal(z))
-        : d::DslValue(new SInt(v__cast(long,z)));
+        : d::DslValue(new SInt(v__cast(llong,z)));
   }
-
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-String::String(Token* t) : Ast(t) {
+String::String(DslToken t) : Ast(t) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void String::visit(d::IAnalyzer* a) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string String::name() {
-  return "string";
-}
+stdstr String::name() { return "string"; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue String::eval(d::IEvaluator* e) {
-  return d::DslValue(new SStr(token->getLiteralAsStr()));
+  return d::DslValue(new SStr(token()->getLiteralAsStr()));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Num::Num(Token* t) : Ast(t) {
+Num::Num(DslToken t) : Ast(t) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Num::visit(d::IAnalyzer* a) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Num::name() {
-  switch (token->type()) {
+stdstr Num::name() {
+  switch (token()->type()) {
     case d::T_INTEGER: return "integer";
     case d::T_REAL: return "real";
     default:
-      dsl_error(d::SyntaxError,
+      raise(d::SyntaxError,
           "Bad number near line %d(%d).\n",
-          token->impl.line, token->impl.col);
+          token()->impl.line, token()->impl.col);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Num::eval(d::IEvaluator* e) {
-  switch (token->type()) {
+  switch (token()->type()) {
     case d::T_INTEGER:
-      //::printf("num::int = %ld\n", token->getLiteralAsInt());
-      return d::DslValue(new SInt(token->getLiteralAsInt()));
+      return d::DslValue(new SInt(token()->getLiteralAsInt()));
     case d::T_REAL:
-      //::printf("num::real = %lf\n", token->getLiteralAsReal());
-      return d::DslValue(new SReal(token->getLiteralAsReal()));
+      return d::DslValue(new SReal(token()->getLiteralAsReal()));
     default:
-      dsl_error(d::SyntaxError,
+      raise(d::SyntaxError,
           "Bad number near line %d(%d).\n",
-          token->impl.line, token->impl.col);
+          token()->impl.line, token()->impl.col);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-UnaryOp::UnaryOp(Token* t, Ast* expr) : Ast(t), expr(expr) {
+UnaryOp::UnaryOp(DslToken t, DslAst expr) : Ast(t), expr(expr) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string UnaryOp::name() {
-  switch (token->type()) {
-    case d::T_PLUS: return "+";
+stdstr UnaryOp::name() {
+  switch (token()->type()) {
     case d::T_MINUS: return "-";
+    case d::T_PLUS: return "+";
     default:
-      dsl_error(d::SyntaxError,
+      raise(d::SyntaxError,
           "Bad op near line %d(%d).\n",
-          token->impl.line, token->impl.col);
+          token()->impl.line, token()->impl.col);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void UnaryOp::visit(d::IAnalyzer* a) {
-  expr->visit(a);
+  expr.ptr()->visit(a);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue UnaryOp::eval(d::IEvaluator* e) {
-  auto r = expr->eval(e);
+  auto r = expr.ptr()->eval(e);
   auto p= r.ptr();
-  if (! (typeid(*p) == typeid(r_) ||
+  if (E_NIL(p) ||
+      ! (typeid(*p) == typeid(r_) ||
          typeid(*p) == typeid(n_))) {
-    dsl_error(d::SyntaxError,
+    raise(d::SyntaxError,
         "Expected number near line %d(%d).\n",
-        token->impl.line, token->impl.col);
+        token()->impl.line, token()->impl.col);
   }
-  if (token->type() == d::T_MINUS) {
+  if (token()->type() == d::T_MINUS) {
     if (typeid(*p) == typeid(n_))
       return d::DslValue(new SInt(- s__cast(SInt,p)->value));
 
@@ -243,166 +231,126 @@ d::DslValue UnaryOp::eval(d::IEvaluator* e) {
   return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Compound::Compound() : Ast() {
+Compound::Compound(DslToken t) : Ast(t) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Compound::name() {
-  return "Compound";
-}
+stdstr Compound::name() { return "Compound"; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Compound::visit(d::IAnalyzer* a) {
   for (auto& it : statements) {
-    it->visit(a);
+    it.ptr()->visit(a);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Compound::eval(d::IEvaluator* e) {
-  d::DslValue ret{d::nothing()};
+  d::DslValue ret;
   for (auto& it : statements) {
-    ret=it->eval(e);
+    ret=it.ptr()->eval(e);
   }
   return ret;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Assignment::Assignment(Var* left, Token* op, Ast* right)
+Assignment::Assignment(DslAst left, DslToken op, DslAst right)
   : Ast(op), lhs(left), rhs(right) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Assignment::name() {
-  return ":=";
-}
+stdstr Assignment::name() { return ":="; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Assignment::visit(d::IAnalyzer* a) {
   auto a_ = s__cast(AnalyzerAPI,a);
-  auto t = lhs->token;
-  auto s= a_->lookup(lhs->name());
-  if (E_NIL(s)) {
-    dsl_error(d::SemanticError,
-              "Unknown var %s near line %d(%d).\n",
-              lhs->name().c_str(), t->impl.line, t->impl.col);
+  auto pl= past(lhs);
+  auto s= a_->lookup(pl->name());
+  if (s.isNull()) {
+    auto t = pl->token();
+    raise(d::SemanticError,
+        "Unknown var %s near line %d(%d).\n",
+        pl->name().c_str(), t->impl.line, t->impl.col);
   }
-  lhs->type_symbol= s__cast(d::TypeSymbol,s->type);
+  s__cast(Var,pl)->type_symbol= s.ptr()->type;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Assignment::eval(d::IEvaluator* e) {
-  auto v = lhs->token->getLiteralAsStr();
-  auto t= lhs->type_symbol;
-  auto r= rhs->eval(e);
+  auto pl= past(lhs);
+  auto v = pl->token()->getLiteralAsStr();
+  auto t= s__cast(Var,pl)->type_symbol;
+  auto r= rhs.ptr()->eval(e);
   auto e_ = s__cast(EvaluatorAPI,e);
-  //::printf("Assigning value %s to %s\n", r.get()->toString().c_str(), v.c_str());
+  DEBUG("Assigning value %s to %s\n",
+      r.ptr()->toString().c_str(), v.c_str());
   e_->setValue(v, cast(r,t), false);
   return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Var::Var(Token* t) : Ast(t) {
-  S_NIL(type_symbol);
-}
+Var::Var(DslToken t) : Ast(t) {}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Var::name() {
-  return token->getLiteralAsStr();
+stdstr Var::name() {
+  return token()->getLiteralAsStr();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Var::visit(d::IAnalyzer* a) {
-  auto n = token->getLiteralAsStr();
   auto a_ = s__cast(AnalyzerAPI,a);
-  if (! a_->lookup(n)) {
-    dsl_error(d::SemanticError,
-              "Unknown var %s near line %d(%d).\n",
-              n.c_str(), token->impl.line, token->impl.col);
+  auto n = name();
+  if (auto x= a_->lookup(n); x.isNull()) {
+    raise(d::SemanticError,
+        "Unknown var %s near line %d(%d).\n",
+        n.c_str(),
+        token()->impl.line, token()->impl.col);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Var::eval(d::IEvaluator* e) {
-  auto n = token->getLiteralAsStr();
-  return s__cast(EvaluatorAPI,e)->getValue(n);
+  return s__cast(EvaluatorAPI,e)->getValue( name());
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Type::Type(Token* token) : Ast(token) {
-}
+Type::Type(DslToken token) : Ast(token) { }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Type::name() {
-  return token->getLiteralAsStr();
+stdstr Type::name() {
+  return token()->getLiteralAsStr();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Type::visit(d::IAnalyzer* a) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Type::eval(d::IEvaluator* e) {
-  return d::DslValue(d::nothing());
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SymTable::SymTable(const std::string& n, SymTable* outer) : SymTable(n) {
-  enclosing=outer;
+  return d::DslValue();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SymTable::SymTable(const std::string& n) : d::SymbolTable(n) {
-  insert(new BuiltinTypeSymbol("INTEGER"));
-  insert(new BuiltinTypeSymbol("REAL"));
-  insert(new BuiltinTypeSymbol("STRING"));
-  //LOG("Added built-in types.\n");
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Param::Param(Var* var, Type* type)
-  : Ast(), var_node(var), type_node(type) {
+VarDecl::VarDecl(DslAst var, DslAst type)
+: Ast(s__cast(Var,var.ptr())->token()), var_node(var), type_node(type) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Param::name() {
-  return var_node->name();
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Param::visit(d::IAnalyzer* a) {
-  auto n= type_node->name();
-  auto t= s__cast(AnalyzerAPI,a)->lookup(n);
-  if (!t) {
-    dsl_error(d::SemanticError,
-              "Unknown type %s near line %d(%d).\n",
-              n.c_str(), token->impl.line, token->impl.col);
-  }
-  var_node->type_symbol= s__cast(d::TypeSymbol, t);
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Param::eval(d::IEvaluator* e) {
-  return d::DslValue(d::nothing());
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-VarDecl::VarDecl(Var* var, Type* type)
-  : Ast(var->token), var_node(var), type_node(type) {
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string VarDecl::name() {
-  return var_node->name();
+stdstr VarDecl::name() {
+  return past(var_node)->name();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void VarDecl::visit(d::IAnalyzer* a) {
-  auto type_name = type_node->name();
-  auto var_name = var_node->name();
+  auto type_name = past(type_node)->name();
+  auto var_name = past(var_node)->name();
   auto a_ = s__cast(AnalyzerAPI,a);
   auto type_symbol = a_->lookup(type_name);
-  if (!type_symbol) {
-    dsl_error(d::SemanticError,
-              "Unknown type %s near line %d(%d).\n",
-              type_name.c_str(), token->impl.line, token->impl.col);
+  if (type_symbol.isNull()) {
+    raise(d::SemanticError,
+        "Unknown type %s near line %d(%d).\n",
+        type_name.c_str(),
+        token()->impl.line, token()->impl.col);
   }
-  if (a_->lookup(var_name, false)) {
-    dsl_error(d::SemanticError,
-              "Duplicate var %s near line %d(%d).\n",
-              var_name.c_str(), token->impl.line, token->impl.col);
-  } else {
-    var_node->type_symbol= s__cast(d::TypeSymbol,type_symbol);
-    a_->define(new d::VarSymbol(var_name, type_symbol));
+  if (auto x = a_->lookup(var_name, false); x.isSome()) {
+    raise(d::SemanticError,
+        "Duplicate var %s near line %d(%d).\n",
+        var_name.c_str(),
+        token()->impl.line, token()->impl.col);
   }
+  s__cast(Var,var_node.ptr())->type_symbol= type_symbol;
+  a_->define(DslSymbol(new d::VarSymbol(var_name, type_symbol)));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue VarDecl::eval(d::IEvaluator* e) {
-  d::DslValue v(d::nothing());
-  s__cast(EvaluatorAPI,e)->setValue(this->name(),
-      cast(v, var_node->type_symbol), true);
-  return v;
+  auto t= s__cast(Var,var_node.ptr())->type_symbol;
+  d::DslValue v;
+  return s__cast(EvaluatorAPI,e)->setValue(name(), cast(v, t), true);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BoolExpr::BoolExpr(std::vector<Ast*>& ts, std::vector<Token*>& ops) : Ast() {
+BoolExpr::BoolExpr(DslToken t, const AstVec& ts, const TokenVec& ops) : Ast(t) {
   s__ccat(this->ops, ops);
   s__ccat(this->terms, ts);
 }
@@ -419,9 +367,11 @@ d::DslValue BoolExpr::eval(d::IEvaluator* e) {
   }
   while (i < t1) {
     auto t= ops[i];
-    if (t->type() == T_OR && res) return boolTrue();
+    if (t.ptr()->type() == T_OR && res) {
+      return boolTrue();
+    }
     auto rhs= terms[i+1]->eval(e);
-    if (t->type() == T_XOR) {
+    if (t.ptr()->type() == T_XOR) {
       if (res != toBool(rhs)) {
         res=true;
       }
@@ -437,25 +387,21 @@ d::DslValue BoolExpr::eval(d::IEvaluator* e) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void BoolExpr::visit(d::IAnalyzer* a) {
   for (auto& x : terms) {
-    x->visit(a);
+    x.ptr()->visit(a);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string BoolExpr::name() {
-  return "BoolExpr";
-}
+stdstr BoolExpr::name() { return "BoolExpr"; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BoolTerm::BoolTerm(std::vector<Ast*>& ts) : Ast() {
+BoolTerm::BoolTerm(DslToken t, const AstVec& ts) : Ast(t) {
   s__ccat(terms, ts);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string BoolTerm::name() {
-  return "bterm";
-}
+stdstr BoolTerm::name() { return "bterm"; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void BoolTerm::visit(d::IAnalyzer* a) {
   for (auto& x : terms) {
-    x->visit(a);
+    x.ptr()->visit(a);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -481,7 +427,7 @@ d::DslValue BoolTerm::eval(d::IEvaluator* e) {
   return boolFalse();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NotFactor::NotFactor(Ast* e) : Ast() {
+NotFactor::NotFactor(DslToken t, DslAst e) : Ast(t) {
   expr=e;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -490,32 +436,30 @@ d::DslValue NotFactor::eval(d::IEvaluator* e) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void NotFactor::visit(d::IAnalyzer* a) {
-  expr->visit(a);
+  expr.ptr()->visit(a);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string NotFactor::name() {
-  return "notfactor";
-}
+stdstr NotFactor::name() { return "notfactor"; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-RelationOp::RelationOp(Ast* left, Token* op, Ast* right) : Ast(op) {
+RelationOp::RelationOp(DslAst left, DslToken op, DslAst right) : Ast(op) {
   lhs=left;
   rhs=right;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string RelationOp::name() {
-  return token->impl.text;
+stdstr RelationOp::name() {
+  return token()->impl.text;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void RelationOp::visit(d::IAnalyzer* a) {
-  lhs->visit(a);
-  rhs->visit(a);
+  lhs.ptr()->visit(a);
+  rhs.ptr()->visit(a);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue RelationOp::eval(d::IEvaluator* e) {
   auto l = toInt(lhs->eval(e));
   auto r = toInt(rhs->eval(e));
   auto res=false;
-  switch (token->type()) {
+  switch (token()->type()) {
     case d::T_GT: res = l > r; break;
     case d::T_LT: res = l < r; break;
     case T_GTEQ: res = l >= r; break;
@@ -523,156 +467,149 @@ d::DslValue RelationOp::eval(d::IEvaluator* e) {
     case T_EQUALS: res = l == r; break;
     case T_NOTEQ: res = l != r; break;
     default:
-      dsl_error(d::SemanticError,
+      raise(d::SemanticError,
           "Unknown op near line %d(%d)\n.",
-          token->impl.line, token->impl.col);
+          token()->impl.line, token()->impl.col);
   }
   return res ? boolTrue() : boolFalse();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Block::Block(std::vector<Ast*>& decls, Compound* compound)
-  : Ast(), compound(compound) {
+Block::Block(DslToken t, const AstVec& decls, DslAst compound)
+  : Ast(t), compound(compound) {
   s__ccat(declarations, decls);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Block::name() {
-  return "Block";
-}
+stdstr Block::name() { return "Block"; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Block::visit(d::IAnalyzer* a) {
   for (auto& x : declarations) {
-    x->visit(a);
+    x.ptr()->visit(a);
   }
-  compound->visit(a);
+  compound.ptr()->visit(a);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Block::eval(d::IEvaluator* e) {
   for (auto& x : declarations) {
-    x->eval(e);
+    x.ptr()->eval(e);
   }
-  return compound->eval(e);
+  return compound.ptr()->eval(e);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ProcedureDecl::ProcedureDecl(const std::string& proc_name,
-    std::vector<Param*>& pms, Block* block_node)
-  : Ast()  {
-  _name=proc_name;
+ProcedureDecl::ProcedureDecl(DslToken proc_name,
+                             const AstVec& pms, DslAst block_node)
+  : Ast(proc_name)  {
   block=block_node;
   s__ccat(params, pms);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ProcedureDecl::visit(d::IAnalyzer* a) {
-  auto fs= new d::FunctionSymbol( name());
+  auto fs= new d::FnSymbol( name());
   auto a_ = s__cast(AnalyzerAPI,a);
 
-  a_->define(fs);
-  a_->pushScope(fs->name);
+  a_->define(DslSymbol(fs));
+  a_->pushScope(name());
 
   for (auto& p : params) {
-    auto pt = a_->lookup(p->type_node->name());
-    auto pn = p->var_node->name();
-    auto v = new d::ParamSymbol(pn, pt);
+    auto pm = s__cast(VarDecl,p.ptr());
+    auto tn = past(pm->type_node)->name();
+    auto pt = a_->lookup(tn);
+    auto pn = past(pm->var_node)->name();
+    auto v = DslSymbol(new d::VarSymbol(pn, pt));
     a_->define(v);
     s__conj(fs->params,v);
   }
-  block->visit(a);
+  block.ptr()->visit(a);
   a_->popScope();
   fs->block = this->block;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string ProcedureDecl::name() {
-  return _name;
+stdstr ProcedureDecl::name() {
+  return token()->getLiteralAsStr();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue ProcedureDecl::eval(d::IEvaluator* e) {
-  return d::DslValue(d::nothing());
+  return d::DslValue();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ProcedureCall::ProcedureCall(const std::string& proc_name,
-                             std::vector<Ast*>& p, Token* token)
-  : Ast(token), _name(proc_name) {
-  S_NIL(proc_symbol);
+ProcedureCall::ProcedureCall(DslToken proc_name, const AstVec& p)
+  : Ast(proc_name) {
   s__ccat(args, p);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string ProcedureCall::name() {
-  return _name;
+stdstr ProcedureCall::name() {
+  return token()->getLiteralAsStr();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ProcedureCall::visit(d::IAnalyzer* a) {
   for (auto& p : args) {
-    p->visit(a);
+    p.ptr()->visit(a);
   }
   //get the corresponding symbol
-  auto x = s__cast(AnalyzerAPI,a)->lookup(_name);
-  if (x) {
-    proc_symbol = s__cast(d::FunctionSymbol,x);
+  if (auto x = s__cast(AnalyzerAPI,a)->lookup( name()); x.isSome()) {
+    proc_symbol = x;
   } else {
-    dsl_error(d::SemanticError,
-              "Unknown proc %s near line %d(%d).\n",
-              _name.c_str(), token->impl.line, token->impl.col);
+    raise(d::SemanticError,
+        "Unknown proc %s near line %d(%d).\n",
+        name().c_str(), token()->impl.line, token()->impl.col);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue ProcedureCall::eval(d::IEvaluator* e) {
-
-  ASSERT1(proc_symbol->params.size() == args.size());
+  auto fs= s__cast(d::FnSymbol,proc_symbol.ptr());
+  ASSERT1(fs->params.size() == args.size());
   auto e_ = s__cast(EvaluatorAPI,e);
-  e_->push(_name);
+  e_->push(name());
 
   for (auto i=0; i < args.size(); ++i) {
-    auto& p= proc_symbol->params[i];
-    auto tt= (d::TypeSymbol*)p->type;
+    auto p= s__cast(d::VarSymbol,fs->params[i].ptr());
     auto v= args[i]->eval(e);
-    e_->setValue(p->name, cast(v, tt), true);
+    e_->setValue(p->name, cast(v, p->type), true);
   }
 
-  auto r= (proc_symbol->block)->eval(e);
+  auto r= (fs->block)->eval(e);
   e_->pop();
   return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Program::Program(const std::string& name, Block* block) : Ast(), _name(name) {
+Program::Program(DslToken pname, DslAst block) : Ast(pname) {
   this->block=block;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Program::name() {
-  return _name;
+stdstr Program::name() {
+  return token()->getLiteralAsStr();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Program::visit(d::IAnalyzer* a) {
-  block->visit(a);
+  block.ptr()->visit(a);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Program::eval(d::IEvaluator* e) {
-  return block->eval(e);
+  return block.ptr()->eval(e);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Var* variable(CrenshawParser* ps) {
-  auto node = new Var(s__cast(Token, ps->token()));
-  ps->eat(d::T_IDENT);
-  return node;
+DslAst variable(CrenshawParser* ps) {
+  return DslAst(new Var(ps->eat(d::T_IDENT)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* factor(CrenshawParser* ps) {
-  auto t= s__cast(Token, ps->token());
-  Ast* res=nullptr;
-  switch (t->type()) {
+DslAst factor(CrenshawParser* ps) {
+  auto t= ps->token();
+  DslAst res;
+  switch (t.ptr()->type()) {
     case d::T_PLUS:
-      res= (ps->eat(), new UnaryOp(t, factor(ps)));
+      res= (ps->eat(), DslAst(new UnaryOp(t, factor(ps))));
       break;
     case d::T_MINUS:
-      res= (ps->eat(), new UnaryOp(t, factor(ps)));
+      res= (ps->eat(), DslAst(new UnaryOp(t, factor(ps))));
       break;
     case d::T_INTEGER:
-      res= (ps->eat(), new Num(t));
+      res= (ps->eat(), DslAst(new Num(t)));
       break;
     case d::T_REAL:
-      res= (ps->eat(), new Num(t));
+      res= (ps->eat(), DslAst(new Num(t)));
       break;
     case d::T_STRING:
-      res= (ps->eat(), new String(t));
+      res= (ps->eat(), DslAst(new String(t)));
       break;
     case d::T_LPAREN:
       res= (ps->eat(), b_expr(ps));
@@ -680,121 +617,117 @@ Ast* factor(CrenshawParser* ps) {
       break;
     default:
       res= variable(ps);
-      break;
   }
   return res;
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* term(CrenshawParser* ps) {
+DslAst term(CrenshawParser* ps) {
   static std::set<int> ops {d::T_MULT,d::T_DIV, T_INT_DIV};
   auto res= factor(ps);
   while (contains(ops,ps->cur())) {
-    res = new BinOp(res, s__cast(Token,ps->eat()), factor(ps));
+    res = DslAst(new BinOp(res, ps->eat(), factor(ps)));
   }
   return res;
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* expr(CrenshawParser* ps) {
+DslAst expr(CrenshawParser* ps) {
   static std::set<int> ops {d::T_PLUS, d::T_MINUS};
-  Ast* res= term(ps);
+  auto res= term(ps);
   while (contains(ops,ps->cur())) {
-    res= new BinOp(res, s__cast(Token,ps->eat()), term(ps));
+    res= DslAst(new BinOp(res, ps->eat(), term(ps)));
   }
   return res;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* relation(CrenshawParser* ps) {
+DslAst relation(CrenshawParser* ps) {
   static std::set<int> ops1 { d::T_GT, d::T_LT, T_GTEQ };
   static std::set<int> ops2 { T_LTEQ, T_EQUALS, T_NOTEQ };
   auto res = expr(ps);
   while (contains(ops1, ps->cur()) ||
          contains(ops2, ps->cur()) ) {
-    res= new RelationOp(res, s__cast(Token,ps->eat()), expr(ps));
+    res= DslAst(new RelationOp(res, ps->eat(), expr(ps)));
   }
   return res;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* b_factor(CrenshawParser* ps) {
+DslAst b_factor(CrenshawParser* ps) {
   return relation(ps);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* not_factor(CrenshawParser* ps) {
+DslAst not_factor(CrenshawParser* ps) {
   if (ps->isCur(T_NOT)) {
     ps->eat();
-    return new NotFactor(b_factor(ps));
+    return DslAst(new NotFactor(ps->getEthereal(), b_factor(ps)));
   } else {
     return b_factor(ps);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* b_term(CrenshawParser* ps) {
-  std::vector<Ast*> res {not_factor(ps)};
+DslAst b_term(CrenshawParser* ps) {
+  AstVec res {not_factor(ps)};
   while (ps->isCur(T_AND)) {
     s__conj(res, not_factor(ps));
   }
-  return new BoolTerm(res);
+  return DslAst(new BoolTerm(ps->getEthereal(), res));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* b_expr(CrenshawParser* ps) {
+DslAst b_expr(CrenshawParser* ps) {
   static std::set<int> ops {T_OR, T_XOR};
-  std::vector<Ast*> res {b_term(ps)};
-  std::vector<Token*> ts;
+  AstVec res {b_term(ps)};
+  TokenVec ts;
   while (contains(ops, ps->cur())) {
-    s__conj(ts, s__cast(Token,ps->token()));
+    s__conj(ts, ps->token());
     ps->eat();
     s__conj(res, b_term(ps));
   }
-  return new BoolExpr(res, ts);
+  return DslAst(new BoolExpr(ps->getEthereal(), res, ts));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Type* type_spec(CrenshawParser* ps) {
-  auto t = s__cast(Token,ps->token());
-  switch (t->type()) {
+DslAst type_spec(CrenshawParser* ps) {
+  auto t = ps->token();
+  switch (t.ptr()->type()) {
     case T_STR:
     case T_INT:
     case T_REAL: ps->eat(); break;
     default:
-      dsl_error(d::SyntaxError,
+      raise(d::SyntaxError,
           "Unknown token %d near line %d(%d).\n",
-          t->type(), t->impl.line, t->impl.col);
+          t.ptr()->type(),
+          s__cast(Token,t.ptr())->impl.line,
+          s__cast(Token,t.ptr())->impl.col);
   }
-  return new Type(t);
+  return DslAst(new Type(t));
 }
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<VarDecl*> variable_declaration(CrenshawParser* ps) {
-  std::vector<Var*> vars { new Var(s__cast(Token, ps->eat(d::T_IDENT))) };
+AstVec variable_declaration(CrenshawParser* ps) {
+  AstVec vars { DslAst(new Var(ps->eat(d::T_IDENT))) };
   while (ps->isCur(d::T_COMMA)) {
     ps->eat();
-    s__conj(vars, new Var(s__cast(Token, ps->eat(d::T_IDENT))));
+    s__conj(vars, DslAst(new Var(ps->eat(d::T_IDENT))));
   }
-  ps->eat(d::T_COLON);
-  auto type = type_spec(ps);
-  std::vector<VarDecl*> out;
+  auto type = (ps->eat(d::T_COLON), type_spec(ps));
+  AstVec out;
   for (auto &x : vars) {
-    s__conj(out, new VarDecl(x, type));
+    s__conj(out, DslAst(new VarDecl(x, type)));
   }
-
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Assignment* assignment_statement(CrenshawParser* ps) {
+DslAst assignment_statement(CrenshawParser* ps) {
   auto left = variable(ps);
   auto t= ps->eat(T_ASSIGN);
   auto right = expr(ps);
-  return new Assignment(left, s__cast(Token,t), right);
+  return DslAst(new Assignment(left, t, right));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NoOp* empty(CrenshawParser* ps) {
-  return new NoOp();
+DslAst empty(CrenshawParser* ps) {
+  return DslAst(new NoOp());
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ProcedureCall* proccall_statement(CrenshawParser* ps) {
-  auto token = ps->token();
-  auto proc_name = token->getLiteralAsStr();
-  std::vector<Ast*> pms;
-
-  ps->eat(d::T_IDENT);
+DslAst proccall_statement(CrenshawParser* ps) {
+  auto proc_name = ps->eat(d::T_IDENT);
   ps->eat(d::T_LPAREN);
+  AstVec pms;
 
   if (!ps->isCur(d::T_RPAREN)) {
     s__conj(pms, expr(ps));
@@ -805,45 +738,46 @@ ProcedureCall* proccall_statement(CrenshawParser* ps) {
     s__conj(pms,expr(ps));
   }
 
-  return (ps->eat(d::T_RPAREN), new ProcedureCall(proc_name, pms, s__cast(Token,token)));
+  return (ps->eat(d::T_RPAREN),
+      DslAst(new ProcedureCall(proc_name, pms)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-RepeatUntil::RepeatUntil(Token* t, Ast* e, Compound* c) : Ast(t) {
+RepeatUntil::RepeatUntil(DslToken t, DslAst e, DslAst c) : Ast(t) {
   cond=e;
   code= c;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue RepeatUntil::eval(d::IEvaluator* e) {
-  d::DslValue ret= code->eval(e);
+  auto ret= code->eval(e);
   auto c= cond->eval(e);
+  auto i = 1;
   while (toBool(c)) {
     ret=code->eval(e);
     c = cond->eval(e);
-    //::printf("looping.....\n");
+    DEBUG("looping.....%d\n", i);
+    ++i;
   }
   return ret;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void RepeatUntil::visit(d::IAnalyzer* a) {
-  code->visit(a);
-  cond->visit(a);
+  code.ptr()->visit(a);
+  cond.ptr()->visit(a);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string RepeatUntil::name() {
-  return token->impl.text;
+stdstr RepeatUntil::name() {
+  return token()->impl.text;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-IfThenElse::IfThenElse(Token* t, Ast* cond, Compound* then, Compound* elze)
+IfThenElse::IfThenElse(DslToken t, DslAst cond, DslAst then, DslAst elze)
   : IfThenElse(t,cond,then) {
   this->elze=elze;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-IfThenElse::IfThenElse(Token* t, Ast* cond, Compound* then)
-  : Ast(t) {
+IfThenElse::IfThenElse(DslToken t, DslAst cond, DslAst then) : Ast(t) {
   this->cond=cond;
   this->then=then;
-  S_NIL(elze);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue IfThenElse::eval(d::IEvaluator* e) {
@@ -852,7 +786,9 @@ d::DslValue IfThenElse::eval(d::IEvaluator* e) {
 
   if (toBool(c)) {
     ret= then->eval(e);
-  } else if (elze) {
+  }
+  else
+  if (elze.isSome()) {
     ret= elze->eval(e);
   }
 
@@ -860,16 +796,16 @@ d::DslValue IfThenElse::eval(d::IEvaluator* e) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void IfThenElse::visit(d::IAnalyzer* a) {
-  cond->visit(a);
-  then->visit(a);
-  if (elze) elze->visit(a);
+  cond.ptr()->visit(a);
+  then.ptr()->visit(a);
+  if (elze.isSome()) elze.ptr()->visit(a);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string IfThenElse::name() {
-  return token->impl.text;
+stdstr IfThenElse::name() {
+  return token()->impl.text;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ForLoop::ForLoop(Token* t, Var* v, Ast* i, Ast* e, Compound* code) : Ast(t) {
+ForLoop::ForLoop(DslToken t, DslAst v, DslAst i, DslAst e, DslAst code) : Ast(t) {
   var_node=v;
   init=i;
   term=e;
@@ -877,11 +813,12 @@ ForLoop::ForLoop(Token* t, Var* v, Ast* i, Ast* e, Compound* code) : Ast(t) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue ForLoop::eval(d::IEvaluator* e) {
-  d::DslValue ret(d::nothing());
-  auto vn= var_node->name();
+  auto tn= s__cast(Var,var_node.ptr())->type_symbol;
   auto e_ = s__cast(EvaluatorAPI,e);
+  auto vn= past(var_node)->name();
+  d::DslValue ret;
 
-  e_->setValue(vn, cast(init->eval(e), var_node->type_symbol),false);
+  e_->setValue(vn, cast(init->eval(e),tn),false);
   //::printf("ready\n");
   while (1) {
     auto z= toInt(term->eval(e));
@@ -889,8 +826,7 @@ d::DslValue ForLoop::eval(d::IEvaluator* e) {
     //::printf("z = %ld, i= %ld\n", z ,i);
     if (z >= i) {
       ret= code->eval(e);
-      e_->setValue(vn,
-          cast(d::DslValue(new SInt(i+1)), var_node->type_symbol),false);
+      e_->setValue(vn, cast(d::DslValue(new SInt(i+1)), tn),false);
     } else {
       break;
     }
@@ -900,23 +836,23 @@ d::DslValue ForLoop::eval(d::IEvaluator* e) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ForLoop::visit(d::IAnalyzer* a) {
-  auto vn= var_node->name();
-  auto s= s__cast(AnalyzerAPI,a)->lookup(vn);
-  if (E_NIL(s)) {
-    throw d::SyntaxError("Missing type");
+  auto vn = s__cast(Var,var_node.ptr());
+  auto s= s__cast(AnalyzerAPI,a)->lookup(vn->name());
+  if (s.isNull()) {
+    throw d::SyntaxError("Missing type in forloop decl.");
   }
-  var_node->visit(a);
-  var_node->type_symbol = s__cast(d::TypeSymbol, s->type);
-  init->visit(a);
-  term->visit(a);
-  code->visit(a);
+  vn->visit(a);
+  vn->type_symbol = s__cast(d::VarSymbol,s.ptr())->type;
+  init.ptr()->visit(a);
+  term.ptr()->visit(a);
+  code.ptr()->visit(a);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string ForLoop::name() {
-  return token->impl.text;
+stdstr ForLoop::name() {
+  return token()->impl.text;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-WhileLoop::WhileLoop(Token* t, Ast* e, Compound* c) : Ast(t) {
+WhileLoop::WhileLoop(DslToken t, DslAst e, DslAst c) : Ast(t) {
   cond=e;
   code= c;
 }
@@ -925,30 +861,28 @@ d::DslValue WhileLoop::eval(d::IEvaluator* e) {
   auto c= cond->eval(e);
   d::DslValue ret;
   while (toBool(c)) {
-    ret=code->eval(e);
-    c = cond->eval(e);
+    ret=code.ptr()->eval(e);
+    c = cond.ptr()->eval(e);
   }
   return ret;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void WhileLoop::visit(d::IAnalyzer* a) {
-  cond->visit(a);
-  code->visit(a);
+  cond.ptr()->visit(a);
+  code.ptr()->visit(a);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string WhileLoop::name() {
-  return token->impl.text;
+stdstr WhileLoop::name() {
+  return token()->impl.text;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-VarInput::VarInput(Token* t) : Var(t) {
-  S_NIL(type_symbol);
+VarInput::VarInput(DslToken t) : Var(t) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue VarInput::eval(d::IEvaluator* e) {
   auto e_ = s__cast(EvaluatorAPI,e);
-
-  d::DslValue res(d::nothing());
-  auto s= type_symbol->name;
+  auto s= type_symbol.ptr()->name;
+  d::DslValue res;
 
   if (s == "INTEGER") {
     res = d::DslValue(new SInt( e_->readInt()));
@@ -957,118 +891,118 @@ d::DslValue VarInput::eval(d::IEvaluator* e) {
   } else if (s == "STRING") {
     res = d::DslValue(new SStr( e_->readString()));
   }
-  e_->setValue(name(), res,false);
+  e_->setValue(name(), res, false);
   return res;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void VarInput::visit(d::IAnalyzer* a) {
   auto a_ = s__cast(AnalyzerAPI,a);
-  d::VarSymbol* s = s__cast(d::VarSymbol, a_->lookup(this->name()));
-  if (s) {
-    type_symbol= s__cast(d::TypeSymbol, s->type);
+  if (auto s = a_->lookup(name()); s.isSome()) {
+    type_symbol= s__cast(VarSymbol,s.ptr())->type;
   } else {
-    dsl_error(d::SemanticError,
+    raise(d::SemanticError,
         "Unknown var %s near line %d(%d).\n",
-        name().c_str(), token->impl.line, token->impl.col);
+        name().c_str(),
+        token()->impl.line, token()->impl.col);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Read::Read(Token* t, VarInput* v) : Ast(t) {
+Read::Read(DslToken t, DslAst v) : Ast(t) {
   var_node=v;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Read::eval(d::IEvaluator* e) {
-  auto r= var_node->eval(e);
-  if (token->type() == T_READLN) {
+  auto r= var_node.ptr()->eval(e);
+  if (token()->type() == T_READLN) {
     s__cast(EvaluatorAPI,e)->writeln();
   }
   return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Read::visit(d::IAnalyzer* a) {
-  var_node->visit(a);
+  var_node.ptr()->visit(a);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Read::name() {
-  return token->impl.text;
+stdstr Read::name() {
+  return token()->impl.text;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Write::Write(Token* t, std::vector<Ast*>& ts) : Ast(t) {
+Write::Write(DslToken t, const AstVec& ts) : Ast(t) {
   s__ccat(terms,ts);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Write::eval(d::IEvaluator* e) {
   auto e_ = s__cast(EvaluatorAPI,e);
-  std::string out;
+  stdstr out;
   for (auto& x : terms) {
-    out += x->eval(e).ptr()->toString();
+    out += x.ptr()->eval(e).ptr()->toString();
   }
   e_->writeString(out);
-  if (token->type() == T_WRITELN) {
+  if (token()->type() == T_WRITELN) {
     e_->writeln();
   }
-  return d::DslValue(d::nothing());
+  return d::DslValue();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Write::visit(d::IAnalyzer* a) {
   for (auto& x : terms) {
-    x->visit(a);
+    x.ptr()->visit(a);
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Write::name() {
-  return token->impl.text;
+stdstr Write::name() {
+  return token()->impl.text;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* doRepeat(CrenshawParser* ps) {
-  auto w= s__cast(Token,ps->eat(T_REPEAT));
+DslAst doRepeat(CrenshawParser* ps) {
+  auto w= ps->eat(T_REPEAT);
   auto c = compound_statement(ps,false);
   ps->eat(T_UNTIL);
   ps->eat(d::T_LPAREN);
   auto e = b_expr(ps);
   ps->eat(d::T_RPAREN);
-  return new RepeatUntil(w, e, c);
+  return DslAst(new RepeatUntil(w, e, c));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* doIf(CrenshawParser* ps) {
-  auto w= s__cast(Token,ps->eat(T_IF));
+DslAst doIf(CrenshawParser* ps) {
+  auto w= ps->eat(T_IF);
   ps->eat(d::T_LPAREN);
   auto c = b_expr(ps);
   ps->eat(d::T_RPAREN);
   auto t = compound_statement(ps,false);
-  Compound* e=nullptr;
+  DslAst e;
   if (ps->isCur(T_ELSE)) {
     ps->eat();
     e = compound_statement(ps,false);
   }
   ps->eat(T_ENDIF);
-  return new IfThenElse(w, c, t, e);
+  return DslAst(new IfThenElse(w, c, t, e));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* doFor(CrenshawParser* ps) {
-  auto w= s__cast(Token,ps->eat(T_FOR));
-  auto v = new Var(s__cast(Token, ps->eat(d::T_IDENT)));
+DslAst doFor(CrenshawParser* ps) {
+  auto w= ps->eat(T_FOR);
+  auto v = DslAst(new Var(ps->eat(d::T_IDENT)));
   ps->eat(T_ASSIGN);
   auto i = expr(ps);
   auto e = expr(ps);
   auto c = compound_statement(ps,false);
   ps->eat(T_ENDFOR);
-  return new ForLoop(w, v, i, e, c);
+  return DslAst(new ForLoop(w, v, i, e, c));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* doWhile(CrenshawParser* ps) {
-  auto w= s__cast(Token,ps->eat(T_WHILE));
+DslAst doWhile(CrenshawParser* ps) {
+  auto w= ps->eat(T_WHILE);
   ps->eat(d::T_LPAREN);
   auto e = b_expr(ps);
   ps->eat(d::T_RPAREN);
   auto c = compound_statement(ps,false);
   ps->eat(T_ENDWHILE);
-  return new WhileLoop(w, e, c);
+  return DslAst(new WhileLoop(w, e, c));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* doWrite(CrenshawParser* ps, bool nl) {
-  std::vector<Ast*> ts;
-  d::IToken* t;
+DslAst doWrite(CrenshawParser* ps, bool nl) {
+  DslToken t;
+  AstVec ts;
   if (nl) t= ps->eat(T_WRITELN); else t= ps->eat(T_WRITE);
   ps->eat(d::T_LPAREN);
   while (!ps->isCur(d::T_RPAREN)) {
@@ -1078,55 +1012,42 @@ Ast* doWrite(CrenshawParser* ps, bool nl) {
     }
   }
   ps->eat(d::T_RPAREN);
-  return new Write(s__cast(Token,t), ts);
+  return DslAst(new Write(t, ts));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* doRead(CrenshawParser* ps, bool nl) {
-  d::IToken* t;
+DslAst doRead(CrenshawParser* ps, bool nl) {
+  DslToken t;
   if (nl) t= ps->eat(T_READLN); else t= ps->eat(T_READ);
   ps->eat(d::T_LPAREN);
-  auto v= new VarInput(s__cast(Token,ps->eat(d::T_IDENT)));
+  auto v= DslAst(new VarInput(ps->eat(d::T_IDENT)));
   ps->eat(d::T_RPAREN);
-  return new Read(s__cast(Token,t), v);
+  return DslAst(new Read(t, v));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast* statement(CrenshawParser* ps) {
-  Ast* node;
+DslAst statement(CrenshawParser* ps) {
   switch (ps->cur()) {
     case T_BEGIN:
-      node = compound_statement(ps, true);
-      break;
+      return compound_statement(ps, true);
     case T_WRITELN:
-      node= doWrite(ps,true);
-      break;
+      return doWrite(ps,true);
     case T_WRITE:
-      node= doWrite(ps,false);
-      break;
+      return doWrite(ps,false);
     case T_READLN:
-      node= doRead(ps,true);
-      break;
+      return doRead(ps,true);
     case T_READ:
-      node= doRead(ps,false);
-      break;
+      return doRead(ps,false);
     case T_FOR:
-      node= doFor(ps);
-      break;
+      return doFor(ps);
     case T_IF:
-      node= doIf(ps);
-      break;
+      return doIf(ps);
     case T_WHILE:
-      node = doWhile(ps);
-      break;
+      return doWhile(ps);
     case T_REPEAT:
-      node= doRepeat(ps);
-      break;
+      return doRepeat(ps);
     case d::T_IDENT:
-      if (ps->peek() == '(') {
-        node = proccall_statement(ps);
-      } else {
-        node = assignment_statement(ps);
-      }
-      break;
+      return (ps->peek() == '(')
+        ? proccall_statement(ps)
+        : assignment_statement(ps);
     default:
       /*
       auto z=(Token*) ps->token();
@@ -1134,71 +1055,69 @@ Ast* statement(CrenshawParser* ps) {
           z->toString().c_str(), z->impl.line, z->impl.col);
       throw d::SyntaxError(BUF);
       */
-      node = empty(ps);
-      break;
+      return empty(ps);
   }
-  return node;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<Ast*> statement_list(CrenshawParser* ps) {
+AstVec statement_list(CrenshawParser* ps) {
 
-  std::vector<Ast*> results;
   auto s= statement(ps);
+  AstVec results;
 
-  if (!(s->name() == "709394")) {
+  if (!(past(s)->name() == "709394")) {
     s__conj(results,s);
   }
 
   while (ps->isCur(d::T_SEMI)) {
     ps->eat();
     s= statement(ps);
-    if (!(s->name() == "709394")) {
+    if (!(past(s)->name() == "709394")) {
       s__conj(results,s);
     }
   }
 
   if (ps->isCur(d::T_IDENT)) {
-    dsl_error(d::SyntaxError,
+    raise(d::SyntaxError,
         "Unexpected token `%s`\n",
-        ps->token()->getLiteralAsStr().c_str());
+        ptoke(ps)->getLiteralAsStr().c_str());
   }
 
   return results;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Compound* compound_statement(CrenshawParser* ps, bool beginend) {
-  if (beginend) ps->eat(T_BEGIN);
+DslAst compound_statement(CrenshawParser* ps, bool beginend) {
+  if (beginend) {ps->eat(T_BEGIN);}
   auto nodes = statement_list(ps);
-  if (beginend) ps->eat(T_END);
-  auto root= new Compound();
+  if (beginend) {ps->eat(T_END);}
+  auto root= new Compound(ps->getEthereal());
   for (auto& node : nodes) {
     s__conj(root->statements,node);
   }
-  return root;
+  return DslAst(root);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<Param*> formal_parameters(CrenshawParser* ps) {
+AstVec formal_parameters(CrenshawParser* ps) {
 
-  std::vector<Token*> param_tokens { s__cast(Token,ps->eat(d::T_IDENT)) };
-  std::vector<Param*> pnodes;
+  TokenVec param_tokens { ps->eat(d::T_IDENT) };
+  AstVec pnodes;
 
   while (ps->isCur(d::T_COMMA)) {
     ps->eat();
-    s__conj(param_tokens, s__cast(Token, ps->eat(d::T_IDENT)));
+    s__conj(param_tokens, ps->eat(d::T_IDENT));
   }
 
   auto type_node = (ps->eat(d::T_COLON),type_spec(ps));
 
   for (auto& t : param_tokens) {
     //::printf("param toke= %s\n", t->getLiteralAsStr());
-    s__conj(pnodes,new Param(new Var(t), type_node));
+    s__conj(pnodes, DslAst(new VarDecl(DslAst(new Var(t)), type_node)));
   }
 
   return pnodes;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<Param*> formal_parameter_list(CrenshawParser* ps) {
-  std::vector<Param*> out;
+AstVec formal_parameter_list(CrenshawParser* ps) {
+  AstVec out;
 
   if (!ps->isCur(d::T_IDENT)) {
     return out;
@@ -1213,25 +1132,25 @@ std::vector<Param*> formal_parameter_list(CrenshawParser* ps) {
   return pnodes;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ProcedureDecl* procedure_declaration(CrenshawParser* ps) {
+DslAst procedure_declaration(CrenshawParser* ps) {
 
   auto proc_name = (ps->eat(T_PROCEDURE), ps->eat(d::T_IDENT));
-  std::vector<Param*> params;
+  AstVec params;
 
   if (ps->isCur(d::T_LPAREN)) {
     params = (ps->eat(), formal_parameter_list(ps));
     ps->eat(d::T_RPAREN);
   }
 
-  auto decl = new ProcedureDecl(proc_name->getLiteralAsStr(),
+  auto decl = new ProcedureDecl(proc_name,
                                 params,
                                 (ps->eat(d::T_SEMI), block(ps)));
   //::printf("proc name=%s\n", decl->name().c_str());
-  return (ps->eat(d::T_SEMI), decl);
+  return (ps->eat(d::T_SEMI), DslAst(decl));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<Ast*> declarations(CrenshawParser* ps) {
-  std::vector<Ast*> ds;
+AstVec declarations(CrenshawParser* ps) {
+  AstVec ds;
 
   if (ps->isCur(T_VAR)) {
     ps->eat();
@@ -1250,31 +1169,35 @@ std::vector<Ast*> declarations(CrenshawParser* ps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Block* block(CrenshawParser* ps) {
+DslAst block(CrenshawParser* ps) {
   auto decls=declarations(ps);
-  return new Block(decls, compound_statement(ps, true));
+  return DslAst(new Block(ps->getEthereal(), decls, compound_statement(ps, true)));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Program* program(CrenshawParser* ps) {
-  auto var_node = (ps->eat(T_PROGRAM),variable(ps));
-  auto prog_name = var_node->name();
-  auto prog = new Program(prog_name.c_str(),
+DslAst program(CrenshawParser* ps) {
+  auto prog_name = (ps->eat(T_PROGRAM),ps->eat(d::T_IDENT));
+  auto prog = new Program(prog_name,
                           (ps->eat(d::T_SEMI),block(ps)));
   //::printf("program = %s\n", prog->name().c_str());
-  return (ps->eat(d::T_DOT), prog);
+  return (ps->eat(d::T_DOT), DslAst(prog));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CrenshawParser::~CrenshawParser() {
-  delete lex;
+  del_ptr(lex);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CrenshawParser::CrenshawParser(const char* src) {
   lex = new Lexer(src);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IAst* CrenshawParser::parse() {
+DslAst CrenshawParser::parse() {
   return program(this);
 }
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DslToken CrenshawParser::getEthereal() {
+  return DslToken(new Token(d::T_ETHEREAL, "", s__pair(int,int,lex->ctx.line, lex->ctx.col)));
+}
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int CrenshawParser::cur() {
   return lex->ctx.cur->type();
@@ -1288,25 +1211,27 @@ bool CrenshawParser::isCur(int type) {
   return lex->ctx.cur->type() == type;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IToken* CrenshawParser::token() {
+DslToken CrenshawParser::token() {
   return lex->ctx.cur;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IToken* CrenshawParser::eat() {
-  auto t= lex->ctx.cur;
-  lex->ctx.cur=lex->getNextToken();
+DslToken CrenshawParser::eat() {
+  auto t= token();
+  lex->ctx.cur = lex->getNextToken();
   return t;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IToken* CrenshawParser::eat(int wanted) {
-  auto t= (Token*) lex->ctx.cur;
-  if (t->type() != wanted) {
-    dsl_error(d::SyntaxError,
+DslToken CrenshawParser::eat(int wanted) {
+  auto t= token();
+  if (t.ptr()->type() != wanted) {
+    raise(d::SyntaxError,
         "Expected token %s, found token %s near line %d(%d).\n",
         Token::typeToString(wanted).c_str(),
-        t->toString().c_str(), t->impl.line, t->impl.col);
+        t->toString().c_str(),
+        s__cast(Token,t.ptr())->impl.line,
+        s__cast(Token,t.ptr())->impl.col);
   }
-  lex->ctx.cur=lex->getNextToken();
+  lex->ctx.cur= lex->getNextToken();
   return t;
 }
 

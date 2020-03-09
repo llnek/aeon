@@ -13,6 +13,7 @@
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
 #include "aeon.h"
+#include <math.h>
 #include <sstream>
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -20,15 +21,11 @@ namespace czlab::aeon {
 char MSGBUF[1024];
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-FileNotFound::FileNotFound(const std::string& s) : std::logic_error(s) {
-}
-FileNotFound::FileNotFound(const char* s) : std::logic_error(s) {
+FileNotFound::FileNotFound(const stdstr& s) : Exception(s) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-FileError::FileError(const std::string& s) : std::logic_error(s) {
-}
-FileError::FileError(const char* s) : std::logic_error(s) {
+FileError::FileError(const stdstr& s) : Exception(s) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -38,18 +35,11 @@ CString::CString(size_t z) {
   this->z=z;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-CString::CString() {
-  s=nullptr;
-  z=0;
-}
+CString::CString() { z=0; S_NIL(s); }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-CString::~CString() {
-  ::free(s);
-}
+CString::~CString() { ::free(s); }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-const char* CString::get() {
-  return s;
-}
+const char* CString::get() { return s; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void CString::copy(const char* src) {
   auto n = src ? ::strlen(src) : 0;
@@ -69,10 +59,10 @@ void CString::copy(const char* src) {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-std::vector<std::string> tokenize(const std::string &src, TChar delim) {
-  std::vector<std::string> out;
+strvec tokenize(const stdstr& src, TChar delim) {
   std::stringstream ss(src);
-  std::string tkn;
+  strvec out;
+  stdstr tkn;
   while (std::getline(ss, tkn, delim)) {
     if (tkn.length() > 0) {
       s__conj(out, tkn);
@@ -81,14 +71,14 @@ std::vector<std::string> tokenize(const std::string &src, TChar delim) {
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string toupper(const std::string& s) {
-  std::string t(s);
+stdstr toupper(const stdstr& s) {
+  stdstr t(s);
   for (auto& c : t) { c= ::toupper(c); }
   return t;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string tolower(const std::string& s) {
-  std::string t(s);
+stdstr tolower(const stdstr& s) {
+  stdstr t(s);
   for (auto& c : t) { c= ::tolower(c); }
   return t;
 }
@@ -102,14 +92,18 @@ int modulo(int x, int m) {
   int r = x % m;
   return r < 0 ? r+m : r;
 }
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool dbl_equals(double d1, double d2) {
+  auto d = d1-d2;
+  return ::fabs(d) < 0.000000000001;
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string readFile(const char* fpath) {
+stdstr readFile(const char* fpath) {
   auto fp = ::fopen(fpath, "rb");
 
   if (! fp) {
-    ::sprintf(MSGBUF, "Failed to open file: %s", fpath);
-    throw FileNotFound(MSGBUF);
+    raise(FileNotFound, "Failed to open file: %s", fpath);
   }
 
   auto len = (::fseek(fp, 0L, SEEK_END), ::ftell(fp));
@@ -120,13 +114,12 @@ std::string readFile(const char* fpath) {
 
   if (cnt != len) {
     ::free(buf);
-    ::sprintf(MSGBUF, "Failed to read file: %s", fpath);
-    throw FileError(MSGBUF);
+    raise(FileError,"Failed to read file: %s", fpath);
   } else {
     buf[cnt]='\0';
   }
 
-  auto s= std::string(buf);
+  auto s= stdstr(buf);
   ::free(buf);
   return s;
 }
