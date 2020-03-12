@@ -40,6 +40,23 @@ struct MS_DLL DList {
     DListItem* _tail;
   };
 
+  struct Iterator;
+  Iterator begin() { return Iterator(anchor._head); }
+  Iterator end()   { return Iterator(anchor._tail); }
+  struct Iterator {
+    Iterator(DListItem* d) : node(d) {}
+    Iterator& operator ++ () {
+      node = node->_next;
+      return *this;
+    }
+    T& operator * () { return node->item; }
+    bool operator != (const Iterator& rhs) const {
+      return node != rhs.node;
+    }
+    private:
+    DListItem* node;
+  };
+
   bool isEmpty() { return anchor._head==nullptr; }
   void remove(T);
   void add(T);

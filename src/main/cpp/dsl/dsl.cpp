@@ -39,6 +39,8 @@ std::map<int, std::string> TOKENS {
   {T_DIV, "/"},
   {T_GT, ">"},
   {T_LT, "<"},
+  {T_QUOTE,"'"},
+  {T_DQUOTE,"\""},
   {T_SEMI, ";"},
   {T_TILDA, "~"},
   {T_BACKTICK, "`"},
@@ -46,7 +48,7 @@ std::map<int, std::string> TOKENS {
   {T_AMPER, "&"},
   {T_AT, "@"},
   {T_PERCENT, "%"},
-  {T_QUESTION, "?"},
+  {T_QMARK, "?"},
   {T_HAT, "^"},
   {T_LBRACKET, "["},
   {T_RBRACKET, "]"}
@@ -147,7 +149,7 @@ std::string str(Context& ctx) {
       }
       if (ch == '\\') {
         if (!advance(ctx)) {
-          raise(SyntaxError,
+          RAISE(SyntaxError,
               "Malformed string value, bad escaped char %c\n.", ch);
         }
         ch=escSeq(peek(ctx));
@@ -156,7 +158,7 @@ std::string str(Context& ctx) {
       advance(ctx);
     }
     if (ctx.eof || ch != '"') {
-      raise(SyntaxError,
+      RAISE(SyntaxError,
           "Malformed string value, missing %s\n.", "dquote");
     }
     // good, got the end dquote
@@ -249,7 +251,7 @@ DslValue Frame::get(const std::string& key) {
   auto r= x != slots.end()
     ? x->second
     : (prev.isSome() ? prev.ptr()->get(key) : DslValue());
-  DEBUG("frame:setting %s to %s\n",
+  DEBUG("frame:getting %s to %s\n",
       key.c_str(), r.ptr()->toString().c_str());
   return r;
 }
@@ -267,37 +269,47 @@ void Frame::set(const std::string& key, DslValue v, bool localOnly) {
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool Frame::find(const stdstr& key, bool localOnly) {
+  auto x= slots.find(key);
+  if (x != slots.end()) {
+    return true;
+  }
+  return (!localOnly && prev.isSome())
+    ? prev.ptr()->find(key,localOnly) : false;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DslFrame Frame::getOuter() { return prev; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SymbolTable::SymbolTable(const std::string& n,
+Table::Table(const std::string& n,
     const std::map<std::string, DslSymbol>& root)
-  : SymbolTable(n) {
+  : Table(n) {
   for (auto& x : root) {
     symbols[x.first]=x.second;
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SymbolTable::SymbolTable(const std::string& n, DslSymbolTable outer)
-  : SymbolTable(n) {
+Table::Table(const std::string& n, DslTable outer)
+  : Table(n) {
   enclosing=outer;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SymbolTable::SymbolTable(const std::string& n) {
+Table::Table(const std::string& n) {
   name=n;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SymbolTable::~SymbolTable() {
+Table::~Table() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void SymbolTable::insert(DslSymbol s) {
+void Table::insert(DslSymbol s) {
   if (s.isSome()) symbols[s.ptr()->name] = s;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslSymbol SymbolTable::lookup(const std::string& name, bool traverse) {
+DslSymbol Table::lookup(const std::string& name, bool traverse) {
   if (auto s = symbols.find(name); s != symbols.end()) {
     return s->second;
   } else {

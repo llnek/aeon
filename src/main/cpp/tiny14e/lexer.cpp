@@ -18,7 +18,6 @@
 namespace czlab::tiny14e {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
-using namespace czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<int, std::string> TOKENS {
   {T_PROCEDURE, "PROCEDURE"},
@@ -81,7 +80,7 @@ std::string Token::typeToString(int type) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, const char ch, SrcInfo info) : d::Chunk(type) {
+Token::Token(int type, const char ch, d::SrcInfo info) : d::Chunk(type) {
   impl.text= std::string();
   impl.text += ch;
   impl.line=info.first;
@@ -89,7 +88,7 @@ Token::Token(int type, const char ch, SrcInfo info) : d::Chunk(type) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, const std::string& s, SrcInfo info) : d::Chunk(type) {
+Token::Token(int type, const std::string& s, d::SrcInfo info) : d::Chunk(type) {
   impl.text= s;
   impl.line=info.first;
   impl.col=info.second;
@@ -98,7 +97,7 @@ Token::Token(int type, const std::string& s, SrcInfo info) : d::Chunk(type) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 double Token::getLiteralAsReal() {
   if (type() != d::T_REAL) {
-    raise(SemanticError,
+    RAISE(d::SemanticError,
         "Expecting float near %d(%d).\n", impl.line, impl.col);
   }
   return impl.value.u.r;
@@ -107,7 +106,7 @@ double Token::getLiteralAsReal() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 llong Token::getLiteralAsInt() {
   if (type() != d::T_INTEGER) {
-    raise(SemanticError,
+    RAISE(d::SemanticError,
         "Expecting int near %d(%d).\n", impl.line, impl.col);
   }
   return impl.value.u.n;
@@ -120,43 +119,43 @@ std::string Token::getLiteralAsStr() {
     return impl.value.cs.get()->get();
   }
 
-  if (! contains(TOKENS,type())) {
-    raise(SemanticError,
+  if (! s__contains(TOKENS,type())) {
+    RAISE(d::SemanticError,
         "Expecting identifier near %d(%d).\n", impl.line, impl.col);
   }
 
   return TOKENS.at(type());
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslToken token(int type, const char c, SrcInfo info) {
-  return DslToken(new Token(type, c, info));
+d::DslToken token(int type, const char c, d::SrcInfo info) {
+  return d::DslToken(new Token(type, c, info));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslToken token(int type, const std::string& s, SrcInfo info) {
-  return DslToken(new Token(type, s, info));
+d::DslToken token(int type, const std::string& s, d::SrcInfo info) {
+  return d::DslToken(new Token(type, s, info));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslToken token(int type, const std::string& x,
-    SrcInfo info, const std::string& s) {
+d::DslToken token(int type, const std::string& x,
+    d::SrcInfo info, const std::string& s) {
   auto t= new Token(type, x, info);
   auto len= s.length();
   t->impl.value.cs = std::make_shared<a::CString>(len);
   t->impl.value.cs.get()->copy(s.c_str());
-  return DslToken(t);
+  return d::DslToken(t);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslToken token(int type,
-    const std::string& s, SrcInfo info, llong n) {
+d::DslToken token(int type,
+    const std::string& s, d::SrcInfo info, llong n) {
   auto t= new Token(type, s, info);
   t->impl.value.u.n=n;
-  return DslToken(t);
+  return d::DslToken(t);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslToken token(int type,
-    const std::string& s, SrcInfo info, double d) {
+d::DslToken token(int type,
+    const std::string& s, d::SrcInfo info, double d) {
   auto t= new Token(type,s, info);
   t->impl.value.u.r=d;
-  return DslToken(t);
+  return d::DslToken(t);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string Token::toString() {
@@ -194,7 +193,7 @@ void Lexer::skipComment() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslToken Lexer::number() {
+d::DslToken Lexer::number() {
   auto m= ctx.mark();
   auto s = d::numeric(ctx).c_str();
   return ::strchr(s, '.')
@@ -203,23 +202,23 @@ DslToken Lexer::number() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslToken Lexer::string() {
+d::DslToken Lexer::string() {
   auto m= ctx.mark();
   auto s = d::str(ctx);
   return token(d::T_STRING, s, m, s);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslToken Lexer::id() {
+d::DslToken Lexer::id() {
   auto s= d::identifier(ctx);
-  auto S= a::toupper(s);
+  auto S= a::to_upper(s);
   auto m= ctx.mark();
   return !isKeyword(S)
     ? token(d::T_IDENT, s, m, s)
-    : DslToken(new Token(KEYWORDS.at(S), S, m));
+    : d::DslToken(new Token(KEYWORDS.at(S), S, m));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslToken Lexer::getNextToken() {
+d::DslToken Lexer::getNextToken() {
   char ch;
   while (!ctx.eof) {
     ch= d::peek(ctx);
@@ -378,7 +377,7 @@ DslToken Lexer::getNextToken() {
       return token(d::T_DOT, ch, m);
     }
     else {
-      raise(SyntaxError,
+      RAISE(d::SyntaxError,
           "Unexpected char %c near line %d(%d).\n", ch, ctx.line, ctx.col);
     }
   }

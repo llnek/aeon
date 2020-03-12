@@ -18,12 +18,11 @@
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-using namespace czlab::dsl;
 namespace d = czlab::dsl;
-
+namespace a= czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SInt : public d::Data {
-  virtual stdstr toString() const { return std::to_string(value); }
+  stdstr toString(bool pretty) const { return std::to_string(value); }
   virtual bool equals(const Data* rhs) const {
     return X_NIL(rhs) &&
            typeid(*this) == typeid(*rhs) &&
@@ -34,7 +33,7 @@ struct SInt : public d::Data {
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SReal : public d::Data {
-  virtual stdstr toString() const { return std::to_string(value); }
+  stdstr toString(bool pretty) const { return std::to_string(value); }
   virtual bool equals(const Data* rhs) const {
     return X_NIL(rhs) &&
            typeid(*this) == typeid(*rhs) &&
@@ -50,7 +49,7 @@ struct SStr : public d::Data {
            typeid(*this) == typeid(*rhs) &&
            value == s__cast(const SStr,rhs)->value;
   }
-  virtual stdstr toString() const { return value; }
+  stdstr toString(bool pretty) const { return value; }
   SStr(const stdstr& s) : value(s) {}
   SStr(const char* s) : value(s) {}
   stdstr value;
@@ -74,13 +73,13 @@ struct Writer {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct EvaluatorAPI : public IEvaluator,
+struct EvaluatorAPI : public d::IEvaluator,
                       public Reader, public Writer {
   virtual ~EvaluatorAPI() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct AnalyzerAPI : public IAnalyzer {
+struct AnalyzerAPI : public d::IAnalyzer {
   virtual ~AnalyzerAPI() {}
 };
 
@@ -92,9 +91,9 @@ struct Ast : public d::Node {
   virtual stdstr name() = 0;
   virtual ~Ast() {}
   //DslToken token() { return _token; }
-  Ast(DslToken t) { _token=t; }
+  Ast(d::DslToken t) { _token=t; }
   protected:
-  DslToken _token;
+  d::DslToken _token;
   private:
   Ast() {}
 };
@@ -102,7 +101,7 @@ struct Ast : public d::Node {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BoolExpr : public Ast {
 
-  BoolExpr(DslToken, const AstVec&, const TokenVec&);
+  BoolExpr(d::DslToken, const AstVec&, const TokenVec&);
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   stdstr name();
@@ -118,7 +117,7 @@ struct BoolTerm : public Ast {
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   stdstr name();
-  BoolTerm(DslToken,const AstVec&);
+  BoolTerm(d::DslToken,const AstVec&);
   virtual ~BoolTerm() {}
 
   private:
@@ -128,36 +127,36 @@ struct BoolTerm : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct RelationOp : public Ast {
 
-  RelationOp(DslAst left, DslToken op, DslAst right);
+  RelationOp(d::DslAst left, d::DslToken op, d::DslAst right);
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   stdstr name();
   virtual ~RelationOp() {}
 
   private:
-  DslAst lhs;
-  DslAst rhs;
+  d::DslAst lhs;
+  d::DslAst rhs;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BinOp : public Ast {
 
-  BinOp(DslAst left, DslToken op, DslAst right);
+  BinOp(d::DslAst left, d::DslToken op, d::DslAst right);
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   stdstr name();
   virtual ~BinOp() {}
 
   private:
-  DslAst lhs;
-  DslAst rhs;
+  d::DslAst lhs;
+  d::DslAst rhs;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Num : public Ast {
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  Num(DslToken t);
+  Num(d::DslToken t);
   stdstr name();
   virtual ~Num() {}
 };
@@ -166,7 +165,7 @@ struct Num : public Ast {
 struct String : public Ast {
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  String(DslToken t);
+  String(d::DslToken t);
   virtual ~String() {}
   stdstr name();
 };
@@ -174,22 +173,22 @@ struct String : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct NotFactor : public Ast {
   d::DslValue eval(d::IEvaluator*);
-  NotFactor(DslToken, DslAst expr);
+  NotFactor(d::DslToken, d::DslAst expr);
   void visit(d::IAnalyzer*);
   virtual ~NotFactor() {}
   stdstr name();
   private:
-  DslAst expr;
+  d::DslAst expr;
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct UnaryOp : public Ast {
   d::DslValue eval(d::IEvaluator*);
-  UnaryOp(DslToken t, DslAst expr);
+  UnaryOp(d::DslToken t, d::DslAst expr);
   void visit(d::IAnalyzer*);
   virtual ~UnaryOp() {}
   stdstr name();
   private:
-  DslAst expr;
+  d::DslAst expr;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -197,7 +196,7 @@ struct Compound : public Ast {
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~Compound() {}
-  Compound(DslToken);
+  Compound(d::DslToken);
   stdstr name();
 
   //private:
@@ -207,37 +206,36 @@ struct Compound : public Ast {
 struct Var : public Ast {
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  Var(DslToken t);
+  Var(d::DslToken t);
   virtual ~Var() {}
   virtual stdstr name();
 
   //private:
-  DslSymbol type_symbol;
+  d::DslSymbol type_symbol;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct VarInput : public Var {
+  VarInput(d::DslToken t) : Var(t) {}
+  virtual ~VarInput() {}
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  VarInput(DslToken t);
-  virtual ~VarInput() {}
-
   private:
-  DslSymbol type_symbol;
+  d::DslSymbol type_symbol;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Type : public Ast {
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  Type(DslToken token);
+  Type(d::DslToken token);
   virtual ~Type() {}
   virtual stdstr name();
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Write : public Ast {
   d::DslValue eval(d::IEvaluator*);
-  Write(DslToken, const AstVec&);
+  Write(d::DslToken, const AstVec&);
   void visit(d::IAnalyzer*);
   virtual ~Write() {}
   virtual stdstr name();
@@ -249,77 +247,77 @@ struct Write : public Ast {
 struct Read : public Ast {
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  Read(DslToken, DslAst);//VarInput*);
+  Read(d::DslToken, d::DslAst);//VarInput*);
   virtual ~Read() {}
   virtual stdstr name();
 
   private:
-  DslAst var_node;
+  d::DslAst var_node;
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct WhileLoop : public Ast {
-  WhileLoop(DslToken, DslAst cond, DslAst);//Compound* code);
+  WhileLoop(d::DslToken, d::DslAst cond, d::DslAst);//Compound* code);
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~WhileLoop() {}
   virtual stdstr name();
 
   private:
-  DslAst cond;
-  DslAst code;//Compound* code;
+  d::DslAst cond;
+  d::DslAst code;//Compound* code;
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ForLoop : public Ast {
-  ForLoop(DslToken, DslAst v, DslAst i, DslAst e, DslAst);
+  ForLoop(d::DslToken, d::DslAst v, d::DslAst i, d::DslAst e, d::DslAst);
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~ForLoop() {}
   virtual stdstr name();
 
   private:
-  DslAst init;
-  DslAst term;
-  DslAst code;
-  DslAst var_node;
+  d::DslAst init;
+  d::DslAst term;
+  d::DslAst code;
+  d::DslAst var_node;
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IfThenElse : public Ast {
-  IfThenElse(DslToken, DslAst cond, DslAst then, DslAst elze);
-  IfThenElse(DslToken, DslAst cond, DslAst then);
+  IfThenElse(d::DslToken, d::DslAst cond, d::DslAst then, d::DslAst elze);
+  IfThenElse(d::DslToken, d::DslAst cond, d::DslAst then);
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~IfThenElse() {}
   virtual stdstr name();
 
   private:
-  DslAst cond;
-  DslAst then;
-  DslAst elze;
+  d::DslAst cond;
+  d::DslAst then;
+  d::DslAst elze;
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct RepeatUntil : public Ast {
-  RepeatUntil(DslToken, DslAst cond, DslAst code);
+  RepeatUntil(d::DslToken, d::DslAst cond, d::DslAst code);
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~RepeatUntil() {}
   virtual stdstr name();
 
   private:
-  DslAst cond;
-  DslAst code;
+  d::DslAst cond;
+  d::DslAst code;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Assignment : public Ast {
-  Assignment(DslAst left, DslToken op, DslAst right);
+  Assignment(d::DslAst left, d::DslToken op, d::DslAst right);
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~Assignment() {}
   virtual stdstr name();
 
   private:
-  DslAst lhs;
-  DslAst rhs;
+  d::DslAst lhs;
+  d::DslAst rhs;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -330,108 +328,85 @@ struct NoOp : public Ast {
   void visit(d::IAnalyzer*) {}
   virtual stdstr name() { return "709394"; }
   virtual ~NoOp() {}
-  NoOp() : Ast(DslToken()){}
+  NoOp() : Ast(d::DslToken()){}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-/*
-struct Param : public Ast {
-  d::DslValue eval(d::IEvaluator*);
-  void visit(d::IAnalyzer*);
-  Param(DslAst v, DslAst t);
-  virtual ~Param() {}
-  virtual stdstr name();
-
-  private:
-  DslAst var_node;
-  DslAst type_node;
-};
-*/
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct VarDecl : public Ast {
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
-  VarDecl(DslAst v, DslAst t);
+  VarDecl(d::DslAst v, d::DslAst t);
   virtual ~VarDecl() {}
   virtual stdstr name();
 
   //private:
-  DslAst var_node;
-  DslAst type_node;
+  d::DslAst var_node;
+  d::DslAst type_node;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Block : public Ast {
-  Block(DslToken, const AstVec& decls, DslAst);
+  Block(d::DslToken, const AstVec& decls, d::DslAst);
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~Block() {}
   virtual stdstr name();
 
   private:
-  DslAst compound;
+  d::DslAst compound;
   AstVec declarations;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ProcedureDecl : public Ast {
-  ProcedureDecl(DslToken, const AstVec&, DslAst block);
+  ProcedureDecl(d::DslToken, const AstVec&, d::DslAst block);
   d::DslValue eval(d::IEvaluator*);
   virtual ~ProcedureDecl() {}
   void visit(d::IAnalyzer*);
   virtual stdstr name();
 
   private:
-  DslAst block;
-  //stdstr _name;
+  d::DslAst block;
   AstVec params;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ProcedureCall : public Ast {
-  ProcedureCall(DslToken, const AstVec&);
+  ProcedureCall(d::DslToken, const AstVec&);
   d::DslValue eval(d::IEvaluator*);
   virtual ~ProcedureCall() {}
   void visit(d::IAnalyzer*);
   virtual stdstr name();
 
   private:
-  //stdstr _name;
   AstVec args;
-  DslSymbol proc_symbol;
+  d::DslSymbol proc_symbol;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Program : public Ast {
-  Program(DslToken, DslAst block);
+  Program(d::DslToken, d::DslAst block);
   d::DslValue eval(d::IEvaluator*);
   void visit(d::IAnalyzer*);
   virtual ~Program() {}
   virtual stdstr name();
 
   private:
-  DslAst block;
-  //stdstr _name;
+  d::DslAst block;
 };
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-/*
-struct BuiltinTypeSymbol : public d::TypeSymbol {
-  BuiltinTypeSymbol(const stdstr& n) : d::TypeSymbol(n) {}
-  ~BuiltinTypeSymbol() {}
-};*/
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct CrenshawParser : public d::IParser {
   CrenshawParser(const char* src);
   virtual ~CrenshawParser();
-  DslAst parse();
+  d::DslAst parse();
   int cur();
   char peek();
   bool isCur(int);
-  DslToken token();
-  DslToken eat();
-  DslToken eat(int wanted);
-  DslToken getEthereal();
+  d::DslToken token();
+  d::DslToken eat();
+  d::DslToken eat(int wanted);
+  d::DslToken getEthereal();
 
   private:
   Lexer* lex;

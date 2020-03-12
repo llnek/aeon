@@ -13,48 +13,19 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "tiny14e.h"
+#include "types.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::tiny14e {
-namespace d=czlab::dsl;
+namespace czlab::kirby {
+namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
-  // keywords
-  T_PROGRAM,
-  T_INT_DIV,
-  T_EQUALS,
-  T_VAR,
-  T_STR,
-  T_INT,
-  T_REAL,
-  T_PROCEDURE,
-  T_FOR,
-  T_ENDFOR,
-  T_IF,
-  T_ELSE,
-  T_ENDIF,
-  T_REPEAT,
-  T_UNTIL,
-  T_WHILE,
-  T_ENDWHILE,
-  T_BEGIN,
-  T_END,
-
-  // symbols
-  T_WRITELN,
-  T_WRITE,
-  T_READLN,
-  T_READ,
-  T_GTEQ,
-  T_LTEQ,
-  T_NOTEQ,
-  T_NOT,
-  T_XOR,
-  T_OR,
-  T_AND,
-  T_ASSIGN
-
+  T_UNQUOTE_SPLICE,
+  T_KEYWORD,
+  T_TRUE,
+  T_FALSE,
+  T_NIL,
+  T_COMMENT
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -68,28 +39,36 @@ struct Token : public d::Chunk {
   stdstr getLiteralAsStr();
   double getLiteralAsReal();
   llong getLiteralAsInt();
+
   stdstr toString();
 
-  virtual ~Token() {};
-  d::Lexeme impl;
+  virtual ~Token() {}
 
+  d::Lexeme impl;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Lexer : public d::IScanner {
+struct Reader : public d::IScanner {
 
   bool isKeyword(const stdstr&);
   d::DslToken getNextToken();
-  void skipComment();
   d::DslToken number();
   d::DslToken id();
   d::DslToken string();
 
-  Lexer(const char* src);
-  virtual ~Lexer() {};
+  Reader(const char* src);
+  virtual ~Reader() {};
 
   d::Context ctx;
+
+  private:
+
+  d::DslToken keywd();
+
+  void skipComment();
+  void skipCommas();
 };
+
 
 
 

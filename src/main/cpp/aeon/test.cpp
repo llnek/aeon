@@ -13,6 +13,10 @@
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
 #include "aeon.h"
+#include "pool.h"
+#include "dlist.h"
+#include "array.h"
+
 //////////////////////////////////////////////////////////////////////////////
 namespace czlab::aeon {
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -34,12 +38,19 @@ void test0() {
 
 void test3() {
   DList<int> v;
+  auto k=0;
 
   v.add(1);
   v.add(2);
   v.add(3);
   ::printf("size = %d\n", v.size());
   ::printf("empty? = %d\n", (int)v.isEmpty());
+  k=0;
+  for (auto it = v.begin(), e = v.end(); it != e; ++it) {
+    ::printf("item [%d] = %d\n", k++, *it);
+  }
+
+
   v.remove(2);
   v.remove(1);
   ::printf("size = %d\n", v.size());
@@ -115,11 +126,11 @@ void test1() {
 }
 
 
-int Xmain(int ac, char* av[]) {
-  czlab::aeon::test0();
+int XXmain(int ac, char* av[]) {
+  //czlab::aeon::test0();
   //czlab::aeon::test1();
   //czlab::aeon::test2();
-  //czlab::aeon::test3();
+  czlab::aeon::test3();
   return 0;
 }
 

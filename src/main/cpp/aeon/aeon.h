@@ -63,21 +63,17 @@ struct CString {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 strvec tokenize(const stdstr& src, TChar delim);
-stdstr toupper(const stdstr&);
-stdstr tolower(const stdstr&);
+stdstr to_upper(const stdstr&);
+stdstr to_lower(const stdstr&);
 bool dbl_equals(double d1, double d2);
 int modulo(int, int);
-template <typename T> bool isEven(T x) {
+template <typename T> bool is_even(T x) {
   return (x % 2) == 0;
 }
-void randSeed();
-stdstr readFile(const char* filepath);
+void rand_seed();
+stdstr read_file(const char* filepath);
 }
 
-#include "smptr.h"
-#include "dlist.h"
-#include "pool.h"
-#include "array.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF

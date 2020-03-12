@@ -1,24 +1,28 @@
-#include "../dsl/dsl.h"
+
+
+#include "kirby.h"
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::mal {
+namespace czlab::kirby {
+  /*
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string PRINT(const std::string& s) {
+stdstr PRINT(const stdstr& s) {
   return s;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string EVAL(const std::string& s) {
+stdstr EVAL(const stdstr& s) {
   return s;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string READ(const std::string& s) {
+stdstr READ(const stdstr& s) {
   return s;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void repl(const std::string& s) {
+void repl(const stdstr& s) {
   PRINT(EVAL(READ(s)));
 }
 
-
+*/
 
 
 

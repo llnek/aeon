@@ -12,7 +12,7 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "../aeon/aeon.h"
+#include "../aeon/smptr.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::dsl {
@@ -20,21 +20,20 @@ namespace czlab::dsl {
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SymbolTable;
+struct Table;
 struct Symbol;
 struct Chunk;
 struct Node;
 struct Data;
 struct Frame;
-typedef a::ManagedPtr<Frame> DslFrame;
-typedef a::ManagedPtr<Data> DslValue;
-typedef a::ManagedPtr<Node> DslAst;
-typedef a::ManagedPtr<Chunk> DslToken;
-typedef a::ManagedPtr<Symbol> DslSymbol;
-typedef std::vector<DslToken> TokenVec;
-typedef std::vector<DslAst> AstVec;
-typedef std::vector<DslSymbol> SymbolVec;
-typedef a::ManagedPtr<SymbolTable> DslSymbolTable;
+typedef a::RefPtr<Data> DslValue;
+typedef a::RefPtr<Node> DslAst;
+typedef a::RefPtr<Frame> DslFrame;
+typedef a::RefPtr<Chunk> DslToken;
+typedef a::RefPtr<Symbol> DslSymbol;
+typedef a::RefPtr<Table> DslTable;
+
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum {
   T_INTEGER = 1000000,
@@ -58,15 +57,18 @@ enum {
   T_DOT,
   T_TILDA,
   T_BACKTICK,
+  T_QUOTE,
+  T_DQUOTE,
   T_BANG,
   T_AMPER,
   T_AT,
   T_PERCENT,
-  T_QUESTION,
+  T_QMARK,
   T_HAT,
   T_LBRACKET,
   T_RBRACKET,
 
+  T_COMMENT,
   T_EOF,
   T_ETHEREAL
 };
@@ -94,6 +96,23 @@ struct IScanner {
   virtual DslToken string()=0;
   virtual void skipComment() = 0;
   virtual ~IScanner() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct NumberSlot {
+  NumberSlot(double d) {
+    type = T_REAL;
+    u.r=d;
+  }
+  NumberSlot(llong n) {
+    type = T_INTEGER;
+    u.n=n;
+  }
+  int type;
+  union {
+    llong n;
+    double r;
+  } u;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -166,35 +185,35 @@ struct Symbol : public a::Counted {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SymbolTable : public a::Counted {
+struct Table : public a::Counted {
 
   DslSymbol lookup(const stdstr& s, bool traverse);
   void insert(DslSymbol);
 
-  SymbolTable(const stdstr&, const std::map<stdstr,DslSymbol>& root);
-  SymbolTable(const stdstr&, DslSymbolTable outer);
-  SymbolTable(const stdstr&);
-  ~SymbolTable();
+  Table(const stdstr&, const std::map<stdstr,DslSymbol>& root);
+  Table(const stdstr&, DslTable outer);
+  Table(const stdstr&);
+  ~Table();
 
-  DslSymbolTable enclosing;
+  DslTable enclosing;
   stdstr name;
   std::map<stdstr, DslSymbol> symbols;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Data : public a::Counted {
+  virtual stdstr toString(bool prettyPrint=false) const = 0;
   virtual bool equals(const Data*) const = 0;
-  virtual stdstr toString() const = 0;
   virtual ~Data() {}
   Data() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Nothing : public Data {
-  virtual stdstr toString() const { return "nothing";}
   virtual bool equals(const Data* rhs) const {
     return X_NIL(rhs) && typeid(*rhs) == typeid(*this);
   }
+  stdstr toString(bool b) const { return "nothing"; }
   virtual ~Nothing() {}
   Nothing() {}
 };
@@ -202,9 +221,10 @@ struct Nothing : public Data {
 struct IEvaluator {
   virtual DslValue setValue(const stdstr&, DslValue, bool localOnly) = 0;
   virtual DslValue getValue(const stdstr&) = 0;
-  virtual DslFrame push(const stdstr& name)=0;
-  virtual DslFrame pop()=0;
-  virtual DslFrame peek()=0;
+  virtual bool containsSymbol(const stdstr&)=0;
+  virtual DslFrame pushFrame(const stdstr& name)=0;
+  virtual DslFrame popFrame()=0;
+  virtual DslFrame peekFrame()=0;
   virtual ~IEvaluator() {}
 };
 
@@ -212,7 +232,7 @@ struct IEvaluator {
 struct IAnalyzer {
   virtual DslSymbol lookup(const stdstr&, bool traverse=true) = 0;
   virtual void pushScope(const stdstr& name) =0;
-  virtual DslSymbolTable popScope()=0;
+  virtual DslTable popScope()=0;
   virtual void define(DslSymbol)=0;
   virtual ~IAnalyzer() {}
 };
@@ -237,6 +257,7 @@ struct Frame : public a::Counted {
 
   void set(const stdstr& sym, DslValue, bool localOnly);
   DslValue get(const stdstr& sym);
+  bool find(const stdstr& sym, bool localOnly);
   std::set<stdstr> keys();
 
   //DslFrame find(const stdstr& sym);
@@ -256,13 +277,6 @@ struct TypeSymbol : public Symbol {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-/*
-struct ParamSymbol : public Symbol {
-  ParamSymbol(const stdstr& n, DslSymbol t) : Symbol(n,t) {}
-  ~ParamSymbol() {}
-};*/
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct VarSymbol : public Symbol {
   VarSymbol(const stdstr& n, DslSymbol t) : Symbol(n,t) {}
   ~VarSymbol() {}
@@ -280,13 +294,13 @@ struct FnSymbol : public Symbol {
 
   DslSymbol result;
   DslAst block;
-  SymbolVec params;
+  std::vector<DslSymbol> params;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IParser {
   virtual DslToken eat(int wantedToken)=0;
-  virtual DslAst parse()=0;
+  virtual DslToken eat()=0;
   virtual ~IParser() {}
 };
 

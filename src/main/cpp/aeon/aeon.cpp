@@ -71,19 +71,19 @@ strvec tokenize(const stdstr& src, TChar delim) {
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr toupper(const stdstr& s) {
+stdstr to_upper(const stdstr& s) {
   stdstr t(s);
   for (auto& c : t) { c= ::toupper(c); }
   return t;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr tolower(const stdstr& s) {
+stdstr to_lower(const stdstr& s) {
   stdstr t(s);
   for (auto& c : t) { c= ::tolower(c); }
   return t;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void randSeed(long x=0) {
+void rand_seed(long x=0) {
   std::srand (x > 0 ? x : std::time(nullptr));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -99,11 +99,11 @@ bool dbl_equals(double d1, double d2) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr readFile(const char* fpath) {
+stdstr read_file(const char* fpath) {
   auto fp = ::fopen(fpath, "rb");
 
   if (! fp) {
-    raise(FileNotFound, "Failed to open file: %s", fpath);
+    RAISE(FileNotFound, "Failed to open file: %s", fpath);
   }
 
   auto len = (::fseek(fp, 0L, SEEK_END), ::ftell(fp));
@@ -114,7 +114,7 @@ stdstr readFile(const char* fpath) {
 
   if (cnt != len) {
     ::free(buf);
-    raise(FileError,"Failed to read file: %s", fpath);
+    RAISE(FileError,"Failed to read file: %s", fpath);
   } else {
     buf[cnt]='\0';
   }

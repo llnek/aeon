@@ -18,6 +18,9 @@
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
 namespace d = czlab::dsl;
+typedef std::vector<d::DslToken> TokenVec;
+typedef std::vector<d::DslAst> AstVec;
+typedef std::vector<d::DslSymbol> SymbolVec;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }

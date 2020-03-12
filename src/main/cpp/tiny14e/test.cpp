@@ -90,11 +90,11 @@ begin { Main }\n\
 end.  { Main }\n\
 ";
 namespace czlab::tiny14e {
-using namespace czlab::aeon;
+namespace a=czlab::aeon;
 
 int main(int argc, char* argv[]) {
   try {
-    auto src= readFile("/Users/kenl/Desktop/pas_triangle.pas");
+    auto src= a::read_file("/Users/kenl/Desktop/pas_triangle.pas");
     Interpreter i(src.c_str());
     i.interpret();
     //::printf("result = %s\n", r.toString().c_str());
@@ -110,20 +110,23 @@ int main(int argc, char* argv[]) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
-
+/*
 using namespace czlab::aeon;
 using namespace czlab::tiny14e;
 namespace d=czlab::dsl;
 
 int main(int argc, char* argv[]) {
   try {
-    auto src= readFile("/Users/kenl/Desktop/pas_triangle.pas");
+    auto src= read_file("/Users/kenl/Desktop/pas_triangle.pas");
     Interpreter i(src.c_str());
     i.interpret();
     //::printf("result = %s\n", r.get()->toString().c_str());
-  } catch ( const d::SyntaxError& e) {
+  } catch ( const a::Exception& e) {
     ::printf("%s", e.what().c_str());
+  }
+  catch (const std::exception& e) {
+    ::printf("%s", e.what());
   }
   return 0;
 }
-
+*/

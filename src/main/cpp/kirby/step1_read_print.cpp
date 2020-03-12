@@ -1,23 +1,26 @@
+
 #include "parser.h"
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::mal {
+namespace czlab::kirby {
+namespace d=czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SString PRINT(const SString& s) {
-  return s;
+stdstr PRINT(const d::DslValue& v) {
+  return s__cast(LValue,v.ptr())->toString(true);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SString EVAL(d::IAst* tree) {
+d::DslValue EVAL(d::DslValue tree) {
   Lisper p;
-  return tree->eval(p);
+  return s__cast(LValue, tree.ptr())->eval(&p);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::IAst* READ(const SString& s) {
+d::DslValue READ(const stdstr& s) {
   SExprParser p(s.c_str());
   return p.parse();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void repl(const SString& s) {
-  PRINT(EVAL(READ(s)));
+stdstr repl(const stdstr& s) {
+  return PRINT(READ(s));
 }
 
 

@@ -52,24 +52,24 @@ private:
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template<class T>
-struct MS_DLL ManagedPtr {
+struct MS_DLL RefPtr {
 
-  ManagedPtr(const ManagedPtr& rhs) : ManagedPtr() { retain(rhs.pObj); }
+  RefPtr(const RefPtr& rhs) : RefPtr() { retain(rhs.pObj); }
 
-  ManagedPtr(T* obj) : ManagedPtr() { retain(obj); }
+  RefPtr(T* obj) : RefPtr() { retain(obj); }
 
-  ManagedPtr() { S_NIL(pObj); }
+  RefPtr() { S_NIL(pObj); }
 
-  const ManagedPtr& operator = (const ManagedPtr& rhs) {
+  const RefPtr& operator = (const RefPtr& rhs) {
     retain(rhs.pObj);
     return *this;
   }
 
-  bool operator == (const ManagedPtr& rhs) const {
+  bool operator == (const RefPtr& rhs) const {
     return pObj == rhs.pObj;
   }
 
-  bool operator != (const ManagedPtr& rhs) const {
+  bool operator != (const RefPtr& rhs) const {
     return pObj != rhs.pObj;
   }
 
@@ -81,7 +81,7 @@ struct MS_DLL ManagedPtr {
     return X_NIL(pObj);
   }
 
-  ~ManagedPtr() { release(); }
+  ~RefPtr() { release(); }
 
   T* operator -> () const { return ptr(); }
 
@@ -101,7 +101,7 @@ private:
 
   void release() {
     if (X_NIL(pObj) && pObj->release() == 0) {
-      del_ptr(pObj);
+      DEL_PTR(pObj);
     }
   }
 

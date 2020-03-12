@@ -87,31 +87,30 @@ typedef int64_t llong;
     ____ASSERT(__FILE__, __LINE__, condition, __VA_ARGS__)
 
 //////////////////////////////////////////////////////////////////////////////
-#define raise(EXP, fmt, ...) \
+#define RAISE(exp, fmt, ...) \
   do { char buf[1024]; \
   ::sprintf(buf, (const char*)fmt, __VA_ARGS__); \
-    ::printf("bad shit in file %s, line %d\b", __FILE__,__LINE__); \
-    throw EXP(buf);} while (0)
+    throw exp(buf);} while (0)
 
 
 //////////////////////////////////////////////////////////////////////////////
 // memory lifecycle stuff
-#define free_file(x) do {if (x) ::fclose(x); x=nullptr;} while (0)
-#define free_mem(x) do {if (x) ::free(x); x=nullptr;} while (0)
-#define del_array(a) do {delete[] a; a=nullptr;} while (0)
-#define del_ptr(p) do {delete p; p=nullptr;} while (0)
+#define FREE_FILE(x) do {if (x) ::fclose(x); x=nullptr;} while (0)
+#define FREE_MEM(x) do {if (x) ::free(x); x=nullptr;} while (0)
+#define DEL_ARRAY(a) do {delete[] a; a=nullptr;} while (0)
+#define DEL_PTR(p) do {delete p; p=nullptr;} while (0)
 
 // ctors
-#define ctor5(T,p1,p2,p3,p4,p5) new(std::nothrow) T {p1,p2,p3,p4,p5}
-#define ctor4(T,p1,p2,p3,p4) new(std::nothrow) T {p1,p2,p3,p4}
-#define ctor3(T,p1,p2,p3) new(std::nothrow) T {p1,p2,p3}
-#define ctor2(T,p1,p2) new(std::nothrow) T {p1,p2}
-#define ctor1(T,p1) new(std::nothrow) T {p1}
-#define ctor(T) new(std::nothrow) T {}
+#define CTOR_5(T,p1,p2,p3,p4,p5) new(std::nothrow) T {p1,p2,p3,p4,p5}
+#define CTOR_4(T,p1,p2,p3,p4) new(std::nothrow) T {p1,p2,p3,p4}
+#define CTOR_3(T,p1,p2,p3) new(std::nothrow) T {p1,p2,p3}
+#define CTOR_2(T,p1,p2) new(std::nothrow) T {p1,p2}
+#define CTOR_1(T,p1) new(std::nothrow) T {p1}
+#define CTOR_0(T) new(std::nothrow) T {}
 
 // misc
-#define bool_str_u(b) ((b) ? "TRUE" : "FALSE")
-#define bool_str(b)  ((b) ? "true" : "false")
+#define BOOL_STR_U(b) ((b) ? "TRUE" : "FALSE")
+#define BOOL_STR(b)  ((b) ? "true" : "false")
 
 //////////////////////////////////////////////////////////////////////////////
 // c++ std collection iteration
@@ -133,7 +132,7 @@ typedef int64_t llong;
 
 //////////////////////////////////////////////////////////////////////////////
 // c++ STL
-#define contains(C,x) ((C).find((x)) != (C).end())
+#define s__contains(C,x) ((C).find((x)) != (C).end())
 #define map__val(M,K) (M).find(K)->second
 typedef std::string stdstr;
 typedef std::vector<std::string> strvec;
@@ -220,7 +219,7 @@ virtual void set##funName(varType p) { v=p; }
 #define SIZEOFX(var,type) (sizeof(var)/sizeof(type))
 
 // handy macros
-#define FTOS(n) s::to_string(n)
+#define FTOS(n) std::to_string(n)
 // halve this value
 #define HTV(v) ((v) * 0.5)
 
