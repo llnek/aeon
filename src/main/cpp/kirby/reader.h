@@ -20,7 +20,7 @@ namespace czlab::kirby {
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
-  T_UNQUOTE_SPLICE,
+  T_UNQUOTE_SPLICE = 100,
   T_KEYWORD,
   T_TRUE,
   T_FALSE,

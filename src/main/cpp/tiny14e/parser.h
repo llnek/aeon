@@ -403,6 +403,7 @@ struct CrenshawParser : public d::IParser {
   int cur();
   char peek();
   bool isCur(int);
+  bool isEof();
   d::DslToken token();
   d::DslToken eat();
   d::DslToken eat(int wanted);

@@ -71,6 +71,47 @@ strvec tokenize(const stdstr& src, TChar delim) {
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+TChar unescape_char(TChar c) {
+  switch (c) {
+    case 'a': return '\a'; // 07  Alert (Beep, Bell) (added in C89)[1]
+    case 'b': return '\b'; // 08  Backspace
+    case 'e': return '\e'; // 1B  Escape character
+    case 'f': return '\f'; // 0C  Formfeed Page Break
+    case 'n': return '\n'; // 0A  Newline (Line Feed)
+    case 'r': return '\r'; // 0D  Carriage Return
+    case 't': return '\t'; // 09  Horizontal Tab
+    case 'v': return '\v'; // 0B  Vertical Tab
+    case '\\': return '\\'; //  5C  Backslash
+    case '\'': return '\''; //  27  Apostrophe or single quotation mark
+    case '"': return '"'; //  22  Double quotation mark
+    case '?': return '\?'; //3F Question mark (used to avoid trigraphs)
+  }
+  return c;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr escape_char(TChar c) {
+  char ch[3];
+  ch[0]='\\';
+  ch[2]='\0';
+  switch (c) {
+    case '\a': ch[1]='a'; break;
+    case '\b': ch[1]='b'; break;
+    case '\e': ch[1]='e'; break;
+    case '\f': ch[1]='f'; break;
+    case '\n': ch[1]='n'; break;
+    case '\r': ch[1]='r'; break;
+    case '\t': ch[1]='t'; break;
+    case '\v': ch[1]='v'; break;
+    case '\\': ch[1]='\\'; break;
+    case '\'': ch[1]='\''; break;
+    case '"': ch[1]='"'; break;
+    case '\?': ch[1]='?'; break;
+    default: ch[0]=c; ch[1]='\0'; break;
+  }
+  return stdstr(ch);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr to_upper(const stdstr& s) {
   stdstr t(s);
   for (auto& c : t) { c= ::toupper(c); }

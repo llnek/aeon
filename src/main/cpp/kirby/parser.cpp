@@ -19,14 +19,18 @@ namespace czlab::kirby {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void readList(SExprParser*, ValueVec&, int);
+void readList(SExprParser*, ValueVec&, int,  stdstr);
 d::DslValue readForm(SExprParser*);
 d::DslValue readAtom(SExprParser*);
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue macro_func(SExprParser* p, stdstr op) {
+  auto f = readForm(p);
   ValueVec x;
+  if (!f.ptr()) {
+    RAISE(d::SyntaxError, "Bad Form %s\n", "macro");
+  }
   s__conj(x, d::DslValue(new LSymbol(op)));
-  s__conj(x, readForm(p));
+  s__conj(x, f);
   return d::DslValue(new LList(x));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -67,27 +71,35 @@ d::DslValue readAtom(SExprParser* p) {
       return d::DslValue(new LSymbol(s));
     break;
     case T_FALSE:
+      p->eat();
       return false_value();
     break;
     case T_TRUE:
+      p->eat();
       return true_value();
     break;
     case T_NIL:
+      p->eat();
       return nil_value();
     break;
     case d::T_AT:
+      p->eat();
       return macro_func(p, "deref");
     break;
     case d::T_BACKTICK:
+      p->eat();
       return macro_func(p, "backtick");
     break;
     case d::T_QUOTE:
+      p->eat();
       return macro_func(p, "quote");
     break;
     case T_UNQUOTE_SPLICE:
+      p->eat();
       return macro_func(p, "unquote-splice");
     break;
     case d::T_TILDA:
+      p->eat();
       return macro_func(p, "unquote");
     break;
   }
@@ -97,24 +109,41 @@ d::DslValue readAtom(SExprParser* p) {
     p->eat();
     d::DslValue m = readForm(p);
     d::DslValue v = readForm(p);
+    if (!m.ptr()) {
+      RAISE(d::SyntaxError, "Bad form %s\n", "meta");
+    }
+    if (!v.ptr()) {
+      RAISE(d::SyntaxError, "Bad form %s\n", "value");
+    }
     ValueVec x { d::DslValue(new LSymbol(s)), v, m };
     return d::DslValue(new LList(x));
   }
 
   t= p->eat();
   s=t->getLiteralAsStr();
-  ::printf("sdfdsfsd = %s\n", s.c_str());
   return d::DslValue(new LSymbol(s));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void readList(SExprParser* p, ValueVec& res, int ender) {
-  while (!p->rdr->ctx.eof) {
+void readList(SExprParser* p, ValueVec& res, int ender, stdstr pairs) {
+  auto m= p->rdr->ctx.mark();
+  auto found=false;
+  while (!p->isEof()) {
     if (p->isCur(ender)) {
+      found = true;
       p->eat();
       break;
     }
-    s__conj(res, readForm(p));
+    auto f= readForm(p);
+    if (f.ptr()) {
+      s__conj(res, f);
+    }
+  }
+  if (!found) {
+    RAISE(d::SyntaxError,
+        "Unmatched %s near line %d(%d).\n",
+        pairs.c_str(), m.first, m.second);
+
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -123,16 +152,20 @@ d::DslValue readForm(SExprParser* p) {
   switch (p->cur()) {
     case d::T_LPAREN:
       p->eat();
-      readList(p, vec, d::T_RPAREN);
+      readList(p, vec, d::T_RPAREN, "()");
       return d::DslValue(new LList(vec));
     case d::T_LBRACKET:
       p->eat();
-      readList(p, vec, d::T_RBRACKET);
+      readList(p, vec, d::T_RBRACKET, "[]");
       return d::DslValue(new LVec(vec));
     case d::T_LBRACE:
       p->eat();
-      readList(p, vec, d::T_RBRACE);
+      readList(p, vec, d::T_RBRACE,  "{}");
       return d::DslValue(new LHash(vec));
+    case d::T_RPAREN:
+    case d::T_RBRACE:
+    case d::T_RBRACKET:
+      return d::DslValue();
     default:
       return readAtom(p);
   }
@@ -141,8 +174,9 @@ d::DslValue readForm(SExprParser* p) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue SExprParser::parse() {
   ValueVec out;
-  while (!rdr->ctx.eof) {
-    s__conj(out, readForm(this));
+  while (!isEof()) {
+    auto f= readForm(this);
+    if (f.ptr()) { s__conj(out, f); }
   }
   if (out.size() == 0) {
     return nil_value();
@@ -160,6 +194,10 @@ int SExprParser::cur() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 char SExprParser::peek() {
   return d::peek(rdr->ctx);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool SExprParser::isEof() {
+  return rdr->ctx.cur->type() == d::T_EOF;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool SExprParser::isCur(int type) {

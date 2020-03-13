@@ -76,13 +76,15 @@ llong Token::getLiteralAsInt() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Token::getLiteralAsStr() {
   if (type() == d::T_IDENT ||
+      type() == T_KEYWORD ||
       type() == d::T_STRING) {
     return impl.value.cs.get()->get();
   }
 
   if (! s__contains(TOKENS,type())) {
     RAISE(d::SemanticError,
-        "Expecting identifier near %d(%d).\n", impl.line, impl.col);
+        "Unexpected token %d near %d(%d).\n",
+        type(), impl.line, impl.col);
   }
 
   return TOKENS.at(type());
@@ -221,6 +223,7 @@ d::DslToken Reader::id() {
   if (res == "nil") {
     return token(T_NIL, res, m);
   }
+  ::printf("id = %s\n", res.c_str());
   return token(d::T_IDENT, res, m, res);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -246,22 +249,41 @@ d::DslToken Reader::getNextToken() {
     }
     else
     if (ch == '~' &&
-        d::peek(ctx) == '@') {
+        d::peekNext(ctx) == '@') {
+      auto m= ctx.mark();
+      d::advance(ctx);
+      d::advance(ctx);
+      return token(T_UNQUOTE_SPLICE, "~@", m);
     }
     else
     if (ch == '\'') {
+      auto m= ctx.mark();
+      d::advance(ctx);
+      return token(d::T_QUOTE, ch, m);
     }
     else
     if (ch == '`') {
+      auto m= ctx.mark();
+      d::advance(ctx);
+      return token(d::T_BACKTICK, ch, m);
     }
     else
     if (ch == '~') {
+      auto m= ctx.mark();
+      d::advance(ctx);
+      return token(d::T_TILDA, ch, m);
     }
     else
     if (ch == '^') {
+      auto m= ctx.mark();
+      d::advance(ctx);
+      return token(d::T_HAT, ch, m);
     }
     else
     if (ch == '@') {
+      auto m= ctx.mark();
+      d::advance(ctx);
+      return token(d::T_AT, ch, m);
     }
     else
     if (::isdigit(ch)) {
@@ -309,7 +331,7 @@ d::DslToken Reader::getNextToken() {
     }
     else
     if (ch == ':') {
-      auto nx= d::peek(ctx);
+      auto nx= d::peekNext(ctx);
       if (isKeywdChar(nx)) {
         return keywd();
       } else {

@@ -1206,6 +1206,10 @@ char CrenshawParser::peek() {
   return d::peek(lex->ctx);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool CrenshawParser::isEof() {
+  return rdr->ctx.cur->type() == d::T_EOF;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool CrenshawParser::isCur(int type) {
   return lex->ctx.cur->type() == type;
 }

@@ -20,12 +20,35 @@ namespace czlab::kirby {
 namespace a= czlab::aeon;
 namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr decode(const stdstr& src) {
-  return src;
+stdstr unescape(const stdstr& src) {
+  auto len = src.length();
+  auto ch= '\n';
+  stdstr res;
+  if (len == 0 ||
+      !(src[0]=='"' && src[len-1]=='"')) { return src; }
+  // skip 1st and last => no dqoutes
+  --len;
+  for (auto i = 1; i < len; ++i) {
+    ch = src[i];
+    if (ch == '\\') {
+      i += 1;
+      res += a::unescape_char(src[i]);
+    } else {
+      res += ch;
+    }
+  }
+  return res;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr encode(const stdstr& src) {
-  return src;
+stdstr escape(const stdstr& src) {
+  auto len = src.length();
+  stdstr res;
+  if (len == 0 ||
+      (src[0]=='"' && src[len-1]=='"')) { return src; }
+  for (auto i = 0; i < len; ++i) {
+    res += a::escape_char(src[i]);
+  }
+  return "\"" + res + "\"";
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue false_value() {
@@ -130,11 +153,11 @@ LString::LString(stdstr& s) : LStrk(s) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LString::toString(bool p) const {
-  return p ? encode(value) : value;
+  return p ? encoded() : value;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LString::encoded() const {
-  return encode(value);
+  return escape(value);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr hash_key(d::DslValue& s) {
@@ -325,8 +348,9 @@ LHash::LHash(ValueVec& more) {
   ASSERT(a::is_even(more.size()),
       "Expected even n# of args, got %d", c);
   for (auto i = 0; i < c; ++i) {
-    values[hash_key(more[i])] = more[i];
+    auto k= hash_key(more[i]);
     i += 1;
+    values[k] = more[i];
   }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

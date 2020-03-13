@@ -63,6 +63,8 @@ struct CString {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 strvec tokenize(const stdstr& src, TChar delim);
+TChar unescape_char(TChar c);
+stdstr escape_char(TChar c);
 stdstr to_upper(const stdstr&);
 stdstr to_lower(const stdstr&);
 bool dbl_equals(double d1, double d2);

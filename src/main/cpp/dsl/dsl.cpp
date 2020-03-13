@@ -115,25 +115,6 @@ std::string numeric(Context& ctx) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-char escSeq(char c) {
-  switch (c) {
-    case 'a': return '\a'; //	07	Alert (Beep, Bell) (added in C89)[1]
-    case 'b': return '\b'; //	08	Backspace
-    case 'e': return '\e'; // 1B	Escape character
-    case 'f': return '\f'; //	0C	Formfeed Page Break
-    case 'n': return '\n'; //	0A	Newline (Line Feed)
-    case 'r': return '\r'; //	0D	Carriage Return
-    case 't': return '\t'; //	09	Horizontal Tab
-    case 'v': return '\v'; //	0B	Vertical Tab
-    case '\\': return '\\'; //	5C	Backslash
-    case '\'': return '\''; //	27	Apostrophe or single quotation mark
-    case '"': return '"'; //	22	Double quotation mark
-    case '?': return '\?'; //3F	Question mark (used to avoid trigraphs)
-  }
-  return c;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string str(Context& ctx) {
 
   std::string res;
@@ -152,7 +133,7 @@ std::string str(Context& ctx) {
           RAISE(SyntaxError,
               "Malformed string value, bad escaped char %c\n.", ch);
         }
-        ch=escSeq(peek(ctx));
+        ch=a::unescape_char(peek(ctx));
       }
       res += ch;
       advance(ctx);

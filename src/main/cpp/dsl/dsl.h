@@ -301,6 +301,7 @@ struct FnSymbol : public Symbol {
 struct IParser {
   virtual DslToken eat(int wantedToken)=0;
   virtual DslToken eat()=0;
+  virtual bool isEof()=0;
   virtual ~IParser() {}
 };
 
