@@ -241,11 +241,17 @@ stdstr LSeq::toString(bool pretty) const {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ValueVec LSeq::evalEach(d::IEvaluator* e) const {
+  auto _e = s__cast(Lisper, e);
   ValueVec out;
-  //for (auto& i : values) {
-    //kenl
-    //s__conj(out,(EVAL(i, e)));
-  //}
+  for (auto& i : values) {
+    auto r= _e->eval(i);
+    if (r.isSome()) {
+      s__conj(out,r);
+    } else {
+      RAISE(d::SemanticError,
+          "Bad eval %s.\n", this->toString(true).c_str());
+    }
+  }
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -295,13 +301,12 @@ stdstr LList::toString(bool pretty) const {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LList::eval(d::IEvaluator* e) {
-  if (values.size() > 0) {
-    auto res= evalEach(e);
-    //auto b = res.begin();
-    return d::DslValue();//APPLY(*b, ++b, res.end());
-  } else {
-    return d::DslValue(this);
-  }
+  if (values.size() == 0) { return d::DslValue(this); }
+  auto res= evalEach(e);
+  auto op= s__cast(LNativeFn,res[0].ptr());
+  ValueVec args;
+  args.insert(args.end(), res.begin()+1,res.end());
+  return op->apply(args);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LList::conj(ValueVec& chunk) const {
@@ -458,51 +463,36 @@ int LHash::compare(const d::Data* rhs) const {
 d::DslValue LHash::withMeta(d::DslValue& m) const {
   return d::DslValue(new LHash(*this, m));
 }
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Lisper::setValue(const stdstr& name, d::DslValue v, bool localOnly) {
-  auto x = peekFrame();
-  if (x.isSome()) x.ptr()->set(name, v, localOnly);
-  return v;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Lisper::getValue(const stdstr& name) {
-  auto x = peekFrame();
-  if (x.isSome())
-    return x.ptr()->get(name);
-  else
-    return nil_value();
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Lisper::containsSymbol(const stdstr& name) {
-  auto x = peekFrame();
-  return x.isSome() ? x.ptr()->find(name, false) : false;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Lisper::pushFrame(const stdstr& name) {
-  env = d::DslFrame(new d::Frame(name, env));
-  return env;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Lisper::popFrame() {
-  d::DslFrame f;
-  if (env.isSome()) {
-    f= env;
-    env= env.ptr()->getOuter();
-  }
-  //::printf("Frame pop'ed:=\n%s\n", f->toString().c_str());
-  return f;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Lisper::peekFrame() {
-  return env;
+LNativeFn::LNativeFn(const stdstr& name, Func* p) : _name(name), fn(p) {
 }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LNativeFn::LNativeFn(const LNativeFn& rhs, d::DslValue& m) : LValue(m) {
+  _name=rhs._name;
+  fn=rhs.fn;
+}
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr LNativeFn::toString(bool pretty) const {
+  return "(native)@" + _name;
+}
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LNativeFn::compare(const d::Data* rhs) const {
+  return this == rhs;
+}
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LNativeFn::withMeta(d::DslValue& m) const {
+  return d::DslValue(new LNativeFn(*this, m));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LNativeFn::apply(ValueVec& args) {
+  return fn(args);
+}
 
 
 

@@ -8,7 +8,7 @@ namespace a = czlab::aeon;
 int main(int argc, char* argv[]) {
 
   try {
-    auto s = k::repl("[1 2 nil true false]");
+    auto s = k::repl("(+ 1 2 4 5)");
     //"`(+ 1 2)");
     //"~eee");
     //"@abc");

@@ -22,6 +22,8 @@ namespace a= czlab::aeon;
 namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 typedef std::vector<d::DslValue> ValueVec;
+typedef d::DslValue (Func)(ValueVec&);
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue false_value();
 d::DslValue nil_value();
@@ -255,6 +257,28 @@ struct LHash : public LValue {
   virtual int compare(const d::Data* rhs) const;
   std::map<stdstr,d::DslValue> values;
 };
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct LNativeFn : public LValue {
+
+  virtual d::DslValue withMeta(d::DslValue&) const;
+  virtual stdstr toString(bool pretty) const;
+  virtual ~LNativeFn() {}
+
+  LNativeFn(const stdstr& name, Func*);
+  LNativeFn(const LNativeFn&, d::DslValue&);
+
+  d::DslValue apply(ValueVec&);
+
+  protected:
+  virtual int compare(const d::Data* rhs) const;
+
+  private:
+  stdstr _name;
+  Func* fn;
+  LNativeFn();
+};
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lisper : public d::IEvaluator {
   virtual d::DslValue setValue(const stdstr&, d::DslValue, bool localOnly);
@@ -264,11 +288,13 @@ struct Lisper : public d::IEvaluator {
   virtual d::DslFrame popFrame();
   virtual d::DslFrame peekFrame();
   virtual ~Lisper() {}
+  Lisper();
+
+  d::DslValue eval(d::DslValue);
+
   private:
   d::DslFrame env;
 };
-
-
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }

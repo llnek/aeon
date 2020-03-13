@@ -1,17 +1,20 @@
 
 #include "parser.h"
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::kirby {
-/*
 namespace d=czlab::dsl;
+
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr PRINT(const d::DslValue& v) {
   return s__cast(LValue,v.ptr())->toString(true);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue EVAL(d::DslValue tree) {
+d::DslValue EVAL(d::DslValue v) {
   Lisper p;
-  return s__cast(LValue, tree.ptr())->eval(&p);
+  return p.eval(v);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue READ(const stdstr& s) {
@@ -20,7 +23,7 @@ d::DslValue READ(const stdstr& s) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr repl(const stdstr& s) {
-  return PRINT(READ(s));
+  return PRINT(EVAL(READ(s)));
 }
 
 
@@ -29,7 +32,7 @@ stdstr repl(const stdstr& s) {
 
 
 
-*/
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
