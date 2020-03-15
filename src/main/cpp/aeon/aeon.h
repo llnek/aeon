@@ -68,6 +68,18 @@ stdstr escape_char(TChar c);
 stdstr to_upper(const stdstr&);
 stdstr to_lower(const stdstr&);
 bool dbl_equals(double d1, double d2);
+template <typename T>
+bool vec_equals(const std::vector<T>& a, const std::vector<T>& b) {
+  if (a.size() == b.size()) {
+    auto i1=a.begin();
+    auto i2=b.begin();
+    for (; i1 != a.end(); ++i1, ++i2) {
+      if (*i1 == *i2) {} else { return false; }
+    }
+    return true;
+  }
+  return false;
+}
 int modulo(int, int);
 template <typename T> bool is_even(T x) {
   return (x % 2) == 0;

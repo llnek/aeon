@@ -237,7 +237,7 @@ DslValue Frame::get(const std::string& key) {
   return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Frame::set(const std::string& key, DslValue v, bool localOnly) {
+DslValue Frame::set(const std::string& key, DslValue v, bool localOnly) {
   auto x= slots.find(key);
 
   DEBUG("frame:setting %s to %s\n",
@@ -248,15 +248,27 @@ void Frame::set(const std::string& key, DslValue v, bool localOnly) {
   } else if (prev.isSome()) {
     prev.ptr()->set(key,v,localOnly);
   }
+
+  return v;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool Frame::containsKey(const stdstr& key) const {
+  return slots.find(key) != slots.end();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Frame::find(const stdstr& key, bool localOnly) {
+DslFrame Frame::find(const stdstr& key) {
   auto x= slots.find(key);
   if (x != slots.end()) {
-    return true;
+    return DslFrame(this);
   }
-  return (!localOnly && prev.isSome())
-    ? prev.ptr()->find(key,localOnly) : false;
+  return prev.isSome() ? prev.ptr()->find(key) : DslFrame();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DslFrame Frame::getOuterRoot() {
+  return prev.isSome() ?
+    prev.ptr()->getOuterRoot() : DslFrame(this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

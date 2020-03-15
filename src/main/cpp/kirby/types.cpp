@@ -71,7 +71,7 @@ d::DslValue LValue::meta() const {
   return metaObj.isNull() ? nil_value() : metaObj;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LValue::eval(d::IEvaluator* e) {
+d::DslValue LValue::eval(Lisper*, d::DslFrame e) {
   return d::DslValue(this);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -191,7 +191,7 @@ d::DslValue LKeyword::withMeta(d::DslValue& m) const {
   return d::DslValue(new LKeyword(*this, m));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSymbol::LSymbol(stdstr& s) : LStrk(s) {
+LSymbol::LSymbol(const stdstr& s) : LStrk(s) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSymbol::LSymbol(const LSymbol& rhs, d::DslValue& m) : LStrk(rhs, m) {
@@ -201,12 +201,13 @@ stdstr LSymbol::toString(bool p) const {
   return value;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LSymbol::eval(d::IEvaluator* e) {
-  if (! e->containsSymbol(value)) {
+d::DslValue LSymbol::eval(Lisper*, d::DslFrame e) {
+  auto r= e->get(value);
+  if (r.isNull()) {
     RAISE(NoSuchVarError,
         "No such symbol %s.\n", value.c_str());
   }
-  return e->getValue(value);
+  return r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LSymbol::compare(const d::Data* rhs) const {
@@ -240,11 +241,10 @@ stdstr LSeq::toString(bool pretty) const {
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ValueVec LSeq::evalEach(d::IEvaluator* e) const {
-  auto _e = s__cast(Lisper, e);
+ValueVec LSeq::evalEach(Lisper* e, d::DslFrame env) const {
   ValueVec out;
   for (auto& i : values) {
-    auto r= _e->eval(i);
+    auto r= e->EVAL(i,env);
     if (r.isSome()) {
       s__conj(out,r);
     } else {
@@ -300,9 +300,9 @@ stdstr LList::toString(bool pretty) const {
   return "(" + LSeq::toString(pretty) + ")";
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LList::eval(d::IEvaluator* e) {
+d::DslValue LList::eval(Lisper* e, d::DslFrame env) {
   if (values.size() == 0) { return d::DslValue(this); }
-  auto res= evalEach(e);
+  auto res= evalEach(e, env);
   auto op= s__cast(LNativeFn,res[0].ptr());
   ValueVec args;
   args.insert(args.end(), res.begin()+1,res.end());
@@ -326,8 +326,8 @@ LVec::LVec(const LVec& rhs, d::DslValue& m) : LSeq(rhs, m) {
 LVec::LVec(ValueVec& v) : LSeq(v) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LVec::eval(d::IEvaluator* e) {
-  auto res= evalEach(e);
+d::DslValue LVec::eval(Lisper* e, d::DslFrame env) {
+  auto res= evalEach(e,env);
   return d::DslValue(new LVec(res));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -397,10 +397,10 @@ bool LHash::contains(d::DslValue& key) const {
   return values.find(hash_key(key)) != values.end();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LHash::eval(d::IEvaluator* e) {
+d::DslValue LHash::eval(Lisper* p, d::DslFrame e) {
   std::map<stdstr,d::DslValue> out;
   for (auto& it : values) {
-    out[it.first] = 0;//EVAL(it.second, e);
+    out[it.first] = p->EVAL(it.second, e);
   }
   return d::DslValue(new LHash(out));
 }
@@ -469,7 +469,7 @@ LNativeFn::LNativeFn(const stdstr& name, Func* p) : _name(name), fn(p) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LNativeFn::LNativeFn(const LNativeFn& rhs, d::DslValue& m) : LValue(m) {
+LNativeFn::LNativeFn(const LNativeFn& rhs, d::DslValue& m) : LFunction(m) {
   _name=rhs._name;
   fn=rhs.fn;
 }
@@ -494,6 +494,72 @@ d::DslValue LNativeFn::apply(ValueVec& args) {
   return fn(args);
 }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LLambdaFn::withMeta(d::DslValue& m) const {
+  return d::DslValue(new LLambdaFn(*this,m));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static int L_SEED=0;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr LLambdaFn::toString(bool pretty) const {
+  return "(lambda)@" + _name;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LLambdaFn::apply(ValueVec& args) {
+  return nil_value();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LLambdaFn::LLambdaFn(const strvec& _args, d::DslValue body, d::DslFrame env) {
+  _name = "anon#" + std::to_string(++L_SEED);
+  s__ccat(params, _args);
+  this->body = body;
+  this->env= env;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LLambdaFn::LLambdaFn(const stdstr& n,
+    const strvec& _args, d::DslValue body, d::DslFrame env) {
+  _name=n;
+  s__ccat(params, _args);
+  this->env=env;
+  this->body=body;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LLambdaFn::LLambdaFn(const LLambdaFn& rhs, d::DslValue& m) : LFunction(m) {
+  _name=rhs._name;
+  s__ccat(params, rhs.params);
+  env=rhs.env;
+  body=rhs.body;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LLambdaFn::compare(const d::Data* rhs) const {
+  auto x= s__cast(const LLambdaFn,rhs);
+  return _name == x->_name &&
+      a::vec_equals(params, x->params) &&
+         body.ptr() == x->body.ptr() ? 0 : 1;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LMacro::LMacro(const strvec& args, d::DslValue body, d::DslFrame env)
+  : LLambdaFn(args, body,env) {
+
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LMacro::LMacro(const stdstr& n, const strvec& args, d::DslValue body, d::DslFrame env)
+  : LLambdaFn(n, args, body,env) {
+
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LMacro::LMacro(const LMacro& rhs, d::DslValue& m)
+  : LLambdaFn(rhs, m) {
+
+}
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

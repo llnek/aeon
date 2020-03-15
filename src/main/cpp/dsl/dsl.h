@@ -255,12 +255,15 @@ struct Frame : public a::Counted {
   stdstr toString();
   ~Frame();
 
-  void set(const stdstr& sym, DslValue, bool localOnly);
+  DslValue set(const stdstr& sym, DslValue, bool localOnly);
   DslValue get(const stdstr& sym);
-  bool find(const stdstr& sym, bool localOnly);
+  DslFrame find(const stdstr& sym);
+
+  bool containsKey(const stdstr&) const;
+
   std::set<stdstr> keys();
 
-  //DslFrame find(const stdstr& sym);
+  DslFrame getOuterRoot();
   DslFrame getOuter();
 
   private:
