@@ -29,11 +29,11 @@
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
-#if !defined(TChar)
+#if !defined(Tchar)
 #if defined(_UNICODE)
-#define TChar  wchar_t
+#define Tchar  wchar_t
 #else
-#define TChar  char
+#define Tchar  char
 #endif
 #endif
 
@@ -135,7 +135,7 @@ typedef int64_t llong;
 #define s__contains(C,x) ((C).find((x)) != (C).end())
 #define map__val(M,K) (M).find(K)->second
 typedef std::string stdstr;
-typedef std::vector<std::string> strvec;
+typedef std::vector<std::string> StrVec;
 
 //////////////////////////////////////////////////////////////////////////////
 // pointer macros

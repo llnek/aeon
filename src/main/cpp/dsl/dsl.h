@@ -100,7 +100,7 @@ struct IScanner {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct NumberSlot {
-  NumberSlot(double d) {
+  explicit NumberSlot(double d) {
     type = T_REAL;
     u.r=d;
   }
@@ -108,11 +108,20 @@ struct NumberSlot {
     type = T_INTEGER;
     u.n=n;
   }
-  int type;
+  bool isZero() {
+    if (type==T_INTEGER) {
+      return u.n==0;
+    } else {
+      return u.r==0.0;
+    }
+  }
+  bool isInt() { return type== T_INTEGER;}
   union {
     llong n;
     double r;
   } u;
+  private:
+  int type;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

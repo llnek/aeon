@@ -19,13 +19,13 @@ namespace czlab::kirby {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void readList(SExprParser*, ValueVec&, int,  stdstr);
+void readList(SExprParser*, VVec&, int,  stdstr);
 d::DslValue readForm(SExprParser*);
 d::DslValue readAtom(SExprParser*);
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue macro_func(SExprParser* p, stdstr op) {
   auto f = readForm(p);
-  ValueVec x;
+  VVec x;
   if (!f.ptr()) {
     RAISE(d::SyntaxError, "Bad Form %s\n", "macro");
   }
@@ -115,7 +115,7 @@ d::DslValue readAtom(SExprParser* p) {
     if (!v.ptr()) {
       RAISE(d::SyntaxError, "Bad form %s\n", "value");
     }
-    ValueVec x { d::DslValue(new LSymbol(s)), v, m };
+    VVec x { d::DslValue(new LSymbol(s)), v, m };
     return d::DslValue(new LList(x));
   }
 
@@ -125,7 +125,7 @@ d::DslValue readAtom(SExprParser* p) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void readList(SExprParser* p, ValueVec& res, int ender, stdstr pairs) {
+void readList(SExprParser* p, VVec& res, int ender, stdstr pairs) {
   auto m= p->rdr->ctx.mark();
   auto found=false;
   while (!p->isEof()) {
@@ -148,7 +148,7 @@ void readList(SExprParser* p, ValueVec& res, int ender, stdstr pairs) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue readForm(SExprParser* p) {
-  ValueVec vec;
+  VVec vec;
   switch (p->cur()) {
     case d::T_LPAREN:
       p->eat();
@@ -173,7 +173,7 @@ d::DslValue readForm(SExprParser* p) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue SExprParser::parse() {
-  ValueVec out;
+  VVec out;
   while (!isEof()) {
     auto f= readForm(this);
     if (f.ptr()) { s__conj(out, f); }

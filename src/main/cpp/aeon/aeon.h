@@ -62,33 +62,75 @@ struct CString {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-strvec tokenize(const stdstr& src, TChar delim);
-TChar unescape_char(TChar c);
-stdstr escape_char(TChar c);
+StrVec tokenize(const stdstr& src, Tchar delim);
+Tchar unescape_char(Tchar c);
+stdstr escape_char(Tchar c);
 stdstr to_upper(const stdstr&);
 stdstr to_lower(const stdstr&);
-bool dbl_equals(double d1, double d2);
-template <typename T>
-bool vec_equals(const std::vector<T>& a, const std::vector<T>& b) {
-  if (a.size() == b.size()) {
-    auto i1=a.begin();
-    auto i2=b.begin();
-    for (; i1 != a.end(); ++i1, ++i2) {
-      if (*i1 == *i2) {} else { return false; }
-    }
-    return true;
-  }
-  return false;
-}
+bool fuzzy_equals(double d1, double d2);
 int modulo(int, int);
 template <typename T> bool is_even(T x) {
   return (x % 2) == 0;
 }
 void rand_seed();
 stdstr read_file(const char* filepath);
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+/*
+template <typename T>
+size_t slice_size(typename std::vector<T>::iterator b, typename std::vector<T>::iterator e) {
+  size_t i=0;
+  while ((b + i) != e) {
+    i++;
+  }
+  return i;
+}
+*/
+template <typename T>
+int slice_size(typename std::vector<T>::iterator b, typename std::vector<T>::iterator e) {
+  return std::distance(b,e);
 }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+bool equals(const std::vector<T>& a, const std::vector<T>& b) {
+  if (a.size() == b.size()) {
+    auto i1=a.begin();
+    auto i2=b.begin();
+    for (; i1 != a.end(); ++i1, ++i2) {
+      if (*i1 == *i2) {} else { return false; }
+    }
+  }
+  return a.size() == b.size();
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+std::vector<T> slice(std::vector<T>& src, int from, int end) {
+  std::vector<T> out;
+  out.insert(out.end(), src.begin()+from, src.begin() + end); return out;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+std::vector<T> slice(std::vector<T>& src, int from) {
+  std::vector<T> out;
+  out.insert(out.end(), src.begin()+from, src.end()); return out;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+std::vector<T> slice(std::vector<T>* src, int from, int end) {
+  std::vector<T> out;
+  out.insert(out.end(), src->begin()+from, src->begin() + end); return out;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+std::vector<T> slice(std::vector<T>* src, int from) {
+  std::vector<T> out;
+  out.insert(out.end(), src->begin()+from, src->end()); return out;
+}
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+}
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
 

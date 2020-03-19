@@ -59,9 +59,9 @@ void CString::copy(const char* src) {
 }
 
 //////////////////////////////////////////////////////////////////////////////
-strvec tokenize(const stdstr& src, TChar delim) {
+StrVec tokenize(const stdstr& src, Tchar delim) {
   std::stringstream ss(src);
-  strvec out;
+  StrVec out;
   stdstr tkn;
   while (std::getline(ss, tkn, delim)) {
     if (tkn.length() > 0) {
@@ -71,7 +71,7 @@ strvec tokenize(const stdstr& src, TChar delim) {
   return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-TChar unescape_char(TChar c) {
+Tchar unescape_char(Tchar c) {
   switch (c) {
     case 'a': return '\a'; // 07  Alert (Beep, Bell) (added in C89)[1]
     case 'b': return '\b'; // 08  Backspace
@@ -89,7 +89,7 @@ TChar unescape_char(TChar c) {
   return c;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr escape_char(TChar c) {
+stdstr escape_char(Tchar c) {
   char ch[3];
   ch[0]='\\';
   ch[2]='\0';
@@ -134,11 +134,10 @@ int modulo(int x, int m) {
   return r < 0 ? r+m : r;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool dbl_equals(double d1, double d2) {
+bool fuzzy_equals(double d1, double d2) {
   auto d = d1-d2;
   return ::fabs(d) < 0.000000000001;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr read_file(const char* fpath) {
   auto fp = ::fopen(fpath, "rb");
