@@ -769,16 +769,40 @@ bool LHash::isEmpty() const { return values.empty(); }
 int LHash::count() const { return values.size();  }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::nth(int pos) const {
-
+  auto s = s__cast(LList,seq().ptr());
+  if (auto z= s->count(); z > 0 && pos >= 0 && pos < z) {
+    return s->nth(pos);
+  } else {
+    return nil_value();
+  }
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::seq() const {
+  VVec out;
+  for (auto x=values.begin(), e=values.end(); x != e; ++x) {
+    VVec tmp;
+    s__conj(tmp,string_value(x->first));
+    s__conj(tmp,x->second);
+    s__conj(out, vector_value(VSlice(tmp)));
+  }
+  return list_value(VSlice(out));
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::first() const {
+  return nth(0);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::rest() const {
+  auto s = s__cast(LList,seq().ptr());
+  if (auto z= s->count(); z > 1) {
+    VVec out;
+    for (auto i=1; i < z; ++i) {
+      s__conj(out, s->nth(i));
+    }
+    return list_value(VSlice(out));
+  } else {
+    return empty_list();
+  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
