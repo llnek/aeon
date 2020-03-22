@@ -21,9 +21,9 @@ namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SExprParser : public d::IParser {
+  std::pair<int,d::DslValue> parse();
   SExprParser(const char* src);
   virtual ~SExprParser();
-  d::DslValue parse();
   int cur();
   char peek();
   bool isCur(int);

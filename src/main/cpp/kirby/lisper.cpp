@@ -19,10 +19,28 @@
 namespace czlab::kirby {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+StrVec CORE_LISP {
+  R"((defmacro cond
+       [& xs]
+       (if (> (count xs) 0)
+         (list 'if
+               (first xs)
+               (if (> (count xs) 1)
+                 (nth xs 1)
+                 (throw "odd number of forms to cond"))
+               (cons 'cond (rest (rest xs)))))))",
+  R"((def not
+       (fn [cond] (if cond false true))))",
+  "(defn load-file \
+       [filename] \
+         (eval (read-string (str \"(do \" (slurp filename) \")\"))))",
+  R"((def *host-language* "C++"))"
+};
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-static bool truthy(d::DslValue v) {
-  return s__cast(LValue,v.ptr())->truthy();
+d::DslValue Lisper::evalAst(d::DslValue ast, d::DslFrame env) {
+  return s__cast(LValue,ast.ptr())->eval(this,env);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -31,14 +49,15 @@ d::DslFrame lambda_env(LLambda* fn, VSlice args) {
   auto z=fn->params.size();
   auto len= args.size();
   auto i=0, j=0;
+  // run through parameters...
   for (; i < z; ++i) {
     auto k= fn->params[i];
     if (k == "&") {
+      // var-args, next must be the last one
+      // e.g. [a b c & x]
       ASSERT1((i+1 == (z-1)));
       VVec x;
-      for (auto a= args.begin+j; a != args.end; ++a) {
-        s__conj(x, *a);
-      }
+      appendAll(args,j,x);
       fm->set(fn->params[i+1], list_value(VSlice(x)),true);
       j=len;
       i= z;
@@ -48,15 +67,16 @@ d::DslFrame lambda_env(LLambda* fn, VSlice args) {
     fm->set(k, *(args.begin + j), true);
     ++j;
   }
+  // make sure arg count matches param count
   ASSERT1(j==len && i== z);
   return d::DslFrame(fm);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSeq* is_pair(d::DslValue v, int panic) {
-  LSeq* s = P_NIL;
+LSeqable* is_pair(d::DslValue v, int panic) {
+  LSeqable* s = P_NIL;
   if (auto x = cast_list(v); X_NIL(x)) {
-    s = s__cast(LSeq,x);
+    s = s__cast(LSeqable,x);
     if (s->count()==0) { S_NIL(s); }
   } else if (panic) {
     expected("list", v);
@@ -70,7 +90,7 @@ stdstr Lisper::PRINT(const d::DslValue& v) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue quasiQuote(d::DslValue ast, d::DslFrame env) {
+d::DslValue Lisper::syntaxQuote(d::DslValue ast, d::DslFrame env) {
   auto seq = is_pair(ast,0);
   VVec out;
   if (E_NIL(seq)) {
@@ -91,21 +111,22 @@ d::DslValue quasiQuote(d::DslValue ast, d::DslFrame env) {
     // (qq (sq '(a b c))) -> a b c
     s__conj(out, symbol_value("concat"));
     s__conj(out, s2->nth(1));
-    s__conj(out, quasiQuote(seq->rest(), env));
+    s__conj(out, syntaxQuote(seq->rest(), env));
   } else {
     // (qq (a b c)) -> (list (qq a) (qq b) (qq c))
     // (qq xs     ) -> (cons (qq (car xs)) (qq (cdr xs)))
     s__conj(out, symbol_value("cons"));
-    s__conj(out, quasiQuote(seq->first(), env));
-    s__conj(out, quasiQuote(seq->rest(), env));
+    s__conj(out, syntaxQuote(seq->first(), env));
+    s__conj(out, syntaxQuote(seq->rest(), env));
   }
   return list_value(VSlice(out));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LMacro* maybeMacro(Lisper* p, d::DslValue ast, d::DslFrame env) {
+  ::printf("maybeMacro = %s\n", ast->toString(true).c_str());
   if (auto s = is_pair(ast,0); X_NIL(s)) {
-    if (auto sym = cast_symbol(s->first())) {
+    if (auto sym = cast_symbol(s->first()); X_NIL(sym)) {
       if (auto f = env->find(sym->impl()); f.isSome()) {
         return cast_macro(sym->eval(p, f));
       }
@@ -132,81 +153,168 @@ StrVec cast_params(d::DslValue v) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue macroExpand(Lisper* p, d::DslValue ast, d::DslFrame env) {
-  for (auto m = maybeMacro(p, ast, env); X_NIL(m);) {
-    auto seq= is_pair(ast,0);
+d::DslValue Lisper::macroExpand(d::DslValue ast, d::DslFrame env) {
+  for (auto m = maybeMacro(this, ast, env); X_NIL(m);) {
+    auto seq= is_pair(ast,1);
     VVec args;
-    for (auto i = 1, e=seq->count(); i < e; ++i) {
-      s__conj(args, seq->nth(i));
-    }
+    appendAll(seq,1,args);
     ast = args.size() == 0
-      ? m->invoke()
-      : m->invoke(VSlice(args.begin(), args.end()));
-    m = maybeMacro(p, ast, env);
+      ? m->invoke(this)
+      : m->invoke(this, VSlice(args));
+    m = maybeMacro(this, ast, env);
   }
   return ast;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue wrapAsDo(LList* form, int from) {
+  auto end= form->count();
+  auto diff=end-from;
+  switch (diff) {
+    case 0: return nil_value();
+    case 1: return form->nth(from);
+    default:
+      VVec out { symbol_value("do") };
+      for (; from < end; ++from) {
+        s__conj(out, form->nth(from));
+      }
+      return list_value(out);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue wrapAsDo(VVec& v) {
+  switch (v.size()) {
+    case 0: return nil_value();
+    case 1: return v[0];
+    default:
+      VVec out { symbol_value("do") };
+      s__ccat(out,v);
+      return list_value(out);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
-  while (1) {
-    auto list = cast_list(ast);
+  while (true) {
+    DEBUG("eval(ast)=%s.\n",ast->toString(true).c_str());
+    auto list = cast_list(ast, 0);
 
-    if (E_NIL(list) ||
-        (list->count() == 0)) {
-      return s__cast(LValue,ast.ptr())->eval(this, env);
+    if (E_NIL(list)) {
+      return evalAst(ast,env);
+    } else {
+      ast = macroExpand(ast, env);
+      list = cast_list(ast, 0);
     }
 
-    ast = macroExpand(this, ast, env);
-    list = cast_list(ast);
-
-    if (E_NIL(list) ||
-        (list->count() == 0)) {
-      return s__cast(LValue,ast.ptr())->eval(this, env);
+    if (E_NIL(list)) {
+      return evalAst(ast,env);
     }
 
-    if (auto op = cast_symbol(list->nth(0))) {
-      auto len = list->count() - 1;
+    if (list->isEmpty()) {
+      return ast;
+    }
+
+    DEBUG("eval(2)=%s.\n",list->toString(true).c_str());
+
+    if (auto op = cast_symbol(list->nth(0), 0)) {
+      DEBUG("op = %s.\n", op->impl().c_str());
+      auto len = list->count();
       auto code = op->impl();
 
       if (code == "def") {
-        preEqual(2, len, "def");
-        auto var= cast_symbol(list->nth(1),1);
-        return env->set(var->impl(), EVAL(list->nth(2), env), true);
+        preEqual(3, len, "def");
+        auto var= cast_symbol(list->nth(1),1)->impl();
+        return env->set(var, EVAL(list->nth(2), env), true);
+      }
+
+      if (code == "let") {
+        preMin(2, len, "let");
+        auto args= cast_vec(list->nth(1),1);
+        auto cnt= preEven(args->count(), "let bindings");
+        auto f= d::DslFrame(new d::Frame("let", env));
+        for (auto i = 0; i < cnt; i += 2) {
+          f->set(cast_symbol(args->nth(i),1)->impl(), EVAL(args->nth(i+1), f), true);
+        }
+        ast = wrapAsDo(list,2);
+        env = f;
+        continue;
+      }
+
+      if (code == "quote") {
+        preEqual(2, len, "quote");
+        return list->nth(1);
+      }
+
+      if (code == "syntax-quote") {
+        preEqual(2, len, "syntax-quote");
+        ast = syntaxQuote(list->nth(1), env);
+        continue;
       }
 
       if (code == "defmacro") {
+        preEqual(4, len, "defmacro");
         auto var = cast_symbol(list->nth(1),1)->impl();
         auto pms= cast_params(list->nth(2));
         return env->set(var,
             macro_value(var, pms, list->nth(3), env), true);
       }
 
-      if (code == "defn") {
-        auto var = cast_symbol(list->nth(1),1)->impl();
-        auto pms= cast_params(list->nth(2));
-        return env->set(var,
-            lambda_value(var, pms, list->nth(3), env), true);
+      if (code == "macroexpand") {
+        preEqual(2, len, "macroexpand");
+        return macroExpand(list->nth(1), env);
       }
 
-      if (code == "do") {
-        for (auto i = 1; i < len; ++i) {
-          EVAL(list->nth(i), env);
+      if (code == "try") {
+        // (try a b c (catch e 1 2 3))
+        d::DslValue error;
+        stdstr errorVar;
+        d::DslValue cbody;
+        VVec tbody;
+        for (auto j=1; j < len; ++j) {
+          auto n= list->nth(j);
+          if (auto c= cast_list(n); X_NIL(c) && c->count() > 0) {
+            if (auto s= cast_symbol(c->nth(0)); X_NIL(s) && s->impl() == "catch") {
+              ASSERT(j==(len-1),
+                  "catch must be last form: %s.\n", list->toString(true).c_str());
+              preMin(2,c->count(), "catch");
+              errorVar = cast_symbol(c->nth(1),1)->impl();
+              cbody=wrapAsDo(c,2);
+              break;
+            }
+          }
+          s__conj(tbody, n);
         }
-        ast = list->nth(len);
+        if (len==1 || tbody.empty()) { return nil_value(); }
+        try {
+          ast = EVAL(wrapAsDo(tbody),env);
+        }
+        catch(stdstr& exp) {
+          error = string_value(exp);
+        }
+        catch(d::DslValue& exp) {
+          error = exp;
+        }
+        if (cbody.isSome() && error.isSome()) {
+          env = d::DslFrame(new d::Frame("catch", env));
+          env->set(errorVar, error, true);
+          ast = EVAL(cbody,env);
+        }
         continue;
       }
 
-      if (code == "fn") {
-        preEqual(2, len, "fn");
-        auto pms= cast_params(list->nth(1));
-        return lambda_value("", pms, list->nth(2), env);
+      if (code == "do") {
+        for (auto i = 1; i < (len-1); ++i) {
+          EVAL(list->nth(i), env);
+        }
+        ast = EVAL(list->nth(len-1),env);
+        continue;
       }
 
       if (code == "if") {
         if (auto c= EVAL(list->nth(1), env); truthy(c)) {
           ast = list->nth(2);
-        } else if (len > 2) {
+        } else if (len == 4) {
           ast = list->nth(3);
         } else {
           return nil_value();
@@ -214,92 +322,76 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
         continue;
       }
 
-      if (code == "let") {
-        preEqual(2, len, "let");
-        auto args= cast_vec(list->nth(1),1);
-        auto cnt=args->count();
-        preEven(cnt, "let bindings");
-        auto f= d::DslFrame(new d::Frame("let", env));
-        for (auto i = 0; i < cnt; i += 2) {
-          auto s=cast_symbol(args->nth(i),1)->impl();
-          f->set(s, EVAL(args->nth(i+1), f), true);
-        }
-        ast = list->nth(2);
-        continue;
+      if (code == "defn") {
+        preMin(3,len,"defn");
+        auto var = cast_symbol(list->nth(1),1)->impl();
+        auto pms= cast_params(list->nth(2));
+        return env->set(var,
+            lambda_value(var, pms, wrapAsDo(list,3), env), true);
       }
 
-      if (code == "macroexpand") {
-        return macroExpand(this, list->nth(1), env);
-      }
-
-      if (code == "quasiquote") {
-        ast = quasiQuote(list->nth(1), env);
-        continue;
-      }
-
-      if (code == "quote") {
-        return list->nth(1);
-      }
-
-      if (code == "try*") {
-        auto body = list->nth(1);
-        if (len == 1) {
-          ast = EVAL(body, env);
-          continue;
-        }
-        auto catche = cast_list(list->nth(2));
-        auto c= cast_symbol(catche->nth(0),1)->impl();
-        ASSERT(c=="catch*",
-            "Expected keyword catch*, got %s.\n", c.c_str());
-        auto e= cast_symbol(catche->nth(1),1)->impl();
-        d::DslValue error;
-        try {
-          ast = EVAL(body, env);
-        }
-        catch(stdstr& exp) {
-          error = string_value(exp);
-        }
-        /*
-        catch (EmptyInput& exp) {
-          ast = nil_value();
-        }
-        */
-        catch(d::DslValue& exp) {
-          error = exp;
-        };
-        if (error.isSome()) {
-          env = d::DslFrame(new d::Frame("catch", env));
-          env->set(e, error, true);
-          ast = catche->nth(2);
-        }
-        continue;
+      if (code == "fn") {
+        preMin(2,len,"fn");
+        auto pms= cast_params(list->nth(1));
+        auto var= "anon-fn#"+std::to_string(++seed);
+        return lambda_value(var, pms, wrapAsDo(list,2), env);
       }
     }
 
-    auto vs = list->evalEach(this, env);
-    auto op = vs[0];
+    auto ret = list->eval(this, env);
+    DEBUG("ret=%s.\n", ret->toString(true).c_str());
+    auto vs = cast_seqable(ret,1);
+    if (auto len=vs->count(); len==0) {
+      return nil_value();
+    }
+    d::DslValue op= vs->nth(0);
     VVec args;
-    args.insert(args.end(), vs.begin()+1, vs.end());
+    appendAll(vs,1,args);
+    auto func= cast_function(op,1);
+    DEBUG("casted function = %s.\n", func->name().c_str());
     if (auto lambda= cast_lambda(op); X_NIL(lambda)) {
       ast = lambda->body;
-      env = lambda_env(lambda, args);
+      env = lambda->bindContext(VSlice(args));
       continue;
     }
     if (auto native= cast_native(op); X_NIL(native)) {
-      return native->invoke(VSlice(args));
+      return native->invoke(this, VSlice(args));
     }
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Lisper::READ(const stdstr& s) {
+std::pair<int,d::DslValue> Lisper::READ(const stdstr& s) {
   return SExprParser(s.c_str()).parse();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr repl(const stdstr& s, d::DslFrame p) {
+stdstr repl(const stdstr& s, d::DslFrame env) {
   Lisper lisp;
-  return lisp.PRINT(lisp.EVAL(lisp.READ(s), p));
+  stdstr out;
+  auto ret= lisp.READ(s);
+  auto cnt= ret.first;
+  switch (cnt) {
+    case 0: out="nil"; break;
+    case 1: out = lisp.PRINT(lisp.EVAL(ret.second, env)); break;
+    default:
+      auto s= cast_list(ret.second,1);
+      for (auto i = 0, e=s->count(); i < e; ++i) {
+        out = lisp.PRINT(lisp.EVAL(s->nth(i), env));
+      }
+      break;
+  }
+  return out;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslFrame root_env() {
+  auto f= init_natives(new d::Frame("root"));
+  Lisper ls;
+  for (auto& s : CORE_LISP) {
+    repl(s, f);
+  }
+  return d::DslFrame(f);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

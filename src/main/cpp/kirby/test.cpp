@@ -8,7 +8,8 @@ namespace a = czlab::aeon;
 int main(int argc, char* argv[]) {
 
   try {
-    auto s = k::repl("(+ 1 2 (+ 3 4))");
+    auto f= a::read_file("/tmp/poo.clj");
+    auto s = k::repl(f);
     //"`(+ 1 2)");
     //"~eee");
     //"@abc");

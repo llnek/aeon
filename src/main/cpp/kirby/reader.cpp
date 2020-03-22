@@ -286,6 +286,11 @@ d::DslToken Reader::getNextToken() {
       return token(d::T_AT, ch, m);
     }
     else
+    if ((ch == '-' || ch == '+') &&
+        ::isdigit(d::peekNext(ctx))) {
+      return number();
+    }
+    else
     if (::isdigit(ch)) {
       return number();
     }

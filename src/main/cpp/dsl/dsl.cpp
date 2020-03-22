@@ -105,13 +105,20 @@ std::string digits(Context& ctx) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string numeric(Context& ctx) {
+  auto ch= peek(ctx);
+  auto minus=false;
+  if (ch == '-') {
+    minus=true;
+    advance(ctx);
+  }
   auto res = digits(ctx);
   if (!ctx.eof && peek(ctx) == '.') {
     res += peek(ctx);
     advance(ctx);
     res += digits(ctx);
   }
-  return res;
+
+  return minus ? "-"+res : res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
