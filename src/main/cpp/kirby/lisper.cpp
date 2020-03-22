@@ -92,19 +92,19 @@ stdstr Lisper::PRINT(const d::DslValue& v) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Lisper::syntaxQuote(d::DslValue ast, d::DslFrame env) {
   auto seq = is_pair(ast,0);
-  VVec out;
   if (E_NIL(seq)) {
-    s__conj(out, new LSymbol("quote"));
-    s__conj(out, ast);
-    return list_value(VSlice(out));
+    VVec out { symbol_value("quote"), ast };
+    return list_value(out);
   }
   auto f1= seq->first();
-  if (auto s = cast_symbol(f1); s->impl() == "unquote") {
-    // (qq (uq form)) -> form
+  if (auto s = cast_symbol(f1);
+           X_NIL(s) && s->impl() == "unquote") {
+    // `~x = x
     ASSERT1(2==seq->count());
     return seq->nth(1);
   }
   auto s2 = is_pair(f1, 1);
+  VVec out;
   if (auto b = cast_symbol(s2->first());
       X_NIL(b) && b->impl() == "splice-unquote") {
     ASSERT1(2==s2->count());
@@ -124,7 +124,6 @@ d::DslValue Lisper::syntaxQuote(d::DslValue ast, d::DslFrame env) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LMacro* maybeMacro(Lisper* p, d::DslValue ast, d::DslFrame env) {
-  ::printf("maybeMacro = %s\n", ast->toString(true).c_str());
   if (auto s = is_pair(ast,0); X_NIL(s)) {
     if (auto sym = cast_symbol(s->first()); X_NIL(sym)) {
       if (auto f = env->find(sym->impl()); f.isSome()) {
