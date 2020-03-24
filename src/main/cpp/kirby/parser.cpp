@@ -18,56 +18,58 @@
 namespace czlab::kirby {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void readList(SExprParser*, VVec&, int, stdstr);
+d::DslValue readList(SExprParser*, int, stdstr);
 d::DslValue readForm(SExprParser*);
 d::DslValue readAtom(SExprParser*);
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue macro_func(SExprParser* p, stdstr op) {
   if (auto f = readForm(p); f.isSome()) {
-    VVec x{ symbol_value(op), f };
-    return list_value(VSlice(x));
+    return LIST_VAL2(SYMBOL_VAL(op), f);
   }
-  //else
-  RAISE(d::SyntaxError, "Bad Form %s\n", "macro");
+  RAISE(d::SyntaxError, "Bad form: %s.\n", "macro");
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SExprParser::~SExprParser() {
-  DEL_PTR(rdr);
+  DEL_PTR(lexer);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SExprParser::SExprParser(const Tchar* src) {
-  rdr = new Reader(src);
+  lexer = new Reader(src);
+  rdr(); // to get rid of warnings, stupid and weird
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue readAtom(SExprParser* p) {
-  DEBUG("token = %d\n", p->cur());
-  d::DslToken t;
-  stdstr s;
+  DEBUG("token = %d.\n", p->cur());
   switch (p->cur()) {
     case d::T_STRING:
-      return string_value(p->eat()->getLiteralAsStr());
+      return STRING_VAL(p->eat()->getLiteralAsStr());
     break;
     case d::T_REAL:
-      return float_value(p->eat()->getLiteralAsReal());
+      return FLOAT_VAL(p->eat()->getLiteralAsReal());
     break;
     case d::T_INTEGER:
-      return int_value(p->eat()->getLiteralAsInt());
+      return INT_VAL(p->eat()->getLiteralAsInt());
     break;
     case T_KEYWORD:
-      return keyword_value(p->eat()->getLiteralAsStr());
+      return KEYWORD_VAL(p->eat()->getLiteralAsStr());
     break;
     case d::T_IDENT:
-      return symbol_value(p->eat()->getLiteralAsStr());
+      return SYMBOL_VAL(p->eat()->getLiteralAsStr());
     break;
     case T_TRUE:
-      return (p->eat(), true_value());
+      return (p->eat(), TRUE_VAL());
     break;
     case T_FALSE:
-      return (p->eat(), false_value());
+      return (p->eat(), FALSE_VAL());
     break;
     case T_NIL:
-      return (p->eat(), nil_value());
+      return (p->eat(), NIL_VAL());
     break;
     case d::T_AT:
       return (p->eat(), macro_func(p, "deref"));
@@ -78,70 +80,58 @@ d::DslValue readAtom(SExprParser* p) {
     case d::T_QUOTE:
       return (p->eat(), macro_func(p, "quote"));
     break;
-    case T_UNQUOTE_SPLICE:
+    case T_SPLICE_UNQUOTE:
       return (p->eat(), macro_func(p, "splice-unquote"));
     break;
     case d::T_TILDA:
       return (p->eat(), macro_func(p, "unquote"));
     break;
-  }
 
-  if (p->isCur(d::T_HAT)) {
-    s= "with-meta";
-    p->eat();
-    d::DslValue m = readForm(p);
-    d::DslValue v = readForm(p);
-    if (m.isNull()) {
-      RAISE(d::SyntaxError,
-          "Bad form %s\n", "meta");
-    }
-    if (v.isNull()) {
-      RAISE(d::SyntaxError,
-          "Bad form %s\n", "value");
-    }
-    VVec x { symbol_value(s), v, m };
-    return list_value(VSlice(x));
+    default:
+      if (p->isCur(d::T_HAT)) {
+        auto m = (p->eat(), readForm(p));
+        auto v = readForm(p);
+        if (m.isNull())
+          RAISE(d::SyntaxError, "Bad form: %s.\n", "meta");
+        if (v.isNull())
+          RAISE(d::SyntaxError, "Bad form: %s.\n", "value");
+        return LIST_VAL3(SYMBOL_VAL("with-meta"), v, m);
+      }
+      return SYMBOL_VAL(p->eat()->getLiteralAsStr());
+    break;
   }
-
-  return symbol_value(p->eat()->getLiteralAsStr());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void readList(SExprParser* p, VVec& res, int ender, stdstr pairs) {
-  auto m= p->rdr->ctx.mark();
+d::DslValue readList(SExprParser* p, int ender, stdstr pairs) {
+  auto m= p->rdr()->ctx().mark();
   auto found=0;
+  VVec res;
   while (!p->isEof()) {
-    if (p->isCur(ender)) {
-      found = 1;
-      p->eat();
-      break;
-    }
-    if (auto f= readForm(p); f.isSome()) {
-      s__conj(res, f);
-    }
+    if (p->isCur(ender)) { found = 1, p->eat(); break; }
+    if (auto f= readForm(p); f.isSome()) { s__conj(res, f); }
   }
   if (!found) {
     RAISE(d::SyntaxError,
-        "Unmatched %s near line %d(%d).\n",
-        pairs.c_str(), m.first, m.second);
+          "Unmatched %s near line %d(%d).\n",
+          C_STR(pairs), m.first, m.second);
+  }
+  switch (ender) {
+    case d::T_RBRACE: return MAP_VAL(res);
+    case d::T_RBRACKET: return VEC_VAL(res);
+    default: return LIST_VAL(res);
   }
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue readForm(SExprParser* p) {
-  VVec vec;
   switch (p->cur()) {
     case d::T_LPAREN:
-      p->eat();
-      readList(p, vec, d::T_RPAREN, "()");
-      return list_value(VSlice(vec));
+      return (p->eat(), readList(p, d::T_RPAREN, "()"));
     case d::T_LBRACKET:
-      p->eat();
-      readList(p, vec, d::T_RBRACKET, "[]");
-      return vector_value(VSlice(vec));
+      return (p->eat(), readList(p, d::T_RBRACKET, "[]"));
     case d::T_LBRACE:
-      p->eat();
-      readList(p, vec, d::T_RBRACE,  "{}");
-      return map_value(VSlice(vec));
+      return (p->eat(), readList(p, d::T_RBRACE,  "{}"));
     case d::T_RPAREN:
     case d::T_RBRACE:
     case d::T_RBRACKET:
@@ -162,50 +152,57 @@ std::pair<int,d::DslValue> SExprParser::parse() {
   }
   int cnt= out.size();
   switch (cnt) {
-    case 0: ret= nil_value(); break;
+    case 0: ret= NIL_VAL(); break;
     case 1: ret= out[0]; break;
-    default: ret= list_value(out); break;
+    default: ret= LIST_VAL(out); break;
   }
   return s__pair(int,d::DslValue,cnt,ret);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int SExprParser::cur() {
-  return rdr->ctx.cur->type();
+int SExprParser::cur() const {
+  return lexer->ctx().cur->type();
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-char SExprParser::peek() {
-  return d::peek(rdr->ctx);
+Tchar SExprParser::peek() const {
+  return d::peek(lexer->ctx());
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool SExprParser::isEof() {
-  return rdr->ctx.cur->type() == d::T_EOF;
+bool SExprParser::isEof() const {
+  return lexer->ctx().cur->type() == d::T_EOF;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool SExprParser::isCur(int type) {
-  return rdr->ctx.cur->type() == type;
+bool SExprParser::isCur(int type) const {
+  return lexer->ctx().cur->type() == type;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken SExprParser::token() {
-  return rdr->ctx.cur;
+d::DslToken SExprParser::token() const {
+  return lexer->ctx().cur;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken SExprParser::eat() {
-  auto t= rdr->ctx.cur;
-  rdr->ctx.cur=rdr->getNextToken();
+  auto t= lexer->ctx().cur;
+  lexer->ctx().cur= lexer->getNextToken();
   return t;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken SExprParser::eat(int wanted) {
   auto t= token();
   if (t.ptr()->type() != wanted) {
     RAISE(d::SyntaxError,
-        "Expected token %s, found token %s near line %d(%d).\n",
-        Token::typeToString(wanted).c_str(),
-        t->toString().c_str(),
-        s__cast(Token,t.ptr())->impl.line,
-        s__cast(Token,t.ptr())->impl.col);
+          "Expected token %s, found token %s near line %d(%d).\n",
+          C_STR(Token::typeToString(wanted)),
+          C_STR(t->toString()),
+          s__cast(Token,t.ptr())->impl().line,
+          s__cast(Token,t.ptr())->impl().col);
   }
-  rdr->ctx.cur= rdr->getNextToken();
+  lexer->ctx().cur= lexer->getNextToken();
   return t;
 }
 

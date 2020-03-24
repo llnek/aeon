@@ -19,6 +19,7 @@ namespace czlab::dsl {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+typedef std::pair<int,int> SrcInfo;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Table;
 struct Symbol;
@@ -33,9 +34,8 @@ typedef a::RefPtr<Chunk> DslToken;
 typedef a::RefPtr<Symbol> DslSymbol;
 typedef a::RefPtr<Table> DslTable;
 
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-enum {
+enum TokenType {
   T_INTEGER = 1000000,
   T_REAL,
   T_STRING,
@@ -72,111 +72,88 @@ enum {
   T_EOF,
   T_ETHEREAL
 };
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-typedef std::pair<int,int> SrcInfo;
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Chunk : public a::Counted {
-  virtual stdstr getLiteralAsStr()=0;
-  virtual double getLiteralAsReal()=0;
-  virtual llong getLiteralAsInt()=0;
-  virtual stdstr toString()=0;
+  // A chunk of text - a sequence of chars.
+  virtual stdstr getLiteralAsStr() const =0;
+  virtual double getLiteralAsReal() const =0;
+  virtual llong getLiteralAsInt() const =0;
+  virtual stdstr toString() const =0;
+  int type() const { return ttype;}
   virtual ~Chunk() {}
-  int type() { return ttype;}
   protected:
-  Chunk(int t) { ttype=t; }
+  Chunk(int);
   int ttype;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IScanner {
-  virtual bool isKeyword(const stdstr&) = 0;
+  // Interface for a Lexical scanner.
+  virtual bool isKeyword(const stdstr&) const = 0;
   virtual DslToken getNextToken()=0;
   virtual DslToken number()=0;
   virtual DslToken id()=0;
   virtual DslToken string()=0;
-  virtual void skipComment() = 0;
+  virtual DslToken skipComment() = 0;
   virtual ~IScanner() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct NumberSlot {
-  explicit NumberSlot(double d) {
-    type = T_REAL;
-    u.r=d;
-  }
-  NumberSlot(llong n) {
-    type = T_INTEGER;
-    u.n=n;
-  }
-  bool isZero() {
-    if (type==T_INTEGER) {
-      return u.n==0;
-    } else {
-      return u.r==0.0;
-    }
-  }
-  bool isInt() { return type== T_INTEGER;}
-  union {
-    llong n;
-    double r;
-  } u;
-  private:
-  int type;
-};
+struct Number {
+  // A gnerialized number object.
+  explicit Number(double d) : type(T_REAL) { u.r=d; }
+  Number(llong n) : type(T_INTEGER) { u.n=n; }
+  Number() : type(T_INTEGER) { u.n=0; }
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct ValueSlot {
-  std::shared_ptr<a::CString> cs;
-  union {
-    llong n;
-    double r;
-  } u;
+  bool isZero() const;
+  bool isInt() const;
+
+  void setFloat(double);
+  void setInt(llong);
+
+  double getFloat() const;
+  llong getInt() const;
+
+  private:
+
+  int type;
+  union { llong n; double r; } u;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lexeme {
-  int line;
-  int col;
+  int line, col;
   stdstr text;
-  ValueSlot value;
+  struct {
+    Number num;
+    std::shared_ptr<a::CString> cs; } value;
 };
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//struct TokenInfo {
-//  TokenInfo(int line, int col) : line (line), col(col) {}
-//  int line,col;
-//};
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Context {
   SrcInfo mark();
   ~Context() {}
   Context();
-  //
+  /////////////////////////////////////////////
+  int line, col, pos;
   const char* src;
   size_t len;
-  int line;
-  int col;
-  int pos;
   bool eof;
   DslToken cur;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SyntaxError : public a::Exception {
-  SyntaxError(const stdstr&);
-};
+struct SemanticError : public a::Exception { SemanticError(const stdstr&); };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SemanticError : public a::Exception {
-  SemanticError(const stdstr&);
-};
+struct SyntaxError : public a::Exception { SyntaxError(const stdstr&); };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Tchar peekNext(Context&, int offset=1);
 void skipWhitespace(Context&);
 bool advance(Context&);
-char peek(Context&);
-char peekNext(Context&);
+Tchar peek(Context&);
 stdstr str(Context&);
 stdstr numeric(Context&);
 stdstr identifier(Context&);
@@ -185,32 +162,43 @@ Data* nothing();
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Symbol : public a::Counted {
 
-  Symbol(const stdstr& n, DslSymbol t) : Symbol(n) { type=t; }
-  Symbol(const stdstr& n) : name(n) { }
+  // int a = 3; a is a symbol, int is a symbol(type), 3 is a value
+
+  Symbol(const stdstr& n, DslSymbol t) : Symbol(n) { _type=t; }
+  Symbol(const stdstr& n) : _name(n) { }
+  stdstr name() const { return _name; }
+  DslSymbol type() const { return _type; }
   ~Symbol() {}
 
-  DslSymbol type;
-  stdstr name;
+  private:
+  DslSymbol _type;
+  stdstr _name;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Table : public a::Counted {
 
-  DslSymbol lookup(const stdstr& s, bool traverse);
+  // A symbol table (with hierarchy)
+
+  DslSymbol lookup(const stdstr& s, bool traverseOuterScope) const;
+  DslTable outer() const { return enclosing; }
+  stdstr name() const { return _name; }
   void insert(DslSymbol);
 
   Table(const stdstr&, const std::map<stdstr,DslSymbol>& root);
   Table(const stdstr&, DslTable outer);
   Table(const stdstr&);
-  ~Table();
+  ~Table() {}
 
+  private:
   DslTable enclosing;
-  stdstr name;
+  stdstr _name;
   std::map<stdstr, DslSymbol> symbols;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Data : public a::Counted {
+  // Abstract class to store data value in parsers.
   virtual stdstr toString(bool prettyPrint=false) const = 0;
   virtual bool equals(const Data*) const = 0;
   virtual ~Data() {}
@@ -219,18 +207,21 @@ struct Data : public a::Counted {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Nothing : public Data {
-  virtual bool equals(const Data* rhs) const {
-    return X_NIL(rhs) && typeid(*rhs) == typeid(*this);
-  }
   stdstr toString(bool b) const { return "nothing"; }
+  virtual bool equals(const Data* rhs) const {
+    return X_NIL(rhs) &&
+           typeid(*rhs) == typeid(*this);
+  }
   virtual ~Nothing() {}
   Nothing() {}
 };
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IEvaluator {
+  // Interface support for parser evaluation.
   virtual DslValue setValue(const stdstr&, DslValue, bool localOnly) = 0;
-  virtual DslValue getValue(const stdstr&) = 0;
-  virtual bool containsSymbol(const stdstr&)=0;
+  virtual DslValue getValue(const stdstr&) const = 0;
+  virtual bool containsSymbol(const stdstr&) const = 0;
   virtual DslFrame pushFrame(const stdstr& name)=0;
   virtual DslFrame popFrame()=0;
   virtual DslFrame peekFrame()=0;
@@ -239,7 +230,8 @@ struct IEvaluator {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IAnalyzer {
-  virtual DslSymbol lookup(const stdstr&, bool traverse=true) = 0;
+  // Interface support for abstract syntax tax analysis.
+  virtual DslSymbol lookup(const stdstr&, bool traverseOuterScope=true) const = 0;
   virtual void pushScope(const stdstr& name) =0;
   virtual DslTable popScope()=0;
   virtual void define(DslSymbol)=0;
@@ -248,6 +240,7 @@ struct IAnalyzer {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Node : public a::Counted {
+  // Abstract node used in the building of a syntax tree.
   virtual DslValue eval(IEvaluator*)=0;
   virtual void visit(IAnalyzer*)=0;
   virtual ~Node() {}
@@ -258,27 +251,29 @@ struct Node : public a::Counted {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Frame : public a::Counted {
 
+  // A stack frame used during language evaluation.
+
   Frame(const stdstr&, DslFrame outer);
   Frame(const stdstr&);
+  ~Frame() {}
 
-  stdstr toString();
-  ~Frame();
+  stdstr name() const { return _name; }
+  stdstr toString() const;
 
   DslValue set(const stdstr& sym, DslValue, bool localOnly);
-  DslValue get(const stdstr& sym);
-  DslFrame find(const stdstr& sym);
+  DslValue get(const stdstr& sym) const;
+  DslFrame find(const stdstr& sym) const;
 
   bool containsKey(const stdstr&) const;
+  std::set<stdstr> keys() const;
 
-  std::set<stdstr> keys();
-
-  DslFrame getOuterRoot();
-  DslFrame getOuter();
+  DslFrame getOuterRoot() const;
+  DslFrame getOuter() const;
 
   private:
 
   std::map<stdstr,DslValue> slots;
-  stdstr name;
+  stdstr _name;
   DslFrame prev;
 };
 
@@ -296,26 +291,33 @@ struct VarSymbol : public Symbol {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct FnSymbol : public Symbol {
-  FnSymbol(const stdstr& name, DslSymbol t)
-    : FnSymbol(name) {
-    result=t;
-  }
-  FnSymbol(const stdstr& name) : Symbol(name) {
-  }
+  FnSymbol(const stdstr& name, DslSymbol t) : FnSymbol(name) { result=t; }
+  FnSymbol(const stdstr& name) : Symbol(name) {}
   ~FnSymbol() {}
+
+  DslSymbol returnType() const { return result; }
+  DslAst body() const { return block; }
+  std::vector<DslSymbol>& params() { return _params; }
+
+  private:
 
   DslSymbol result;
   DslAst block;
-  std::vector<DslSymbol> params;
+  std::vector<DslSymbol> _params;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IParser {
+  // Interface for a parser.
   virtual DslToken eat(int wantedToken)=0;
   virtual DslToken eat()=0;
-  virtual bool isEof()=0;
+  virtual bool isEof() const =0;
   virtual ~IParser() {}
 };
+
+
+
+
 
 
 

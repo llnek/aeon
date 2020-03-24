@@ -47,9 +47,9 @@ typedef int64_t llong;
 #define NO_LOG(...) NO_OP
 
 //////////////////////////////////////////////////////////////////////////////
-#define ERROR_TRACE   0
-#define LOG_TRACE   0
-#define DEBUG_TRACE   1
+//#define ERROR_TRACE   0
+//#define LOG_TRACE   0
+//#define DEBUG_TRACE   0
 
 //////////////////////////////////////////////////////////////////////////////
 #if DEBUG_TRACE
@@ -111,6 +111,7 @@ typedef int64_t llong;
 // misc
 #define BOOL_STR_U(b) ((b) ? "TRUE" : "FALSE")
 #define BOOL_STR(b)  ((b) ? "true" : "false")
+#define C_STR(obj) (obj).c_str()
 
 //////////////////////////////////////////////////////////////////////////////
 // c++ std collection iteration

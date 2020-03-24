@@ -19,6 +19,7 @@ namespace czlab::kirby {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a= czlab::aeon;
 namespace d= czlab::dsl;
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LNative A_NATIVE;
 LLambda A_LAMBDA;
@@ -36,69 +37,82 @@ LTrue A_TRUE;
 LFalse A_FALSE;
 LString A_STR { "" };
 LSymbol A_SYMB { "" };
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool truthy(d::DslValue v) {
-  return s__cast(LValue,v.ptr())->truthy();
+  return s__cast(LValue, v.ptr())->truthy();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int preEqual(int wanted, int got, const stdstr& fn) {
   if (wanted != got)
     RAISE(BadArity,
-          "%s requires %d args, got %d.\n", fn.c_str(), wanted, got);
+          "%s requires %d args, got %d.\n", C_STR(fn), wanted, got);
   return got;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int preMin(int min, int got, const stdstr& fn) {
   if (got < min)
     RAISE(BadArity,
-          "%s requires %d args, got %d.\n", fn.c_str(), min, got);
+          "%s requires %d args, got %d.\n", C_STR(fn), min, got);
   return got;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int preNonZero(int c, const stdstr& fn) {
   if (c == 0)
     RAISE(BadArity,
-          "%s requires some args, got %d.\n", fn.c_str(), c);
+          "%s requires some args, got %d.\n", C_STR(fn), c);
   return c;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int preEven(int c, const stdstr& fn) {
   if (!a::is_even(c))
     RAISE(BadArity,
-          "%s requires even args, got %d.\n", fn.c_str(), c);
+          "%s requires even args, got %d.\n", C_STR(fn), c);
   return c;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void appendAll(LSeqable* s, int from, VVec& out) {
-  for (auto i=from, e=s->count(); i < e; ++i) {
-    s__conj(out,s->nth(i));
+void appendAll(LSeqable* s, VVec& out) { appendAll(s,0,out); }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void appendAll(LSeqable* s, int from, int to, VVec& out) {
+  for (; from < to; ++from) {
+    s__conj(out,s->nth(from));
   }
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void appendAll(LSeqable* s, VVec& out) {
-  appendAll(s,0,out);
+void appendAll(LSeqable* s, int from, VVec& out) {
+  appendAll(s, from, s->count(), out);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void appendAll(VSlice args, int from, int to, VVec& out) {
+  for (auto i= from; (args.begin+i) != args.end; ++i) {
+    if (i < to)
+      s__conj(out, *(args.begin+i));
+  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void appendAll(VSlice args, int from, VVec& out) {
-  auto i= from;
-  while ((args.begin+i) != args.end) {
+  for (auto i= from; (args.begin+i) != args.end; ++i) {
     s__conj(out, *(args.begin+i));
-    ++i;
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue expected(const stdstr& m, d::DslValue v) {
   RAISE(BadArg,
-      "Expected `%s`, got %s.\n",
-      m.c_str(), v.ptr()->toString().c_str());
+        "Expected `%s`, got %s.\n", C_STR(m), C_STR(v->toString()));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr hash_key(const d::DslValue& s) {
+stdstr hash_key(d::DslValue s) {
   if (auto x = s__cast(LValue, s.ptr()); x->keyable()) {
     return x->toString();
   } else {
@@ -111,7 +125,7 @@ LNil* cast_nil(d::DslValue v, int panic) {
   if (auto p= v.ptr(); typeid(A_NIL)==typeid(*p)) {
     return s__cast(LNil,p);
   }
-  if (panic != 0) { expected("nil", v); }
+  if (panic) expected("nil", v);
   return P_NIL;
 }
 
@@ -120,132 +134,148 @@ LChar* cast_char(d::DslValue v, int panic) {
   if (auto p= v.ptr(); typeid(A_CHAR)==typeid(*p)) {
     return s__cast(LChar,p);
   }
-  if (panic != 0) { expected("char", v); }
+  if (panic) expected("char", v);
   return P_NIL;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LFloat* cast_float(d::DslValue v, int panic) {
-  if (auto p= v.ptr(); typeid(A_FLOAT)==typeid(*p))
-    if (auto r = s__cast(LFloat,p); X_NIL(r)) { return r; }
-  if (panic != 0) { expected("float", v); }
+  if (auto p= v.ptr(); typeid(A_FLOAT)==typeid(*p)) {
+    return s__cast(LFloat,p);
+  }
+  if (panic) expected("float", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LInt* cast_int(d::DslValue v, int panic) {
-  if (auto p=v.ptr(); typeid(A_INT)==typeid(*p))
-    if (auto r = s__cast(LInt,p); X_NIL(r)) { return r; }
-  if (panic) { expected("int", v); }
+  if (auto p=v.ptr(); typeid(A_INT)==typeid(*p)) {
+    return s__cast(LInt,p);
+  }
+  if (panic) expected("int", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSymbol* cast_symbol(d::DslValue v, int panic) {
-  if (auto p=v.ptr(); typeid(A_SYMB)==typeid(*p))
-    if (auto r= s__cast(LSymbol,p); X_NIL(r)) { return r;}
-  if (panic) { expected("symbol", v); }
+  if (auto p=v.ptr(); typeid(A_SYMB)==typeid(*p)) {
+    return s__cast(LSymbol,p);
+  }
+  if (panic) expected("symbol", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LString* cast_string(d::DslValue v, int panic) {
-  if (auto p=v.ptr(); typeid(A_STR)==typeid(*p))
-    if (auto r= s__cast(LString,p); X_NIL(r)) { return r; }
-  if (panic) { expected("string", v); }
+  if (auto p=v.ptr(); typeid(A_STR)==typeid(*p)) {
+    return s__cast(LString,p);
+  }
+  if (panic) expected("string", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LKeyword* cast_keyword(d::DslValue v, int panic) {
-  if (auto p=v.ptr(); typeid(A_KEYWORD)==typeid(*p))
-    if (auto r=s__cast(LKeyword,p); X_NIL(r)) { return r;}
-  if (panic) { expected("keyword", v); }
+  if (auto p=v.ptr(); typeid(A_KEYWORD)==typeid(*p)) {
+    return s__cast(LKeyword,p);
+  }
+  if (panic) expected("keyword", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LList* cast_list(d::DslValue v, int panic) {
-  if (auto p=v.ptr(); typeid(A_LIST)==typeid(*p))
-    if (auto r= s__cast(LList,p); X_NIL(r)) { return r;}
-  if (panic) { expected("list", v); }
+  if (auto p=v.ptr(); typeid(A_LIST)==typeid(*p)) {
+    return s__cast(LList,p);
+  }
+  if (panic) expected("list", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LVec* cast_vec(d::DslValue v, int panic) {
-  if (auto p=v.ptr(); typeid(A_VEC)==typeid(*p))
-    if (auto r= s__cast(LVec,p); X_NIL(r)) { return r; }
-  if (panic) { expected("vector", v); }
+  if (auto p=v.ptr(); typeid(A_VEC)==typeid(*p)) {
+    return s__cast(LVec,p);
+  }
+  if (panic) expected("vector", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSequential* cast_seq(d::DslValue v, int panic) {
-  if (auto r= cast_vec(v,0); X_NIL(r)) { return s__cast(LSequential,r); }
-  if (auto r= cast_list(v,0); X_NIL(r)) { return s__cast(LSequential,r); }
-  if (panic) { expected("sequenctial", v); }
+  if (auto r= cast_vec(v); X_NIL(r)) {
+    return s__cast(LSequential,r);
+  }
+  if (auto r= cast_list(v); X_NIL(r)) {
+    return s__cast(LSequential,r);
+  }
+  if (panic) expected("sequenctial", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSeqable* cast_seqable(d::DslValue v, int panic) {
-  if (auto r= cast_vec(v,0); X_NIL(r)) { return s__cast(LSeqable,r); }
-  if (auto r= cast_map(v,0); X_NIL(r)) { return s__cast(LSeqable,r); }
-  if (auto r= cast_list(v,0); X_NIL(r)) { return s__cast(LSeqable,r); }
-  if (auto r= cast_string(v,0); X_NIL(r)) { return s__cast(LSeqable,r); }
-  if (panic) { expected("seq'qble", v); }
+  if (auto r= cast_vec(v); X_NIL(r)) { return s__cast(LSeqable,r); }
+  if (auto r= cast_map(v); X_NIL(r)) { return s__cast(LSeqable,r); }
+  if (auto r= cast_list(v); X_NIL(r)) { return s__cast(LSeqable,r); }
+  if (auto r= cast_string(v); X_NIL(r)) { return s__cast(LSeqable,r); }
+  if (panic) expected("seq'qble", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LHash* cast_map(d::DslValue v, int panic) {
-  if (auto p=v.ptr(); typeid(A_MAP)==typeid(*p))
-    if (auto r= s__cast(LHash,p); X_NIL(r)) { return r; }
-  if (panic) { expected("hashmap", v); }
+  if (auto p=v.ptr(); typeid(A_MAP)==typeid(*p)) {
+    return s__cast(LHash,p);
+  }
+  if (panic) expected("hashmap", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LLambda* cast_lambda(d::DslValue v, int panic) {
-  if (auto p=v.ptr(); typeid(A_LAMBDA)==typeid(*p))
-    if (auto r= s__cast(LLambda,p); X_NIL(r)) { return r; }
-  if (panic) { expected("lambda", v); }
+  if (auto p=v.ptr(); typeid(A_LAMBDA)==typeid(*p)) {
+    return s__cast(LLambda,p);
+  }
+  if (panic) expected("lambda", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LMacro* cast_macro(d::DslValue v, int panic) {
-  if (auto p=v.ptr(); typeid(A_MACRO)==typeid(*p))
-    if (auto r=s__cast(LMacro,p); X_NIL(r)) { return r; }
-  if (panic) { expected("macro", v); }
+  if (auto p=v.ptr(); typeid(A_MACRO)==typeid(*p)) {
+    return s__cast(LMacro,p);
+  }
+  if (panic) expected("macro", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LNative* cast_native(d::DslValue v, int panic) {
-  if (auto p=v.ptr(); typeid(A_NATIVE)==typeid(*p))
-    if (auto r=s__cast(LNative, p); X_NIL(r)) { return r;}
-  if (panic) { expected("native", v); }
+  if (auto p=v.ptr(); typeid(A_NATIVE)==typeid(*p)) {
+    return s__cast(LNative, p);
+  }
+  if (panic) expected("native", v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LFunction* cast_function(d::DslValue v, int panic) {
   LFunction* f= P_NIL;
-  if (auto a= cast_lambda(v,0); X_NIL(a)) {
+  if (auto a= cast_lambda(v); X_NIL(a)) {
     f= s__cast(LFunction,a);
   }
   else
-  if (auto a= cast_macro(v,0); X_NIL(a)) {
+  if (auto a= cast_macro(v); X_NIL(a)) {
     f= s__cast(LFunction,a);
   }
   else
-  if (auto a= cast_native(v,0); X_NIL(a)) {
+  if (auto a= cast_native(v); X_NIL(a)) {
     f= s__cast(LFunction,a);
   }
 
   if (E_NIL(f) && panic) {
-    expected("Function", v);
+    expected("function", v);
   }
 
   return f;
@@ -256,12 +286,12 @@ LAtom* cast_atom(d::DslValue v, int panic) {
   if (auto p=v.ptr(); typeid(A_ATOM)==typeid(*p)) {
     return s__cast(LAtom,p);
   }
-  if (panic) expected("Atom",v);
+  if (panic) expected("atom",v);
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool cast_numeric(VSlice vs, NumberSlots& out) {
+bool cast_numeric(VSlice vs, NumberVec& out) {
   auto r=false;
   for (auto i= 0; (vs.begin+i) != vs.end; ++i) {
     auto x= *(vs.begin+i);
@@ -271,12 +301,12 @@ bool cast_numeric(VSlice vs, NumberSlots& out) {
       expected("numeric", x);
     }
     if (n) {
-      s__conj(out, d::NumberSlot(n->impl()));
+      s__conj(out, d::Number(n->impl()));
     }
     else
     if (f) {
       r= true;
-      s__conj(out, d::NumberSlot(f->impl()));
+      s__conj(out, d::Number(f->impl()));
     }
   }
   return r;
@@ -302,6 +332,7 @@ stdstr unescape(const stdstr& src) {
   }
   return res;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr escape(const stdstr& src) {
   auto len = src.length();
@@ -313,14 +344,15 @@ stdstr escape(const stdstr& src) {
   }
   return "\"" + res + "\"";
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LValue::withMeta(d::DslValue& m) const {
+d::DslValue LValue::withMeta(d::DslValue m) const {
   RAISE(d::SemanticError,"%s: not supported here.", "with-meta");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LValue::meta() const {
-  return metaObj.isNull() ? nil_value() : metaObj;
+  return metaObj.isNull() ? NIL_VAL() : metaObj;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -338,84 +370,98 @@ bool LValue::equals(const d::Data* rhs) const {
 stdstr LFalse::toString(bool p) const {
   return "false";
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LFalse::withMeta(d::DslValue& m) const {
+d::DslValue LFalse::withMeta(d::DslValue m) const {
   return d::DslValue(new LFalse(*this,m));
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LFalse::eq(const d::Data* rhs) const {
   return typeid(*this) == typeid(*rhs);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LFalse::LFalse(const LFalse& rhs, const d::DslValue& m) : LValue(m) {
-}
+LFalse::LFalse(const LFalse& rhs, d::DslValue m) : LValue(m) { }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LTrue::LTrue(const LTrue& rhs, const d::DslValue& m) : LValue(m) {
-}
+LTrue::LTrue(const LTrue& rhs, d::DslValue m) : LValue(m) { }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr LTrue::toString(bool p) const  {
-  return "true";
-}
+stdstr LTrue::toString(bool p) const  { return "true"; }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LTrue::withMeta(d::DslValue& m) const {
+d::DslValue LTrue::withMeta(d::DslValue m) const {
   return d::DslValue(new LTrue(*this,m));
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LTrue::eq(const d::Data* rhs) const {
   return typeid(*this) == typeid(*rhs);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LNil::LNil(const LNil& rhs, const d::DslValue& m) : LValue(m) {
-}
+LNil::LNil(const LNil& rhs, d::DslValue m) : LValue(m) { }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr LNil::toString(bool p) const  {
-  return "nil";
-}
+stdstr LNil::toString(bool p) const  { return "nil"; }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LNil::withMeta(d::DslValue& m) const {
+d::DslValue LNil::withMeta(d::DslValue m) const {
   return d::DslValue(new LNil(*this,m));
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LNil::eq(const d::Data* rhs) const {
   return typeid(*this) == typeid(*rhs);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LFloat::withMeta(d::DslValue& m) const {
+d::DslValue LFloat::withMeta(d::DslValue m) const {
   return d::DslValue(new LFloat(*this, m));
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::NumberSlot LFloat::number() const {
-  return d::NumberSlot(value);
+d::Number LFloat::number() const {
+  return d::Number(value);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LFloat::LFloat(const LFloat& rhs, const d::DslValue& m) : LValue (m) {
+LFloat::LFloat(const LFloat& rhs, d::DslValue m) : LValue (m) {
   value = rhs.value;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LFloat::toString(bool pretty) const {
   return std::to_string(value);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LFloat::eq(const d::Data* rhs) const {
   return typeid(*this)==typeid(*rhs) &&
          value == s__cast(const LFloat,rhs)->value;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LInt::withMeta(d::DslValue& m) const {
+d::DslValue LInt::withMeta(d::DslValue m) const {
   return d::DslValue(new LInt(*this, m));
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::NumberSlot LInt::number() const {
-  return d::NumberSlot(value);
+d::Number LInt::number() const {
+  return d::Number(value);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LInt::LInt(const LInt& rhs, const d::DslValue& m) : LValue (m) {
+LInt::LInt(const LInt& rhs, d::DslValue m) : LValue (m) {
   value = rhs.value;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LInt::toString(bool pretty) const {
   return std::to_string(value);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LInt::eq(const d::Data* rhs) const {
   return typeid(*this)==typeid(*rhs) &&
@@ -428,7 +474,7 @@ stdstr LChar::toString(bool p) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LChar::LChar(const LChar& rhs, const d::DslValue& m) : LValue(m) {
+LChar::LChar(const LChar& rhs, d::DslValue m) : LValue(m) {
   value = rhs.value;
 }
 
@@ -437,8 +483,9 @@ bool LChar::eq(const d::Data* rhs) const {
   return typeid(*this)==typeid(*rhs) &&
          value == s__cast(const LChar,rhs)->value;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LChar::withMeta(d::DslValue& m) const {
+d::DslValue LChar::withMeta(d::DslValue m) const {
   return d::DslValue(new LChar(*this, m));
 }
 
@@ -451,7 +498,7 @@ stdstr LAtom::toString(bool p) const {
 LAtom::LAtom(d::DslValue v) : value(v) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LAtom::LAtom(const LAtom& rhs, const d::DslValue& m) : LValue(m) {
+LAtom::LAtom(const LAtom& rhs, d::DslValue m) : LValue(m) {
   value= rhs.value;
 }
 
@@ -459,19 +506,19 @@ LAtom::LAtom(const LAtom& rhs, const d::DslValue& m) : LValue(m) {
 bool LAtom::eq(const d::Data* rhs) const {
   return typeid(*this)==typeid(*rhs) && value->equals(rhs);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LAtom::withMeta(d::DslValue& m) const {
+d::DslValue LAtom::withMeta(d::DslValue m) const {
   return d::DslValue(new LAtom(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LString::LString(const LString& rhs, const d::DslValue& m) : LValue(m) {
+LString::LString(const LString& rhs, d::DslValue m) : LValue(m) {
   value=rhs.value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LString::LString(const stdstr& s) : value(s) {
-}
+LString::LString(const stdstr& s) : value(s) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LString::toString(bool p) const {
@@ -490,22 +537,25 @@ bool LString::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LString::withMeta(d::DslValue& m) const {
+d::DslValue LString::withMeta(d::DslValue m) const {
   return d::DslValue(new LString(*this, m));
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LString::isEmpty() const { return value.empty(); }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LString::count() const { return value.size(); }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LString::first() const {
-  if (value.size() == 0) { return nil_value(); }
-  return char_value(value[0]);
+  return value.size() == 0 ? NIL_VAL() : CHAR_VAL(value[0]);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LString::rest() const {
   if (value.size() == 0) {
-    return empty_list();
+    return EMPTY_LIST();
   } else {
     stdstr s { value.c_str() + 1 };
     return LString(s).seq();
@@ -513,7 +563,7 @@ d::DslValue LString::rest() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LString::contains(const d::DslValue& key) const {
+bool LString::contains(d::DslValue key) const {
   auto n= cast_int(key,1)->impl();
   return n >= 0 && n < value.size();
 }
@@ -522,16 +572,17 @@ bool LString::contains(const d::DslValue& key) const {
 d::DslValue LString::seq() const {
   VVec out;
   for (auto i=value.begin(), e=value.end(); i != e; ++i) {
-    s__conj(out, char_value(*i));
+    s__conj(out, CHAR_VAL(*i));
   }
-  return list_value(VSlice(out));
+  return LIST_VAL(out);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LString::nth(int pos) const {
   if (pos < 0 || pos >= value.size()) {
     RAISE(IndexOOB, "Index out of range: %d.\n", pos);
   }
-  return char_value(value[pos]);
+  return CHAR_VAL(value[pos]);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -542,7 +593,7 @@ LKeyword::LKeyword(const stdstr& s) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LKeyword::LKeyword(const LKeyword& rhs, const d::DslValue& m) : LValue(m) {
+LKeyword::LKeyword(const LKeyword& rhs, d::DslValue m) : LValue(m) {
   value= rhs.value;
 }
 
@@ -560,30 +611,27 @@ bool LKeyword::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LKeyword::withMeta(d::DslValue& m) const {
+d::DslValue LKeyword::withMeta(d::DslValue m) const {
   return d::DslValue(new LKeyword(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSymbol::LSymbol(const LSymbol& rhs, const d::DslValue& m) : LValue(m) {
+LSymbol::LSymbol(const LSymbol& rhs, d::DslValue m) : LValue(m) {
   value=rhs.value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSymbol::LSymbol(const stdstr& s) : value(s) {
-}
+LSymbol::LSymbol(const stdstr& s) : value(s) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr LSymbol::toString(bool p) const {
-  return value;
-}
+stdstr LSymbol::toString(bool p) const { return value; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSymbol::eval(Lisper*, d::DslFrame e) {
   if (auto r= e->get(value); r.isSome()) {
     return r;
   }
-  RAISE(NoSuchVar, "No such symbol %s.\n", value.c_str());
+  RAISE(NoSuchVar, "No such symbol %s.\n", C_STR(value));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -593,12 +641,12 @@ bool LSymbol::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LSymbol::withMeta(d::DslValue& m) const {
+d::DslValue LSymbol::withMeta(d::DslValue m) const {
   return d::DslValue(new LSymbol(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSequential::LSequential(const LSequential& rhs, const d::DslValue& m) : LValue(m) {
+LSequential::LSequential(const LSequential& rhs, d::DslValue m) : LValue(m) {
   s__ccat(values,rhs.values);
 }
 
@@ -628,19 +676,22 @@ void LSequential::evalEach(Lisper* e, d::DslFrame env, VVec& out) const {
     if (auto r= e->EVAL(i, env); r.isSome()) {
       s__conj(out, r);
     } else {
-      RAISE(BadEval, "%s.\n", i->toString(true).c_str());
+      RAISE(BadEval, "%s.\n", C_STR(i->toString(true)));
     }
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LSequential::isEmpty() const { return values.empty(); }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LSequential::count() const { return values.size(); }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSequential::nth(int pos) const {
-  return (pos >= 0 && pos < values.size()) ? values[pos] : nil_value();
+  return (pos >= 0 && pos < values.size()) ? values[pos] : NIL_VAL();
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LSequential::eq(const d::Data* v) const {
   const LSequential* rhs = P_NIL;
@@ -662,7 +713,7 @@ bool LSequential::eq(const d::Data* v) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSequential::first() const {
-  return count() == 0 ? nil_value() : nth(0);
+  return count() == 0 ? NIL_VAL() : nth(0);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -672,23 +723,23 @@ d::DslValue LSequential::rest() const {
     for (auto b=values.cbegin()+1,e=values.cend(); b != e; ++b) {
       s__conj(out, *b);
     }
-  return list_value(VSlice(out));
+  return LIST_VAL(out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSequential::seq() const {
   auto p = const_cast<LSequential*>(this);
-  return list_value(VSlice(p->values));
+  return LIST_VAL(p->values);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LSequential::contains(const d::DslValue& key) const {
+bool LSequential::contains(d::DslValue key) const {
   auto n= cast_int(key,1)->impl();
   return n >= 0 && n < count();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LList::LList(const LList& rhs, const d::DslValue& m) : LSequential(rhs, m) {
+LList::LList(const LList& rhs, d::DslValue m) : LSequential(rhs, m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -696,6 +747,23 @@ LList::LList(VSlice v) : LSequential(v) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LList::LList(VVec& v) : LSequential(v) {}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LList::LList(d::DslValue v) { s__conj(values,v); }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LList::LList(d::DslValue v1,d::DslValue v2) {
+  s__conj(values,v1);
+  s__conj(values,v2);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LList::LList(d::DslValue v1,d::DslValue v2, d::DslValue v3) {
+  s__conj(values,v1);
+  s__conj(values,v2);
+  s__conj(values,v3);
+}
+
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LList::toString(bool pretty) const {
@@ -707,7 +775,7 @@ d::DslValue LList::eval(Lisper* e, d::DslFrame env) {
   if (values.size() == 0) { return d::DslValue(this); }
   VVec out;
   evalEach(e, env, out);
-  return list_value(out);
+  return LIST_VAL(out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -715,16 +783,16 @@ d::DslValue LList::conj(VSlice chunk) const {
   VVec out;
   std::reverse_copy(chunk.begin, chunk.end, out.end());
   std::copy(values.begin(), values.end(), out.end());
-  return list_value(VSlice(out));
+  return LIST_VAL(out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LList::withMeta(d::DslValue& m) const {
+d::DslValue LList::withMeta(d::DslValue m) const {
   return d::DslValue(new LList(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LVec::LVec(const LVec& rhs, const d::DslValue& m) : LSequential(rhs, m) {
+LVec::LVec(const LVec& rhs, d::DslValue m) : LSequential(rhs, m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -734,10 +802,26 @@ LVec::LVec(VSlice v) : LSequential(v) {}
 LVec::LVec(VVec& v) : LSequential(v) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LVec::LVec(d::DslValue v) { s__conj(values,v); }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LVec::LVec(d::DslValue v1,d::DslValue v2) {
+  s__conj(values,v1);
+  s__conj(values,v2);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LVec::LVec(d::DslValue v1,d::DslValue v2, d::DslValue v3) {
+  s__conj(values,v1);
+  s__conj(values,v2);
+  s__conj(values,v3);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LVec::eval(Lisper* e, d::DslFrame env) {
   VVec out;
   evalEach(e,env, out);
-  return vector_value(out);
+  return VEC_VAL(out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -750,11 +834,11 @@ d::DslValue LVec::conj(VSlice more) const {
   VVec out;
   std::copy(values.begin(), values.end(), out.end());
   std::copy(more.begin, more.end, out.end());
-  return vector_value(VSlice(out));
+  return VEC_VAL(out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LVec::withMeta(d::DslValue& m) const {
+d::DslValue LVec::withMeta(d::DslValue m) const {
   return d::DslValue(new LVec(*this, m));
 }
 
@@ -762,11 +846,14 @@ d::DslValue LVec::withMeta(d::DslValue& m) const {
 LHash::LHash(VSlice more) {
   int c = more.size();
   ASSERT(a::is_even(more.size()),
-      "Expected even n# of args, got %d", c);
+         "Expected even n# of args, got %d", c);
   for (auto i = more.begin; i != more.end; i += 2) {
     values[hash_key(*i)] = HASH_VAL(*i, *(i+1));
   }
 }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LHash::LHash(VVec& v) : LHash(VSlice(v)) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LHash::LHash() {}
@@ -779,7 +866,7 @@ LHash::LHash(const std::map<stdstr,VPair>& m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LHash::LHash(const LHash& rhs, const d::DslValue& m) : LValue(m) {
+LHash::LHash(const LHash& rhs, d::DslValue m) : LValue(m) {
   for (auto& x : rhs.values) {
     values[x.first]= x.second;
   }
@@ -789,12 +876,12 @@ LHash::LHash(const LHash& rhs, const d::DslValue& m) : LValue(m) {
 d::DslValue LHash::assoc(VSlice more) const {
   int c = more.size();
   ASSERT(a::is_even(c),
-      "Expected even n# of args, got %d", c);
+         "Expected even n# of args, got %d", c);
   std::map<stdstr,VPair> m(values);
   for (auto i = more.begin; i != more.end; i += 2) {
     m[hash_key(*i)] = HASH_VAL(*i,*(i+1));
   }
-  return map_value(m);
+  return MAP_VAL(m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -803,36 +890,40 @@ d::DslValue LHash::dissoc(VSlice more) const {
   for (auto i= more.begin; i != more.end; ++i) {
     m.erase(hash_key(*i));
   }
-  return map_value(m);
+  return MAP_VAL(m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LHash::isEmpty() const { return values.empty(); }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LHash::count() const { return values.size();  }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::nth(int pos) const {
   auto s = s__cast(LList,seq().ptr());
   if (auto z= s->count(); z > 0 && pos >= 0 && pos < z) {
     return s->nth(pos);
   } else {
-    return nil_value();
+    return NIL_VAL();
   }
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::seq() const {
   VVec out;
   for (auto x=values.begin(), e=values.end(); x != e; ++x) {
     auto p= x->second;
-    VVec tmp { p.first, p.second };
-    s__conj(out, vector_value(VSlice(tmp)));
+    s__conj(out, VEC_VAL2(p.first, p.second));
   }
-  return list_value(VSlice(out));
+  return LIST_VAL(out);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::first() const {
   return nth(0);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::rest() const {
   auto s = s__cast(LList,seq().ptr());
@@ -841,25 +932,21 @@ d::DslValue LHash::rest() const {
     for (auto i=1; i < z; ++i) {
       s__conj(out, s->nth(i));
     }
-    return list_value(VSlice(out));
+    return LIST_VAL(out);
   } else {
-    return empty_list();
+    return EMPTY_LIST();
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LHash::contains(const d::DslValue& key) const {
+bool LHash::contains(d::DslValue key) const {
   return values.find(hash_key(key)) != values.end();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LHash::get(d::DslValue& key) const {
+d::DslValue LHash::get(d::DslValue key) const {
   auto i = values.find(hash_key(key));
-  if (i != values.end()) {
-    return i->second.second;
-  } else {
-    return nil_value();
-  }
+  return (i != values.end()) ? i->second.second : NIL_VAL();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -869,7 +956,7 @@ d::DslValue LHash::eval(Lisper* p, d::DslFrame e) {
     out[it.first] = HASH_VAL(p->EVAL(it.second.first,e),
                              p->EVAL(it.second.second, e));
   }
-  return d::DslValue(new LHash(out));
+  return MAP_VAL(out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -878,7 +965,7 @@ d::DslValue LHash::keys() const {
   for (auto& x : values) {
     s__conj(keys, x.second.first);
   }
-  return list_value(VSlice(keys));
+  return LIST_VAL(keys);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -887,7 +974,7 @@ d::DslValue LHash::vals() const {
   for (auto& x : values) {
     s__conj(out,x.second.second);
   }
-  return list_value(VSlice(out));
+  return LIST_VAL(out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -922,20 +1009,18 @@ bool LHash::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LHash::withMeta(d::DslValue& m) const {
+d::DslValue LHash::withMeta(d::DslValue m) const {
   return d::DslValue(new LHash(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LNative::LNative(const LNative& rhs, const d::DslValue& m) : LFunction(m) {
+LNative::LNative(const LNative& rhs, d::DslValue m) : LFunction(m) {
   _name=rhs._name;
   fn=rhs.fn;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LNative::LNative(const stdstr& name, Invoker* p) : LFunction(name), fn(p) {
-
-}
+LNative::LNative(const stdstr& name, Invoker p) : LFunction(name), fn(p) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LNative::toString(bool pretty) const {
@@ -948,7 +1033,7 @@ bool LNative::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LNative::withMeta(d::DslValue& m) const {
+d::DslValue LNative::withMeta(d::DslValue m) const {
   return d::DslValue(new LNative(*this, m));
 }
 
@@ -964,7 +1049,7 @@ d::DslValue LNative::invoke(Lisper* p) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LLambda::withMeta(d::DslValue& m) const {
+d::DslValue LLambda::withMeta(d::DslValue m) const {
   return d::DslValue(new LLambda(*this,m));
 }
 
@@ -990,7 +1075,7 @@ d::DslFrame LLambda::bindContext(VSlice args) {
       ASSERT1((i+1 == (z-1)));
       VVec x;
       appendAll(args,j,x);
-      fm->set(params[i+1], list_value(VSlice(x)),true);
+      fm->set(params[i+1], LIST_VAL(x),true);
       j=len;
       i= z;
       break;
@@ -1032,7 +1117,7 @@ LLambda::LLambda(const stdstr& n,
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LLambda::LLambda(const LLambda& rhs, const d::DslValue& m) : LFunction(m) {
+LLambda::LLambda(const LLambda& rhs, d::DslValue m) : LFunction(m) {
   _name=rhs._name;
   s__ccat(params, rhs.params);
   env=rhs.env;
@@ -1055,13 +1140,12 @@ LMacro::LMacro(const StrVec& args, d::DslValue body, d::DslFrame env)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LMacro::LMacro(const stdstr& n, const StrVec& args, d::DslValue body, d::DslFrame env)
-  : LLambda(n, args, body,env) {
+  : LLambda(n, args, body, env) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LMacro::LMacro(const LMacro& rhs, const d::DslValue& m)
-  : LLambda(rhs, m) {
-}
+LMacro::LMacro(const LMacro& rhs, d::DslValue m) : LLambda(rhs, m) { }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LMacro::toString(bool pretty) const {
   return "(macro)@" + _name;
@@ -1071,10 +1155,20 @@ stdstr LMacro::toString(bool pretty) const {
 bool LMacro::eq(const d::Data* rhs) const {
   return LLambda::eq(rhs);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LMacro::withMeta(d::DslValue& m) const {
+d::DslValue LMacro::withMeta(d::DslValue m) const {
   return d::DslValue(new LMacro(*this,m));
 }
+
+
+
+
+
+
+
+
+
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }

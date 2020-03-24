@@ -20,7 +20,7 @@ namespace czlab::kirby {
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
-  T_UNQUOTE_SPLICE = 100,
+  T_SPLICE_UNQUOTE = 100,
   T_KEYWORD,
   T_TRUE,
   T_FALSE,
@@ -31,43 +31,57 @@ enum TokenType {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Token : public d::Chunk {
 
+  // A Lex token.
+
   static stdstr typeToString(int);
 
   Token(int type, const stdstr&, d::SrcInfo);
   Token(int type, const char, d::SrcInfo);
 
-  stdstr getLiteralAsStr();
-  double getLiteralAsReal();
-  llong getLiteralAsInt();
+  virtual stdstr getLiteralAsStr() const;
+  virtual double getLiteralAsReal() const;
+  virtual llong getLiteralAsInt() const;
 
-  stdstr toString();
+  d::Lexeme& impl() { return _impl; }
+  stdstr toString() const;
 
   virtual ~Token() {}
 
-  d::Lexeme impl;
+  private:
+  Token();
+  d::Lexeme _impl;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Reader : public d::IScanner {
 
-  bool isKeyword(const stdstr&);
+  // A Lexer.
+
+  bool isKeyword(const stdstr&) const;
   d::DslToken getNextToken();
   d::DslToken number();
   d::DslToken id();
   d::DslToken string();
 
+  d::Context& ctx() { return _ctx; }
   Reader(const char* src);
   virtual ~Reader() {};
 
-  d::Context ctx;
-
   private:
 
-  d::DslToken keywd();
+  d::Context _ctx;
 
-  void skipComment();
+  d::DslToken _getNextToken();
+  Reader();
   void skipCommas();
+  d::DslToken keywd();
+  d::DslToken skipComment();
 };
+
+
+
+
+
 
 
 
