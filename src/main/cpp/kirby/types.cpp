@@ -779,10 +779,15 @@ d::DslValue LList::eval(Lisper* e, d::DslFrame env) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LList::conj(VSlice chunk) const {
+d::DslValue LList::conj(VSlice args) const {
   VVec out;
-  std::reverse_copy(chunk.begin, chunk.end, out.end());
-  std::copy(values.begin(), values.end(), out.end());
+  if (args.size() > 0) {
+    for (auto i= 1; (args.begin != args.end-i); ++i) {
+      s__conj(out, *(args.end-i));
+    }
+    s__conj(out, *args.begin);
+  }
+  s__ccat(out, values);
   return LIST_VAL(out);
 }
 
@@ -832,8 +837,12 @@ stdstr LVec::toString(bool pretty) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LVec::conj(VSlice more) const {
   VVec out;
-  std::copy(values.begin(), values.end(), out.end());
-  std::copy(more.begin, more.end, out.end());
+  s__ccat(out,values);
+  if (more.size() > 0) {
+    for (auto i=0; more.begin+i != more.end; ++i) {
+      s__conj(out, *(more.begin+i));
+    }
+  }
   return VEC_VAL(out);
 }
 

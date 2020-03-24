@@ -317,11 +317,10 @@ static d::DslValue native_dissoc(Lisper* lisp, VSlice args) {
 static d::DslValue native_emptyQ(Lisper* lisp, VSlice args) {
   // (empty? "") (empty? []) (empty? {:a 1})
   preEqual(1, args.size(), "empty?");
+  if (cast_nil(*args.begin)) { return TRUE_VAL(); }
   auto m= cast_seqable(*args.begin);
-
   if(E_NIL(m))
     expected("Countable", *args.begin);
-
   return BOOL_VAL(m->count()==0);
 }
 
@@ -404,6 +403,49 @@ static d::DslValue native_atomQ(Lisper* lisp, VSlice args) {
   // (atom? a)
   preEqual(1, args.size(), "atom?");
   return BOOL_VAL(cast_atom(*args.begin) != nullptr);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_keywordQ(Lisper* lisp, VSlice args) {
+  // (keyword? a)
+  preEqual(1, args.size(), "keyword?");
+  return BOOL_VAL(cast_keyword(*args.begin) != nullptr);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_listQ(Lisper* lisp, VSlice args) {
+  // (list? a)
+  preEqual(1, args.size(), "list?");
+  return BOOL_VAL(cast_list(*args.begin) != nullptr);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_vecQ(Lisper* lisp, VSlice args) {
+  // (vector? a)
+  preEqual(1, args.size(), "vector?");
+  return BOOL_VAL(cast_vec(*args.begin) != nullptr);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_sequentialQ(Lisper* lisp, VSlice args) {
+  // (sequential? a)
+  preEqual(1, args.size(), "sequential?");
+  return BOOL_VAL((cast_list(*args.begin) != nullptr ||
+                  (cast_vec(*args.begin) != nullptr)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_seqQ(Lisper* lisp, VSlice args) {
+  // (seq? a)
+  preEqual(1, args.size(), "seq?");
+  return BOOL_VAL(cast_seqable(*args.begin) != nullptr);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_mapQ(Lisper* lisp, VSlice args) {
+  // (map? a)
+  preEqual(1, args.size(), "map?");
+  return BOOL_VAL(cast_map(*args.begin) != nullptr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -526,10 +568,11 @@ static d::DslValue native_swapBang(Lisper* lisp, VSlice args) {
   auto len = preMin(2, args.size(), "swap!");
   auto a= cast_atom(*args.begin, 1);
   auto op= cast_function(*(args.begin+1), 1);
-  d::DslValue r;
-  return a->reset((len > 2)
-                  ? op->invoke(lisp, VSlice(args.begin+2, args.end))
-                  : op->invoke(lisp));
+  VVec out {a->deref()};
+  for (auto i= 2; i < len; ++i) {
+    s__conj(out, *(args.begin+i));
+  }
+  return a->reset(op->invoke(lisp, VSlice(out)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -578,56 +621,62 @@ static d::DslValue native_with_meta(Lisper* lisp, VSlice args) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::Frame* init_natives(d::Frame* env) {
-  env->set("*", FN_VAL("*", native_mul), true);
-  env->set("+", FN_VAL("+",native_add), true);
-  env->set("-", FN_VAL("-",native_sub), true);
-  env->set("/", FN_VAL("/",native_div), true);
-  env->set("<=", FN_VAL("<=",native_lteq), true);
-  env->set(">=", FN_VAL("<=",native_gteq), true);
-  env->set("==", FN_VAL("==",native_eqeq),true);
-  env->set("<", FN_VAL("<",native_lt),true);
-  env->set(">", FN_VAL(">",native_gt),true);
-  env->set("=", FN_VAL("=",native_eq),true);
-  env->set("apply", FN_VAL("apply",native_apply),true);
-  env->set("assoc", FN_VAL("assoc",native_assoc),true);
-  env->set("dissoc", FN_VAL("dissoc",native_dissoc),true);
-  env->set("atom", FN_VAL("atom",native_atom),true);
-  env->set("concat", FN_VAL("concat",native_concat),true);
-  env->set("conj", FN_VAL("conj",native_conj),true);
-  env->set("contains", FN_VAL("contains",native_containsQ),true);
-  env->set("count", FN_VAL("count",native_count),true);
-  env->set("deref", FN_VAL("deref",native_deref),true);
-  env->set("empty?", FN_VAL("empty?",native_emptyQ),true);
-  env->set("eval", FN_VAL("eval",native_eval),true);
-  env->set("first", FN_VAL("first",native_first),true);
-  env->set("fn?", FN_VAL("fn?",native_fnQ),true);
-  env->set("cons", FN_VAL("cons",native_cons),true);
-  env->set("get", FN_VAL("get",native_get),true);
-  env->set("hash-map",FN_VAL("hash-map",native_hash_map),true);
-  env->set("keys", FN_VAL("keys",native_keys),true);
-  env->set("keyword", FN_VAL("keyword",native_keyword),true);
-  env->set("list", FN_VAL("list",native_list),true);
-  env->set("macro?", FN_VAL("macro?",native_macroQ),true);
-  env->set("atom?", FN_VAL("atom?",native_atomQ),true);
-  env->set("map", FN_VAL("map",native_map),true);
-  env->set("meta", FN_VAL("meta",native_meta),true);
-  env->set("nth", FN_VAL("nth",native_nth),true);
-  env->set("pr-str", FN_VAL("pr-str",native_pr_str),true);
-  env->set("println", FN_VAL("println",native_println),true);
-  env->set("prn", FN_VAL("prn",native_prn),true);
-  env->set("read-string", FN_VAL("read-string",native_read_string),true);
-  env->set("reset!", FN_VAL("reset!",native_resetBang),true);
-  env->set("rest", FN_VAL("rest",native_rest),true);
-  env->set("seq", FN_VAL("seq",native_seq),true);
-  env->set("slurp", FN_VAL("slurp",native_slurp),true);
-  env->set("str", FN_VAL("str",native_str),true);
-  env->set("swap!", FN_VAL("swap!",native_swapBang),true);
-  env->set("symbol", FN_VAL("symbol",native_symbol),true);
-  env->set("throw", FN_VAL("throw",native_throw),true);
-  env->set("time-ms", FN_VAL("time-ms",native_time_ms),true);
-  env->set("vals", FN_VAL("vals",native_vals),true);
-  env->set("vector", FN_VAL("vector",native_vector),true);
-  env->set("with-meta", FN_VAL("with-meta",native_with_meta),true);
+  env->set("*", FN_VAL("*", &native_mul), true);
+  env->set("+", FN_VAL("+",&native_add), true);
+  env->set("-", FN_VAL("-",&native_sub), true);
+  env->set("/", FN_VAL("/",&native_div), true);
+  env->set("<=", FN_VAL("<=",&native_lteq), true);
+  env->set(">=", FN_VAL("<=",&native_gteq), true);
+  env->set("==", FN_VAL("==",&native_eqeq),true);
+  env->set("<", FN_VAL("<",&native_lt),true);
+  env->set(">", FN_VAL(">",&native_gt),true);
+  env->set("=", FN_VAL("=",&native_eq),true);
+  env->set("apply", FN_VAL("apply",&native_apply),true);
+  env->set("assoc", FN_VAL("assoc",&native_assoc),true);
+  env->set("dissoc", FN_VAL("dissoc",&native_dissoc),true);
+  env->set("atom", FN_VAL("atom",&native_atom),true);
+  env->set("concat", FN_VAL("concat",&native_concat),true);
+  env->set("conj", FN_VAL("conj",&native_conj),true);
+  env->set("contains?", FN_VAL("contains?",&native_containsQ),true);
+  env->set("count", FN_VAL("count",&native_count),true);
+  env->set("deref", FN_VAL("deref",&native_deref),true);
+  env->set("empty?", FN_VAL("empty?",&native_emptyQ),true);
+  env->set("eval", FN_VAL("eval",&native_eval),true);
+  env->set("first", FN_VAL("first",&native_first),true);
+  env->set("fn?", FN_VAL("fn?",&native_fnQ),true);
+  env->set("cons", FN_VAL("cons",&native_cons),true);
+  env->set("get", FN_VAL("get",&native_get),true);
+  env->set("hash-map",FN_VAL("hash-map",&native_hash_map),true);
+  env->set("keys", FN_VAL("keys",&native_keys),true);
+  env->set("keyword", FN_VAL("keyword",&native_keyword),true);
+  env->set("keyword?", FN_VAL("keyword?",&native_keywordQ),true);
+  env->set("sequential?", FN_VAL("sequential?",&native_sequentialQ),true);
+  env->set("list", FN_VAL("list",&native_list),true);
+  env->set("macro?", FN_VAL("macro?",&native_macroQ),true);
+  env->set("list?", FN_VAL("list?",&native_listQ),true);
+  env->set("vector?", FN_VAL("vector?",&native_vecQ),true);
+  env->set("atom?", FN_VAL("atom?",&native_atomQ),true);
+  env->set("map?", FN_VAL("map?",&native_mapQ),true);
+  env->set("seq?", FN_VAL("seq?",&native_seqQ),true);
+  env->set("map", FN_VAL("map",&native_map),true);
+  env->set("meta", FN_VAL("meta",&native_meta),true);
+  env->set("nth", FN_VAL("nth",&native_nth),true);
+  env->set("pr-str", FN_VAL("pr-str",&native_pr_str),true);
+  env->set("println", FN_VAL("println",&native_println),true);
+  env->set("prn", FN_VAL("prn",&native_prn),true);
+  env->set("read-string", FN_VAL("read-string",&native_read_string),true);
+  env->set("reset!", FN_VAL("reset!",&native_resetBang),true);
+  env->set("rest", FN_VAL("rest",&native_rest),true);
+  env->set("seq", FN_VAL("seq",&native_seq),true);
+  env->set("slurp", FN_VAL("slurp",&native_slurp),true);
+  env->set("str", FN_VAL("str",&native_str),true);
+  env->set("swap!", FN_VAL("swap!",&native_swapBang),true);
+  env->set("symbol", FN_VAL("symbol",&native_symbol),true);
+  env->set("throw", FN_VAL("throw",&native_throw),true);
+  env->set("time-ms", FN_VAL("time-ms",&native_time_ms),true);
+  env->set("vals", FN_VAL("vals",&native_vals),true);
+  env->set("vector", FN_VAL("vector",&native_vector),true);
+  env->set("with-meta", FN_VAL("with-meta",&native_with_meta),true);
   return env;
 }
 
