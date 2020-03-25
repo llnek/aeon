@@ -262,9 +262,28 @@ static d::DslValue native_concat(Lisper* lisp, VSlice args) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_setQ(Lisper* lisp, VSlice args) {
+  // (set? x)
+  preEqual(1, args.size(), "set?");
+  return BOOL_VAL(cast_set(*args.begin) != nullptr);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_disj(Lisper* lisp, VSlice args) {
+  // (disj #{1 2} 1)
+  preMin(2, args.size(), "disj");
+  auto s= cast_set(*args.begin,1);
+  return s->disj(VSlice(args.begin+1,args.end));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DslValue native_conj(Lisper* lisp, VSlice args) {
   // (conj [1 2] 3 4 5)
   preMin(2, args.size(), "conj");
+  if (auto s= cast_set(*args.begin); X_NIL(s)) {
+    return s->conj(VSlice(args.begin+1,args.end));
+  }
+  else
   return cast_seq(*args.begin, 1)->conj(VSlice(args.begin+1,args.end));
 }
 
@@ -637,6 +656,7 @@ d::Frame* init_natives(d::Frame* env) {
   env->set("atom", FN_VAL("atom",&native_atom),true);
   env->set("concat", FN_VAL("concat",&native_concat),true);
   env->set("conj", FN_VAL("conj",&native_conj),true);
+  env->set("disj", FN_VAL("disj",&native_disj),true);
   env->set("contains?", FN_VAL("contains?",&native_containsQ),true);
   env->set("count", FN_VAL("count",&native_count),true);
   env->set("deref", FN_VAL("deref",&native_deref),true);
@@ -656,6 +676,7 @@ d::Frame* init_natives(d::Frame* env) {
   env->set("list?", FN_VAL("list?",&native_listQ),true);
   env->set("vector?", FN_VAL("vector?",&native_vecQ),true);
   env->set("atom?", FN_VAL("atom?",&native_atomQ),true);
+  env->set("set?", FN_VAL("set?",&native_setQ),true);
   env->set("map?", FN_VAL("map?",&native_mapQ),true);
   env->set("seq?", FN_VAL("seq?",&native_seqQ),true);
   env->set("map", FN_VAL("map",&native_map),true);

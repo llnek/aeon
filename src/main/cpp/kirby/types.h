@@ -23,8 +23,8 @@ namespace d= czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #define HASH_VAL(k,v) std::pair<d::DslValue,d::DslValue>(k,v)
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+typedef bool (*SetCompare) (d::DslValue,d::DslValue);
 typedef std::pair<d::DslValue,d::DslValue> VPair;
 typedef std::vector<d::Number> NumberVec;
 typedef std::vector<d::DslValue> VVec;
@@ -36,7 +36,7 @@ struct VSlice {
   VIter begin, end;
 };
 struct Lisper;
-typedef d::DslValue (*Invoker)(Lisper*, VSlice);
+typedef d::DslValue (*Invoker) (Lisper*, VSlice);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct NoSuchVar : public a::Exception {
@@ -79,6 +79,7 @@ struct Unsupported : public a::Exception {
 #define LIST_VAL2(p1,p2) czlab::dsl::DslValue(new LList(p1,p2))
 #define LIST_VAL3(p1,p2,p3) czlab::dsl::DslValue(new LList(p1,p2,p3))
 #define MAP_VAL(v) czlab::dsl::DslValue(new LHash(v))
+#define SET_VAL(v) czlab::dsl::DslValue(new LSet(v))
 #define KEYWORD_VAL(s) czlab::dsl::DslValue(new LKeyword(s))
 #define STRING_VAL(s) czlab::dsl::DslValue(new LString(s))
 #define SYMBOL_VAL(s) czlab::dsl::DslValue(new LSymbol(s))
@@ -138,10 +139,10 @@ struct LSeqable {
   virtual d::DslValue nth(int) const = 0;
   virtual bool isEmpty() const = 0;
   virtual int count() const = 0 ;
+  virtual ~LSeqable() {}
 
   protected:
 
-  ~LSeqable() {}
   LSeqable() {}
 };
 
@@ -396,6 +397,42 @@ struct LVec : public LSequential {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct LSet : public LValue, public LSeqable {
+
+  virtual d::DslValue withMeta(d::DslValue) const;
+  virtual stdstr toString(bool pretty) const;
+  virtual bool seqable() const { return true; }
+
+  virtual d::DslValue eval(Lisper*, d::DslFrame);
+  d::DslValue get(d::DslValue) const;
+
+  virtual bool contains(d::DslValue) const;
+  virtual d::DslValue first() const;
+  virtual d::DslValue rest() const;
+  virtual d::DslValue seq() const;
+  virtual d::DslValue nth(int) const;
+  virtual bool isEmpty() const;
+  virtual int count() const;
+
+  LSet(const std::set<d::DslValue,SetCompare>&);
+  LSet(const LSet& rhs, d::DslValue);
+  LSet(d::DslValue);
+  LSet(VSlice);
+  LSet(VVec&);
+  LSet();
+
+  d::DslValue conj(VSlice) const;
+  d::DslValue disj(VSlice) const;
+
+  virtual ~LSet();
+
+  protected:
+
+  virtual bool eq(const d::Data*) const;
+  std::set<d::DslValue,SetCompare>* values;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LHash : public LValue, public LSeqable {
 
   virtual d::DslValue withMeta(d::DslValue) const;
@@ -424,6 +461,8 @@ struct LHash : public LValue, public LSeqable {
 
   d::DslValue keys() const;
   d::DslValue vals() const;
+
+  virtual ~LHash() {}
 
   protected:
 
@@ -526,6 +565,7 @@ bool cast_numeric(VSlice, NumberVec&);
 LAtom* cast_atom(d::DslValue, int panic=0);
 LNil* cast_nil(d::DslValue, int panic=0);
 LHash* cast_map(d::DslValue, int panic=0);
+LSet* cast_set(d::DslValue, int panic=0);
 LFloat* cast_float(d::DslValue, int panic=0);
 LInt* cast_int(d::DslValue, int panic=0);
 LChar* cast_char(d::DslValue, int panic=0);

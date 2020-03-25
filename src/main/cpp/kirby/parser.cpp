@@ -117,8 +117,8 @@ d::DslValue readList(SExprParser* p, int ender, stdstr pairs) {
           C_STR(pairs), m.first, m.second);
   }
   switch (ender) {
-    case d::T_RBRACE: return MAP_VAL(res);
     case d::T_RBRACKET: return VEC_VAL(res);
+    case d::T_RBRACE: return pairs=="#{}" ? SET_VAL(res) : MAP_VAL(res);
     default: return LIST_VAL(res);
   }
 }
@@ -132,6 +132,8 @@ d::DslValue readForm(SExprParser* p) {
       return (p->eat(), readList(p, d::T_RBRACKET, "[]"));
     case d::T_LBRACE:
       return (p->eat(), readList(p, d::T_RBRACE,  "{}"));
+    case T_SET:
+      return (p->eat(), readList(p, d::T_RBRACE, "#{}"));
     case d::T_RPAREN:
     case d::T_RBRACE:
     case d::T_RBRACKET:

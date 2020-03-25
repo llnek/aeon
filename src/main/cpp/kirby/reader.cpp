@@ -22,6 +22,7 @@ namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<int, stdstr> TOKENS {
   {T_SPLICE_UNQUOTE, "~@"},
+  {T_SET, "#{"},
   {T_TRUE,"true"},
   {T_FALSE,"false"},
   {T_NIL,"nil"}
@@ -30,6 +31,7 @@ std::map<int, stdstr> TOKENS {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<stdstr,int> KEYWORDS {
   {map__val(TOKENS,T_SPLICE_UNQUOTE),T_SPLICE_UNQUOTE},
+  {map__val(TOKENS,T_SET),T_SET},
   {map__val(TOKENS,T_FALSE),T_FALSE},
   {map__val(TOKENS,T_TRUE),T_TRUE},
   {map__val(TOKENS,T_NIL),T_NIL}
@@ -43,14 +45,14 @@ stdstr Token::typeToString(int type) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, const char ch, d::SrcInfo info) : d::Chunk(type) {
+Token::Token(int type, const char ch, d::SrcInfo info) : d::AbstractToken(type) {
   _impl.text= stdstr() + ch;
   _impl.line=info.first;
   _impl.col=info.second;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, const stdstr& s, d::SrcInfo info) : d::Chunk(type) {
+Token::Token(int type, const stdstr& s, d::SrcInfo info) : d::AbstractToken(type) {
   _impl.line=info.first;
   _impl.col=info.second;
   _impl.text= s;
@@ -316,6 +318,14 @@ d::DslToken Reader::_getNextToken() {
     else
     if (ch == '"') {
       return string();
+    }
+    else
+    if (ch == '#' &&
+        d::peekNext(_ctx) == '{') {
+      auto m=_ctx.mark();
+      d::advance(_ctx);
+      d::advance(_ctx);
+      return token(T_SET, "#{", m);
     }
     else
     if (ch == '(') {

@@ -22,6 +22,7 @@ namespace d = czlab::dsl;
 enum TokenType {
   T_SPLICE_UNQUOTE = 100,
   T_KEYWORD,
+  T_SET,
   T_TRUE,
   T_FALSE,
   T_NIL,
@@ -29,7 +30,7 @@ enum TokenType {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Token : public d::Chunk {
+struct Token : public d::AbstractToken {
 
   // A Lex token.
 

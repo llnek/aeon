@@ -19,20 +19,21 @@ namespace czlab::dsl {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-typedef std::pair<int,int> SrcInfo;
+typedef bool (*IdPredicate)(Tchar, bool); // for tokenizeing an identifier
+typedef std::pair<int,int> SrcInfo; // line & col info
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Table;
 struct Symbol;
-struct Chunk;
 struct Node;
 struct Data;
 struct Frame;
+struct AbstractToken;
 typedef a::RefPtr<Data> DslValue;
 typedef a::RefPtr<Node> DslAst;
 typedef a::RefPtr<Frame> DslFrame;
-typedef a::RefPtr<Chunk> DslToken;
 typedef a::RefPtr<Symbol> DslSymbol;
 typedef a::RefPtr<Table> DslTable;
+typedef a::RefPtr<AbstractToken> DslToken;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
@@ -74,16 +75,16 @@ enum TokenType {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Chunk : public a::Counted {
+struct AbstractToken : public a::Counted {
   // A chunk of text - a sequence of chars.
   virtual stdstr getLiteralAsStr() const =0;
   virtual double getLiteralAsReal() const =0;
   virtual llong getLiteralAsInt() const =0;
   virtual stdstr toString() const =0;
   int type() const { return ttype;}
-  virtual ~Chunk() {}
+  virtual ~AbstractToken() {}
   protected:
-  Chunk(int);
+  AbstractToken(int t ) { ttype=t; }
   int ttype;
 };
 
@@ -123,6 +124,7 @@ struct Number {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lexeme {
+  // Token info.
   int line, col;
   stdstr text;
   struct {
@@ -132,6 +134,7 @@ struct Lexeme {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Context {
+  // For lexer, holds all the key attributes.
   SrcInfo mark();
   ~Context() {}
   Context();
@@ -171,6 +174,7 @@ struct Symbol : public a::Counted {
   ~Symbol() {}
 
   private:
+
   DslSymbol _type;
   stdstr _name;
 };
@@ -191,6 +195,7 @@ struct Table : public a::Counted {
   ~Table() {}
 
   private:
+
   DslTable enclosing;
   stdstr _name;
   std::map<stdstr, DslSymbol> symbols;

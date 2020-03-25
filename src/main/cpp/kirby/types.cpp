@@ -29,6 +29,7 @@ LKeyword A_KEYWORD { "" };
 LList A_LIST;
 LVec A_VEC;
 LHash A_MAP;
+LSet A_SET;
 LFloat A_FLOAT { 0.0 };
 LInt A_INT { 0 };
 LChar A_CHAR {'\0'};
@@ -216,10 +217,20 @@ LSequential* cast_seq(d::DslValue v, int panic) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSeqable* cast_seqable(d::DslValue v, int panic) {
   if (auto r= cast_vec(v); X_NIL(r)) { return s__cast(LSeqable,r); }
+  if (auto r= cast_set(v); X_NIL(r)) { return s__cast(LSeqable,r); }
   if (auto r= cast_map(v); X_NIL(r)) { return s__cast(LSeqable,r); }
   if (auto r= cast_list(v); X_NIL(r)) { return s__cast(LSeqable,r); }
   if (auto r= cast_string(v); X_NIL(r)) { return s__cast(LSeqable,r); }
   if (panic) expected("seq'qble", v);
+  return P_NIL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LSet* cast_set(d::DslValue v, int panic) {
+  if (auto p=v.ptr(); typeid(A_SET)==typeid(*p)) {
+    return s__cast(LSet,p);
+  }
+  if (panic) expected("set", v);
   return P_NIL;
 }
 
@@ -695,20 +706,22 @@ d::DslValue LSequential::nth(int pos) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LSequential::eq(const d::Data* v) const {
   const LSequential* rhs = P_NIL;
+  auto sz= count();
   if (typeid(A_LIST) == typeid(*v)) {
     rhs= s__cast(const LSequential,v);
   }
   else if (typeid(A_VEC) == typeid(*v)) {
     rhs= s__cast(const LSequential,v);
   }
-  if (auto sz = count(); rhs && sz == rhs->count()) {
-    for (auto i = 0; i < sz; ++i) {
-      if (!(nth(i)->equals(rhs->nth(i).ptr())))
-      return false;
-    }
-    return true;
+  if (E_NIL(rhs) || sz != rhs->count()) {
+    return false;
   }
-  return false;
+  //ok,let's try
+  auto i=0; for (; i < sz; ++i) {
+    if (!(nth(i)->equals(rhs->nth(i).ptr())))
+    break;
+  }
+  return i >= sz;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -910,7 +923,8 @@ int LHash::count() const { return values.size();  }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::nth(int pos) const {
-  auto s = s__cast(LList,seq().ptr());
+  auto q= seq();
+  auto s = cast_list(q,1);
   if (auto z= s->count(); z > 0 && pos >= 0 && pos < z) {
     return s->nth(pos);
   } else {
@@ -1002,19 +1016,26 @@ stdstr LHash::toString(bool pretty) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LHash::eq(const d::Data* rhs) const {
+
   if (!(typeid(*this) == typeid(*rhs))) { return false; }
+
   auto const &rvs = s__cast(const LHash,rhs)->values;
+  auto sz = values.size();
 
-  if (values.size() != rvs.size()) { return false; }
+  if (sz != rvs.size()) { return false; }
 
-  for (auto i = values.begin(),
-            e = values.end(),
-            j = rvs.begin(); i != e; ++i,++j) {
-    if ( (*i).second.first != (*j).second.first) { return false; }
-    if (! (*i).second.second->equals((*j).second.second.ptr())) { return false; }
+  auto i=0;
+  for (auto p=values.begin(), e=values.end(); p != e; ++p,++i) {
+    auto r= rvs.find(p->first);
+    if (r != rvs.end()) {
+      auto ro= *r;
+      if (p->second.first->equals(ro.second.first.ptr()) &&
+          p->second.second->equals(ro.second.second.ptr()))
+        continue;
+    }
+    break;
   }
-
-  return true;
+  return i >= sz;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1170,6 +1191,172 @@ d::DslValue LMacro::withMeta(d::DslValue m) const {
   return d::DslValue(new LMacro(*this,m));
 }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool lessThan(d::DslValue a, d::DslValue b) {
+  return !a->equals(b.ptr());
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LSet::LSet(VSlice more) : LSet() {
+  for (auto i = more.begin; i != more.end; ++i) {
+    values->insert(*i);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LSet::LSet(VVec& v) : LSet(VSlice(v)) {}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LSet::LSet(d::DslValue m) : LValue(m) {
+  values=new std::set<d::DslValue,SetCompare> { &lessThan};
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LSet::LSet() {
+  values=new std::set<d::DslValue,SetCompare> { &lessThan};
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LSet::~LSet() {
+  DEL_PTR(values);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LSet::LSet(const std::set<d::DslValue,SetCompare>& m) : LSet() {
+  for (auto& x : m) {
+    values->insert(x);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LSet::LSet(const LSet& rhs, d::DslValue m) : LSet(m) {
+  for (auto& x : *(rhs.values)) {
+    values->insert(x);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LSet::conj(VSlice more) const {
+  std::set<d::DslValue,SetCompare> m(*values);
+  for (auto i = more.begin; i != more.end; ++i) {
+    m.insert(*i);
+  }
+  return SET_VAL(m);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LSet::disj(VSlice more) const {
+  std::set<d::DslValue,SetCompare> m(*values);
+  for (auto i= more.begin; i != more.end; ++i) {
+    m.erase(*i);
+  }
+  return SET_VAL(m);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool LSet::isEmpty() const { return values->empty(); }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LSet::count() const { return values->size();  }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LSet::nth(int pos) const {
+  auto q= seq();
+  auto s = cast_list(q,1);
+  if (auto z= s->count(); z > 0 && pos >= 0 && pos < z) {
+    return s->nth(pos);
+  } else {
+    return NIL_VAL();
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LSet::seq() const {
+  VVec out;
+  for (auto& x : *values) {
+    s__conj(out, x);
+  }
+  return LIST_VAL(out);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LSet::first() const {
+  return nth(0);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LSet::rest() const {
+  auto s = s__cast(LList,seq().ptr());
+  if (auto z= s->count(); z > 1) {
+    VVec out;
+    for (auto i=1; i < z; ++i) {
+      s__conj(out, s->nth(i));
+    }
+    return LIST_VAL(out);
+  } else {
+    return EMPTY_LIST();
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool LSet::contains(d::DslValue key) const {
+  return values->find(key) != values->end();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LSet::get(d::DslValue key) const {
+  auto i = values->find(key);
+  return (i != values->end()) ? *i : NIL_VAL();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LSet::eval(Lisper* p, d::DslFrame e) {
+  std::set<d::DslValue,SetCompare> out(lessThan);
+  for (auto& it : *values) {
+    out.insert(it);
+  }
+  return SET_VAL(out);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr LSet::toString(bool pretty) const {
+  stdstr out;
+
+  for (auto& x : *values) {
+    if (!out.empty()) {
+      out += ",";
+    }
+    out += x->toString();
+  }
+
+  return "#{" + out + "}";
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool LSet::eq(const d::Data* rhs) const {
+
+  if (!(typeid(*this) == typeid(*rhs))) { return false; }
+
+  auto const &rvs = s__cast(const LSet,rhs)->values;
+  auto sz = values->size();
+
+  if (sz != rvs->size()) { return false; }
+
+  auto i=0;
+  for (auto p=values->begin(), e=values->end(); p != e; ++p,++i) {
+    auto r= rvs->find(*p);
+    if (r != rvs->end()) {
+      continue;
+    }
+    break;
+  }
+  return i >= sz;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LSet::withMeta(d::DslValue m) const {
+  return d::DslValue(new LSet(*this, m));
+}
 
 
 

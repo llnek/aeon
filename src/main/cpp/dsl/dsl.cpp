@@ -111,8 +111,8 @@ std::string numeric(Context& ctx) {
   // handles 'signed' and floating points.
   auto ch= peek(ctx);
   auto minus=false;
-  if (ch == '-') {
-    minus=true;
+  if (ch == '-' || ch== '+') {
+    minus= (ch=='-');
     advance(ctx);
   }
   auto res = digits(ctx);
@@ -142,7 +142,7 @@ std::string str(Context& ctx) {
       if (ch == '\\') {
         if (!advance(ctx)) {
           RAISE(SyntaxError,
-              "Malformed string value, bad escaped char %c\n.", ch);
+                "Malformed string value, bad escaped char %c\n.", ch);
         }
         ch=a::unescape_char(peek(ctx));
       }
@@ -151,7 +151,7 @@ std::string str(Context& ctx) {
     }
     if (ctx.eof || ch != '"') {
       RAISE(SyntaxError,
-          "Malformed string value, missing %s\n.", "dquote");
+            "Malformed string value, missing %s\n.", "dquote");
     }
     // good, got the end dquote
     advance(ctx);
@@ -161,20 +161,20 @@ std::string str(Context& ctx) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string identifier(Context& ctx) {
+std::string identifier(Context& ctx, IdPredicate pred) {
   std::string res;
   Tchar ch;
   while (!ctx.eof) {
     ch=peek(ctx);
     if (res.empty()) {
-      if (ch == '_' || ::isalpha(ch)) {
+      if (pred(ch,true)) {
         res += ch;
         advance(ctx);
       } else {
         break;
       }
     } else {
-      if (ch == '_' || ::isalpha(ch) || ::isdigit(ch)) {
+      if (pred(ch,false)) {
         res += ch;
         advance(ctx);
       } else {
@@ -204,12 +204,6 @@ void Number::setFloat(double d) { u.r=d; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Number::setInt(llong n) { u.n=n; }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Chunk::Chunk(int t) {
-  ttype=t;
-  DEBUG("Chunk: type = %d.\n", t);
-}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Context::Context() {
@@ -270,7 +264,7 @@ DslValue Frame::get(const std::string& key) const {
           ? x->second
           : (prev.isSome() ? prev->get(key) : DslValue());
 
-  DEBUG("frame:get %s=%s\n",
+  DEBUG("frame:get %s <- %s\n",
         C_STR(key), C_STR(r->toString()));
 
   return r;
@@ -286,7 +280,7 @@ DslValue Frame::set(const std::string& key, DslValue v, bool localOnly) {
     prev->set(key,v,localOnly);
   }
 
-  DEBUG("frame:set %s=%s\n",
+  DEBUG("frame:set %s -> %s\n",
         C_STR(key), C_STR(v->toString()));
 
   return v;
@@ -357,8 +351,5 @@ DslSymbol Table::lookup(const std::string& name, bool traverse) const {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
-
-
-
 
 
