@@ -22,6 +22,7 @@ namespace d = czlab::dsl;
 enum TokenType {
   T_SPLICE_UNQUOTE = 100,
   T_KEYWORD,
+  T_ANONFN,
   T_SET,
   T_TRUE,
   T_FALSE,

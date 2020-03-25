@@ -53,10 +53,18 @@ int preEqual(int wanted, int got, const stdstr& fn) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int preMax(int max, int got, const stdstr& fn) {
+  if (got > max)
+    RAISE(BadArity,
+          "%s requires at most %d args, got %d.\n", C_STR(fn), max, got);
+  return got;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int preMin(int min, int got, const stdstr& fn) {
   if (got < min)
     RAISE(BadArity,
-          "%s requires %d args, got %d.\n", C_STR(fn), min, got);
+          "%s requires at least %d args, got %d.\n", C_STR(fn), min, got);
   return got;
 }
 
@@ -715,6 +723,11 @@ LSymbol::LSymbol(const stdstr& s) : value(s) { }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LSymbol::toString(bool p) const { return value; }
 
+;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void LSymbol::rename(const stdstr& n) {
+  value=n;
+}
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSymbol::eval(Lisper*, d::DslFrame e) {
   if (auto r= e->get(value); r.isSome()) {
@@ -1235,7 +1248,8 @@ d::DslFrame LLambda::bindContext(VSlice args) {
       i= z;
       break;
     }
-    ASSERT1(j < len);
+    if (!(j < len))
+      throw BadArity(z,len);
     fm->set(k, *(args.begin + j), true);
     ++j;
   }

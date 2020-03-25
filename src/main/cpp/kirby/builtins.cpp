@@ -569,6 +569,17 @@ static d::DslValue native_seq(Lisper* lisp, VSlice args) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_gensym(Lisper* lisp, VSlice args) {
+  // (gensym "G_")
+  auto len=preMax(1, args.size(), "gensym");
+  stdstr pfx {"G__"};
+  if (len > 0) {
+    pfx= cast_string(*args.begin,1)->impl();
+  }
+  return STRING_VAL(gensym(pfx));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DslValue native_slurp(Lisper* lisp, VSlice args) {
   // (slurp "some file")
   preEqual(1, args.size(), "slurp");
@@ -657,6 +668,7 @@ d::Frame* init_natives(d::Frame* env) {
   env->set("concat", FN_VAL("concat",&native_concat),true);
   env->set("conj", FN_VAL("conj",&native_conj),true);
   env->set("disj", FN_VAL("disj",&native_disj),true);
+  env->set("gensym", FN_VAL("gensym",&native_gensym),true);
   env->set("contains?", FN_VAL("contains?",&native_containsQ),true);
   env->set("count", FN_VAL("count",&native_count),true);
   env->set("deref", FN_VAL("deref",&native_deref),true);

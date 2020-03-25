@@ -20,6 +20,9 @@ namespace czlab::kirby {
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr gensym(const stdstr& prefix);
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SExprParser : public d::IParser {
   // S-Expression parser.
   std::pair<int,d::DslValue> parse();

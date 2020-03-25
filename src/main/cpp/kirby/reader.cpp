@@ -22,6 +22,7 @@ namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<int, stdstr> TOKENS {
   {T_SPLICE_UNQUOTE, "~@"},
+  {T_ANONFN, "#("},
   {T_SET, "#{"},
   {T_TRUE,"true"},
   {T_FALSE,"false"},
@@ -31,6 +32,7 @@ std::map<int, stdstr> TOKENS {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<stdstr,int> KEYWORDS {
   {map__val(TOKENS,T_SPLICE_UNQUOTE),T_SPLICE_UNQUOTE},
+  {map__val(TOKENS,T_ANONFN),T_ANONFN},
   {map__val(TOKENS,T_SET),T_SET},
   {map__val(TOKENS,T_FALSE),T_FALSE},
   {map__val(TOKENS,T_TRUE),T_TRUE},
@@ -326,6 +328,14 @@ d::DslToken Reader::_getNextToken() {
       d::advance(_ctx);
       d::advance(_ctx);
       return token(T_SET, "#{", m);
+    }
+    else
+    if (ch == '#' &&
+        d::peekNext(_ctx) == '(') {
+      auto m=_ctx.mark();
+      d::advance(_ctx);
+      d::advance(_ctx);
+      return token(T_ANONFN, "#(", m);
     }
     else
     if (ch == '(') {

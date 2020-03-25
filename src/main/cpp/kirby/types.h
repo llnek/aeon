@@ -327,6 +327,8 @@ struct LSymbol : public LValue {
   virtual d::DslValue eval(Lisper*, d::DslFrame);
   stdstr impl() const { return value; }
 
+  void rename(const stdstr&);
+
   LSymbol(const LSymbol& rhs, d::DslValue);
   LSymbol(const stdstr& s);
   virtual ~LSymbol() {}
@@ -568,6 +570,7 @@ struct LNative : public LFunction {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int preEqual(int wanted, int got, const stdstr& fn);
 int preMin(int min, int got, const stdstr& fn);
+int preMax(int max, int got, const stdstr& fn);
 int preNonZero(int c, const stdstr& fn);
 int preEven(int c, const stdstr& fn);
 d::DslValue expected(const stdstr&, d::DslValue);

@@ -12,6 +12,7 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
+#include <ctime>
 #include "parser.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -23,6 +24,29 @@ namespace d = czlab::dsl;
 d::DslValue readList(SExprParser*, int, stdstr);
 d::DslValue readForm(SExprParser*);
 d::DslValue readAtom(SExprParser*);
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr gensym(const stdstr& prefix) {
+  static int seed=0;
+  stdstr out;
+  int x;
+  srand(time(NULL));
+  /*
+  for (auto i = 0; i < 3; ++i) {
+    x= rand() % 26;
+    out += (char) (((int)'a') + x);
+    x= rand() % 26;
+    out += (char) (((int)'A') + x);
+  }
+  */
+  for (auto i = 0; i < 6; ++i) {
+    x= rand() % 10;
+    out += (char) (((int)'0') + x);
+  }
+
+  ++seed;
+  return prefix+out+std::to_string(seed);
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue macro_func(SExprParser* p, stdstr op) {
@@ -103,6 +127,68 @@ d::DslValue readAtom(SExprParser* p) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void checkForAnonArg(LSymbol* sym, const stdstr& gensym, int& high, bool& varArgs) {
+  auto s = sym->impl();
+  if (s[0] != '%') { return; }
+  auto vargs = (s == "%&");
+  stdstr out;
+  if (!vargs) {
+    for (auto i= s.begin()+1,e=s.end(); i != e; ++i) {
+      if (! ::isdigit(*i)) { return; }
+      out += *i;
+    }
+  }
+  int pos=1;
+  if (!out.empty())
+    pos= ::atoi(out.c_str());
+  ASSERT1(pos >=1);
+
+  if (vargs) {
+    sym->rename(gensym + "_vargs");
+    varArgs=true;
+  } else {
+    sym->rename(gensym + "_" + std::to_string(pos));
+    if (pos > high) { high= pos; }
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void scanAnonFn(LSeqable* seq, const stdstr& gensym, int& high, bool& varArgs) {
+  for (int i=0, e=seq->count(); i < e; ++i) {
+    auto v= seq->nth(i);
+    if (auto x= cast_seqable(v);
+        X_NIL(x) && E_NIL(cast_string(v))) {
+      scanAnonFn(x, gensym, high, varArgs);
+    }
+    else
+    if (auto s = cast_symbol(v); X_NIL(s)) {
+      checkForAnonArg(s, gensym, high, varArgs);
+    }
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue readAnonFn(VVec& res) {
+  auto gs = gensym("G__");
+  bool varArgs=false;
+  int high=0;
+  auto form = LIST_VAL(res);
+  scanAnonFn(cast_list(form,1), gs, high, varArgs);
+  VVec out { SYMBOL_VAL("fn") };
+  VVec args;
+  for (int i = 1; i <= high; ++i) {
+    s__conj(args, SYMBOL_VAL(gs + "_" + std::to_string(i)));
+  }
+  if (varArgs) {
+    s__conj(args, SYMBOL_VAL("&"));
+    s__conj(args, SYMBOL_VAL(gs + "_vargs"));
+  }
+  s__conj(out, VEC_VAL(args));
+  s__conj(out, form);
+  return LIST_VAL(out);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue readList(SExprParser* p, int ender, stdstr pairs) {
   auto m= p->rdr()->ctx().mark();
   auto found=0;
@@ -117,9 +203,12 @@ d::DslValue readList(SExprParser* p, int ender, stdstr pairs) {
           C_STR(pairs), m.first, m.second);
   }
   switch (ender) {
-    case d::T_RBRACKET: return VEC_VAL(res);
-    case d::T_RBRACE: return pairs=="#{}" ? SET_VAL(res) : MAP_VAL(res);
-    default: return LIST_VAL(res);
+    case d::T_RBRACKET:
+      return VEC_VAL(res);
+    case d::T_RBRACE:
+      return pairs=="#{}" ? SET_VAL(res) : MAP_VAL(res);
+    default:
+      return pairs=="#()" ? readAnonFn(res) : LIST_VAL(res);
   }
 }
 
@@ -132,6 +221,8 @@ d::DslValue readForm(SExprParser* p) {
       return (p->eat(), readList(p, d::T_RBRACKET, "[]"));
     case d::T_LBRACE:
       return (p->eat(), readList(p, d::T_RBRACE,  "{}"));
+    case T_ANONFN:
+      return (p->eat(), readList(p, d::T_RPAREN, "#()"));
     case T_SET:
       return (p->eat(), readList(p, d::T_RBRACE, "#{}"));
     case d::T_RPAREN:
