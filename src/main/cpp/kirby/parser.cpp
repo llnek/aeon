@@ -12,6 +12,7 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
+#include <regex>
 #include <ctime>
 #include "parser.h"
 
@@ -128,6 +129,34 @@ d::DslValue readAtom(SExprParser* p) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void checkForAnonArg(LSymbol* sym, const stdstr& gensym, int& high, bool& varArgs) {
+  static std::regex ANON_ARG("%(\\d+)");
+  auto s = sym->impl();
+  if (s[0] != '%') { return; }
+  auto vargs = (s == "%&");
+  auto v1= (s== "%");
+  stdstr out;
+  if (!vargs && !v1) {
+    std::smatch m;
+    if (!std::regex_match(s, m, ANON_ARG)) { return;}
+    else ASSERT1(m.size()==2);
+    out=m[1];
+  }
+  int pos=1;
+  if (!out.empty())
+    pos= ::atoi(out.c_str());
+  ASSERT1(pos >= 1);
+
+  if (vargs) {
+    sym->rename(gensym + "_vargs");
+    varArgs=true;
+  } else {
+    sym->rename(gensym + "_" + std::to_string(pos));
+    if (pos > high) { high= pos; }
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void XXcheckForAnonArg(LSymbol* sym, const stdstr& gensym, int& high, bool& varArgs) {
   auto s = sym->impl();
   if (s[0] != '%') { return; }
   auto vargs = (s == "%&");
