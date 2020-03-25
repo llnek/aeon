@@ -373,8 +373,20 @@ d::DslValue LValue::eval(Lisper*, d::DslFrame e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LValue::compare(const d::Data* rhs) const {
+  ASSERT1(rhs != nullptr);
+  return cmp(rhs);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LValue::equals(const d::Data* rhs) const {
   return X_NIL(rhs) && eq(rhs);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LFalse::cmp(const d::Data* rhs) const {
+  return typeid(*this) == typeid(*rhs)
+         ? 0 : toString(false).compare(rhs->toString(false));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -407,6 +419,12 @@ d::DslValue LTrue::withMeta(d::DslValue m) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LTrue::cmp(const d::Data* rhs) const {
+  return typeid(*this) == typeid(*rhs)
+         ? 0 : toString(false).compare(rhs->toString(false));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LTrue::eq(const d::Data* rhs) const {
   return typeid(*this) == typeid(*rhs);
 }
@@ -425,6 +443,12 @@ d::DslValue LNil::withMeta(d::DslValue m) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LNil::eq(const d::Data* rhs) const {
   return typeid(*this) == typeid(*rhs);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LNil::cmp(const d::Data* rhs) const {
+  return typeid(*this) == typeid(*rhs)
+         ? 0 : toString(false).compare(rhs->toString(false));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -454,6 +478,15 @@ bool LFloat::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LFloat::cmp(const d::Data* rhs) const {
+  if (typeid(*this)==typeid(*rhs)) {
+    auto v= s__cast(const LFloat,rhs)->value;
+    return value==v ? 0 : (value > v ? 1 : -1);
+  }
+  return toString(false).compare(rhs->toString(false));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LInt::withMeta(d::DslValue m) const {
   return d::DslValue(new LInt(*this, m));
 }
@@ -480,8 +513,26 @@ bool LInt::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LInt::cmp(const d::Data* rhs) const {
+  if (typeid(*this)==typeid(*rhs)) {
+    auto v= s__cast(const LInt,rhs)->value;
+    return value==v ? 0 : (value > v ? 1 : -1);
+  }
+  return toString(false).compare(rhs->toString(false));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LChar::toString(bool p) const {
   return stdstr { value };
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LChar::cmp(const d::Data* rhs) const {
+  if (typeid(*this) == typeid(*rhs)) {
+    auto c = s__cast(const LChar,rhs)->value;
+    return value==c ? 0 : (value > c ? 1 : -1);
+  }
+  return toString(false).compare(rhs->toString(false));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -519,6 +570,15 @@ bool LAtom::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LAtom::cmp(const d::Data* rhs) const {
+  if (typeid(*this)==typeid(*rhs)) {
+    auto a= s__cast(const LAtom,rhs)->value;
+    return value->compare(a.ptr());
+  }
+  return toString(false).compare(rhs->toString(false));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LAtom::withMeta(d::DslValue m) const {
   return d::DslValue(new LAtom(*this, m));
 }
@@ -545,6 +605,15 @@ stdstr LString::encoded() const {
 bool LString::eq(const d::Data* rhs) const {
   return typeid(*this) == typeid(*rhs) &&
          value == s__cast(const LString,rhs)->value;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LString::cmp(const d::Data* rhs) const {
+  if (typeid(*this) == typeid(*rhs)) {
+    auto s = s__cast(const LString,rhs)->value;
+    return value.compare(s);
+  }
+  return toString(false).compare(rhs->toString(false));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -622,6 +691,15 @@ bool LKeyword::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LKeyword::cmp(const d::Data* rhs) const {
+  if (typeid(*this)==typeid(*rhs)) {
+    auto k= s__cast(const LKeyword,rhs)->value;
+    return value.compare(k);
+  }
+  return toString(false).compare(rhs->toString(false));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LKeyword::withMeta(d::DslValue m) const {
   return d::DslValue(new LKeyword(*this, m));
 }
@@ -649,6 +727,15 @@ d::DslValue LSymbol::eval(Lisper*, d::DslFrame e) {
 bool LSymbol::eq(const d::Data* rhs) const {
   return typeid(*this) == typeid(*rhs) &&
          value == s__cast(const LSymbol,rhs)->value;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LSymbol::cmp(const d::Data* rhs) const {
+  if (typeid(*this) == typeid(*rhs)) {
+    auto s= s__cast(const LSymbol,rhs)->value;
+    return value.compare(s);
+  }
+  return toString(false).compare(rhs->toString(false));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -722,6 +809,23 @@ bool LSequential::eq(const d::Data* v) const {
     break;
   }
   return i >= sz;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LSequential::cmp(const d::Data* v) const {
+  const LSequential* rhs = P_NIL;
+  auto sz= count();
+  if (typeid(A_LIST) == typeid(*v)) {
+    rhs= s__cast(const LSequential,v);
+  }
+  else if (typeid(A_VEC) == typeid(*v)) {
+    rhs= s__cast(const LSequential,v);
+  }
+  if (rhs) {
+    auto rc= rhs->count();
+    if (sz != rc) { return (sz > rc) ? 1 : -1; }
+  }
+  return toString(false).compare(v->toString(false));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1039,6 +1143,22 @@ bool LHash::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LHash::cmp(const d::Data* rhs) const {
+
+  const LHash* rs= (typeid(*this) == typeid(*rhs))
+                   ? s__cast(const LHash,rhs) : nullptr;
+  auto sz = values.size();
+  if (rs) {
+    auto rc= rs->count();
+    if (sz != rc) {
+      return sz > rc ? 1 : -1;
+    }
+  }
+
+  return toString(false).compare(rhs->toString(false));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::withMeta(d::DslValue m) const {
   return d::DslValue(new LHash(*this, m));
 }
@@ -1060,6 +1180,11 @@ stdstr LNative::toString(bool pretty) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LNative::eq(const d::Data* rhs) const {
   return typeid(*this) == typeid(*rhs) ? (this == rhs) : false;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LNative::cmp(const d::Data* rhs) const {
+  return toString(false).compare(rhs->toString(false));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1164,6 +1289,11 @@ bool LLambda::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LLambda::cmp(const d::Data* rhs) const {
+  return toString(false).compare(rhs->toString(false));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LMacro::LMacro(const StrVec& args, d::DslValue body, d::DslFrame env)
   : LLambda(args, body,env) {
 }
@@ -1182,6 +1312,11 @@ stdstr LMacro::toString(bool pretty) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LMacro::cmp(const d::Data* rhs) const {
+  return toString(false).compare(rhs->toString(false));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LMacro::eq(const d::Data* rhs) const {
   return LLambda::eq(rhs);
 }
@@ -1193,7 +1328,8 @@ d::DslValue LMacro::withMeta(d::DslValue m) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool lessThan(d::DslValue a, d::DslValue b) {
-  return !a->equals(b.ptr());
+  auto p= b.ptr();
+  return a->equals(p) ? false : (a->compare(p) < 0);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1351,6 +1487,21 @@ bool LSet::eq(const d::Data* rhs) const {
     break;
   }
   return i >= sz;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LSet::cmp(const d::Data* rhs) const {
+  const LSet* rs= (typeid(*this) == typeid(*rhs))
+                  ? s__cast(const LSet,rhs) : nullptr;
+  auto sz = values->size();
+  if (rs) {
+    auto rc = rs->count();
+    if (sz != rc) {
+      return sz < rc ? -1 : 1;
+    }
+  }
+
+  return toString(false).compare(rhs->toString(false));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -206,6 +206,7 @@ struct Data : public a::Counted {
   // Abstract class to store data value in parsers.
   virtual stdstr toString(bool prettyPrint=false) const = 0;
   virtual bool equals(const Data*) const = 0;
+  virtual int compare(const Data*) const = 0;
   virtual ~Data() {}
   Data() {}
 };
@@ -216,6 +217,10 @@ struct Nothing : public Data {
   virtual bool equals(const Data* rhs) const {
     return X_NIL(rhs) &&
            typeid(*rhs) == typeid(*this);
+  }
+  virtual int compare(const Data* rhs) const {
+    return E_NIL(rhs)
+        ? 1 : (typeid(*rhs) == typeid(*this) ? 0 : toString(false).compare(rhs->toString(false)));
   }
   virtual ~Nothing() {}
   Nothing() {}

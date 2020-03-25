@@ -107,6 +107,7 @@ struct LValue : public d::Data {
 
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual bool equals(const d::Data*) const;
+  virtual int compare(const d::Data*) const;
   d::DslValue meta() const;
 
   // not everything can act as key in map.
@@ -124,6 +125,7 @@ struct LValue : public d::Data {
   protected:
 
   virtual bool eq(const d::Data*) const = 0;
+  virtual int cmp(const d::Data*) const = 0;
   LValue(d::DslValue m) : metaObj(m) {}
   d::DslValue metaObj;
 
@@ -160,6 +162,7 @@ struct LFalse : public LValue {
   protected:
 
   virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -173,6 +176,7 @@ struct LTrue : public LValue {
 
   protected:
   virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -189,6 +193,7 @@ struct LNil : public LValue {
   protected:
 
   virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -204,7 +209,8 @@ struct LChar : public LValue {
 
   protected:
 
-  virtual bool eq(const d::Data* ) const;
+  virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   Tchar value;
 };
 
@@ -223,7 +229,8 @@ struct LAtom : public LValue {
   d::DslValue reset(d::DslValue x) { return (value = x); }
 
   protected:
-  virtual bool eq(const d::Data* ) const;
+  virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   d::DslValue value;
 };
 
@@ -241,7 +248,8 @@ struct LFloat : public LValue {
 
   protected:
 
-  virtual bool eq(const d::Data* rhs) const;
+  virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   double value;
 };
 
@@ -258,7 +266,8 @@ struct LInt : public LValue {
   virtual ~LInt() {}
 
   protected:
-  virtual bool eq(const d::Data* rhs) const;
+  virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   llong value;
 };
 
@@ -288,6 +297,7 @@ struct LString : public LValue, public LSeqable {
 
   protected:
   virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   stdstr value;
 };
 
@@ -305,6 +315,7 @@ struct LKeyword : public LValue {
 
   protected:
   virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   stdstr value;
 };
 
@@ -322,6 +333,7 @@ struct LSymbol : public LValue {
 
   protected:
   virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   stdstr value;
 };
 
@@ -345,6 +357,7 @@ struct LSequential : public LValue, public LSeqable {
   protected:
 
   virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   virtual ~LSequential() {}
 
   LSequential(const LSequential& rhs, d::DslValue);
@@ -429,6 +442,7 @@ struct LSet : public LValue, public LSeqable {
   protected:
 
   virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   std::set<d::DslValue,SetCompare>* values;
 };
 
@@ -467,6 +481,7 @@ struct LHash : public LValue, public LSeqable {
   protected:
 
   virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   std::map<stdstr,VPair> values;
 };
 
@@ -507,7 +522,8 @@ struct LLambda : public LFunction {
   d::DslFrame env;
 
   protected:
-  virtual bool eq(const d::Data* rhs) const;
+  virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -524,7 +540,8 @@ struct LMacro : public LLambda {
   stdstr toString(bool pretty) const;
 
   protected:
-  virtual bool eq(const d::Data* rhs) const;
+  virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -544,6 +561,7 @@ struct LNative : public LFunction {
   protected:
 
   virtual bool eq(const d::Data*) const;
+  virtual int cmp(const d::Data*) const;
   Invoker fn;
 };
 
