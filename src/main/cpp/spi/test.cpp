@@ -100,13 +100,27 @@ int Xmain(int argc, char* argv[]) {
     //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
     Interpreter i(ARG18);
     auto r= i.interpret();
-    ::printf("result = %s\n", r.toString().c_str());
+    ::printf("result = %s\n", r->toString().c_str());
     //Analyzer z(ARG);
 
   } catch ( const d::SyntaxError& e) {
-    ::printf("%s", e.what());
+    ::printf("%s", e.what().c_str());
   }
   return 0;
 }
 }
 
+int main(int argc, char* argv[]) {
+  using namespace czlab::spi;
+  try {
+    //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
+    Interpreter i(ARG18);
+    auto r= i.interpret();
+    ::printf("result = %s\n", r->toString().c_str());
+    //Analyzer z(ARG);
+
+  } catch ( const d::SyntaxError& e) {
+    ::printf("%s", e.what().c_str());
+  }
+  return 0;
+}

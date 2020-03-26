@@ -21,80 +21,90 @@ namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Interpreter::Interpreter(const char* src) {
   source = src;
-  S_NIL(symbols);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::ExprValue Interpreter::interpret() {
+d::DslValue Interpreter::interpret() {
   SimplePascalParser p(source);
-  auto tree= (Ast*) p.parse();
-  return check(tree), eval(tree);
+  auto tree= p.parse();
+  check(tree);
+  return eval(tree);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::ExprValue Interpreter::eval(Ast* tree) {
-  auto res= (stack.push("root"), tree->eval(this));
-  auto env= stack.pop();
+d::DslValue Interpreter::eval(d::DslAst tree) {
+  auto res= (pushFrame("root"),tree->eval(this));
+  auto env= popFrame();
   ::printf("%s\n", env->toString().c_str());
   return res;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Frame* Interpreter::push(const std::string& name) {
-  return stack.push(name);
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Frame* Interpreter::pop() {
-  auto f= stack.pop();
-  ::printf("Frame poped:=\n%s\n", f->toString().c_str());
-  return f;
-}
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Frame* Interpreter::peek() {
-  return stack.peek();
+d::DslFrame Interpreter::pushFrame(const std::string& name) {
+  stack= d::DslFrame(new d::Frame(name, stack));
+  return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::setValue(const std::string& name, const d::ExprValue& v, bool localOnly) {
-  auto x = stack.peek();
-  if (x) x->set(name, v, localOnly);
+d::DslFrame Interpreter::popFrame() {
+  auto f= d::DslFrame(s__cast(d::Frame,stack.ptr()));
+  ::printf("Frame poped:=\n%s\n", f->toString().c_str());
+  stack=stack->getOuter();
+  return f;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::ExprValue Interpreter::getValue(const std::string& name) {
-  auto x = stack.peek();
+d::DslFrame Interpreter::peekFrame() const {
+  return stack;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Interpreter::setValue(const stdstr& name, d::DslValue v, bool localOnly) {
+  auto x = s__cast(d::Frame,stack.ptr());
+  if (x) x->set(name, v, localOnly);
+  return v;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Interpreter::getValue(const stdstr& name) const {
+  auto x = s__cast(d::Frame,stack.ptr());
   if (x)
     return x->get(name);
   else
-    return d::ExprValue();
+    return d::DslValue();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::check(Ast* tree) {
-  symbols= new SymTable("root");
+void Interpreter::check(d::DslAst tree) {
+  symbols= d::DslTable(new SymTable("root"));
   tree->visit(this);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Symbol* Interpreter::lookup(const std::string& n, bool traverse) {
-  return symbols->lookup(n, traverse);
+d::DslSymbol Interpreter::lookup(const stdstr& n, bool traverse) const {
+  return s__cast(d::Table,symbols.ptr())->lookup(n, traverse);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::define(d::Symbol* s) {
-  if (s) symbols->insert(s);
+bool Interpreter::containsSymbol(const stdstr& name) const {
+  return stack->find(name).isSome();
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::pushScope(const std::string& name) {
-  auto s= new SymTable(name, (SymTable*)symbols);
-  symbols=s;
+void Interpreter::define(d::DslSymbol s) {
+  symbols->insert(s);
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::SymbolTable* Interpreter::popScope() {
-  if (! symbols->enclosing) {
-    return nullptr;
-  } else {
-    auto cur = symbols;
-    symbols = cur->enclosing;
-    S_NIL(cur->enclosing);
-    return cur;
-  }
+void Interpreter::pushScope(const stdstr& name) {
+  symbols = d::DslTable(new SymTable(name, symbols));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslTable Interpreter::popScope() {
+  auto cur= symbols;
+  symbols = cur->outer();
+  return cur;
 }
 
 

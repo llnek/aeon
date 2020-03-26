@@ -236,11 +236,10 @@ std::string Frame::toString() const {
             C_STR(b), C_STR(_name), C_STR(b));
   out += buf;
 
-  for (auto& x : slots) {
-    ::sprintf(buf,
-              "%s = %s\n",
-              C_STR(x.first),
-              C_STR(x.second->toString()));
+  for (auto i= slots.begin(), e= slots.end(); i != e; ++i) {
+    auto v= i->second;
+    auto vs= v.isSome() ? v->toString(true).c_str() : "null";
+    ::sprintf(buf,"%s = %s\n", C_STR(i->first), vs);
     out += buf;
   }
 
@@ -281,7 +280,7 @@ DslValue Frame::set(const std::string& key, DslValue v, bool localOnly) {
   }
 
   DEBUG("frame:set %s -> %s\n",
-        C_STR(key), C_STR(v->toString()));
+        C_STR(key), C_STR(v->toString(true)));
 
   return v;
 }

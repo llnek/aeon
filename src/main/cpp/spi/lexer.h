@@ -22,7 +22,7 @@ namespace d = czlab::dsl;
 enum TokenType {
 
   // keywords
-  T_PROGRAM,
+  T_PROGRAM = 1000,
   T_INT_DIV,
   T_VAR,
   T_STR,
@@ -38,38 +38,45 @@ enum TokenType {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Token : public d::IToken {
+struct Token : public d::AbstractToken {
 
-  static std::string typeToString(int);
+  static stdstr typeToString(int);
 
-  Token(int type, const std::string&, d::TokenInfo);
-  Token(int type, const char, d::TokenInfo);
+  Token(int type, const stdstr&, d::SrcInfo);
+  Token(int type, const char, d::SrcInfo);
 
   virtual ~Token();
 
-  std::string getLiteralAsStr();
-  double getLiteralAsReal();
-  long getLiteralAsInt();
-  std::string toString();
-  int type();
+  virtual stdstr getLiteralAsStr() const;
+  virtual double getLiteralAsReal() const;
+  virtual llong getLiteralAsInt() const;
+  virtual stdstr toString() const;
 
-  d::Lexeme impl;
+  d::Lexeme& impl() { return _impl; }
+
+  private:
+
+  d::Lexeme _impl;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lexer : public d::IScanner {
 
-  bool isKeyword(const std::string&);
-  d::IToken* getNextToken();
-  void skipComment();
-  d::IToken* number();
-  d::IToken* id();
-  d::IToken* string();
+  virtual bool isKeyword(const stdstr&) const;
+  virtual d::DslToken getNextToken();
+  virtual d::DslToken number();
+  virtual d::DslToken id();
+  virtual d::DslToken string();
+  virtual d::DslToken skipComment();
 
   Lexer(const char* src);
   virtual ~Lexer();
 
-  d::Context ctx;
+  d::Context& ctx() { return _ctx; }
+
+  private:
+
+  d::Context _ctx;
 };
 
 

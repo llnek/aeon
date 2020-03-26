@@ -194,7 +194,7 @@ struct Table : public a::Counted {
   Table(const stdstr&);
   ~Table() {}
 
-  private:
+  protected:
 
   DslTable enclosing;
   stdstr _name;
