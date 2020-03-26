@@ -54,7 +54,7 @@ d::DslFrame Interpreter::popFrame() {
   return f;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::peekFrame() {
+d::DslFrame Interpreter::peekFrame() const {
   return stack;
 }
 
@@ -65,7 +65,7 @@ d::DslValue Interpreter::setValue(const stdstr& name, d::DslValue v, bool localO
   return v;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::getValue(const stdstr& name) {
+d::DslValue Interpreter::getValue(const stdstr& name) const {
   auto x = peekFrame();
   if (x.isSome())
     return x.ptr()->get(name);
@@ -73,9 +73,9 @@ d::DslValue Interpreter::getValue(const stdstr& name) {
     return d::DslValue();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Interpreter::containsSymbol(const stdstr& name) {
+bool Interpreter::containsSymbol(const stdstr& name) const {
   auto x = peekFrame();
-  return x.isSome() ? x.ptr()->find(name, false) : false;
+  return x.isSome() ? x.ptr()->containsKey(name) : false;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -90,7 +90,7 @@ void Interpreter::check(d::DslAst tree) {
   tree.ptr()->visit(this);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::lookup(const stdstr& n, bool traverse) {
+d::DslSymbol Interpreter::lookup(const stdstr& n, bool traverse) const {
   if (symbols.isSome())
     return symbols.ptr()->lookup(n, traverse);
   else
@@ -110,7 +110,7 @@ d::DslTable Interpreter::popScope() {
     return d::DslTable();
   }
   auto cur = symbols;
-  symbols = cur.ptr()->enclosing;
+  symbols = cur.ptr()->outer();
   return cur;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

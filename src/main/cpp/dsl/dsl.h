@@ -159,8 +159,8 @@ bool advance(Context&);
 Tchar peek(Context&);
 stdstr str(Context&);
 stdstr numeric(Context&);
-stdstr identifier(Context&);
 Data* nothing();
+stdstr identifier(Context& ctx, IdPredicate pred);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Symbol : public a::Counted {
@@ -234,7 +234,7 @@ struct IEvaluator {
   virtual bool containsSymbol(const stdstr&) const = 0;
   virtual DslFrame pushFrame(const stdstr& name)=0;
   virtual DslFrame popFrame()=0;
-  virtual DslFrame peekFrame()=0;
+  virtual DslFrame peekFrame() const =0;
   virtual ~IEvaluator() {}
 };
 
@@ -308,6 +308,7 @@ struct FnSymbol : public Symbol {
   DslSymbol returnType() const { return result; }
   DslAst body() const { return block; }
   std::vector<DslSymbol>& params() { return _params; }
+  void setBody(DslAst b) { block=b;}
 
   private:
 
