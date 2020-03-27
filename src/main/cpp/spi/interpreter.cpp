@@ -12,6 +12,7 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
+#include <iostream>
 #include "interpreter.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -27,15 +28,13 @@ Interpreter::Interpreter(const char* src) {
 d::DslValue Interpreter::interpret() {
   SimplePascalParser p(source);
   auto tree= p.parse();
-  check(tree);
-  return eval(tree);
+  return check(tree), eval(tree);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Interpreter::eval(d::DslAst tree) {
   auto res= (pushFrame("root"),tree->eval(this));
-  auto env= popFrame();
-  ::printf("%s\n", env->toString().c_str());
+  popFrame();
   return res;
 }
 
@@ -48,7 +47,7 @@ d::DslFrame Interpreter::pushFrame(const std::string& name) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame Interpreter::popFrame() {
   auto f= d::DslFrame(s__cast(d::Frame,stack.ptr()));
-  ::printf("Frame poped:=\n%s\n", f->toString().c_str());
+  std::cout << f->toString() << "\n";
   stack=stack->getOuter();
   return f;
 }
@@ -68,10 +67,7 @@ d::DslValue Interpreter::setValue(const stdstr& name, d::DslValue v, bool localO
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Interpreter::getValue(const stdstr& name) const {
   auto x = s__cast(d::Frame,stack.ptr());
-  if (x)
-    return x->get(name);
-  else
-    return d::DslValue();
+  return X_NIL(x) ? x->get(name) : d::DslValue();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -91,8 +87,9 @@ bool Interpreter::containsSymbol(const stdstr& name) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::define(d::DslSymbol s) {
+d::DslSymbol Interpreter::define(d::DslSymbol s) {
   symbols->insert(s);
+  return s;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -106,6 +103,9 @@ d::DslTable Interpreter::popScope() {
   symbols = cur->outer();
   return cur;
 }
+
+
+
 
 
 

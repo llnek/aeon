@@ -73,8 +73,6 @@ struct Ast : public d::Node {
   Ast();
 
   d::DslToken token;
-
-  protected:
   stdstr _name;
 };
 
@@ -110,9 +108,9 @@ struct String : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct UnaryOp : public Ast {
   virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
   UnaryOp(d::DslToken, d::DslAst);
-  virtual void visit(d::IAnalyzer*);
   virtual ~UnaryOp() {}
   d::DslAst expr;
 };
@@ -150,7 +148,7 @@ struct Assignment : public Ast {
   virtual void visit(d::IAnalyzer*);
   virtual ~Assignment() {}
 
-  d::DslAst lhs; //Var* lhs;
+  d::DslAst lhs;
   d::DslAst rhs;
 };
 
@@ -174,7 +172,7 @@ struct Param : public Ast {
   d::DslAst type_node;
 };
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct VarDecl : public Ast {
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
@@ -255,8 +253,6 @@ struct SimplePascalParser : public d::IParser {
   char peek();
   bool isCur(int);
   d::DslToken token();
-
-  Lexer* rdr() { return lex; }
 
   private:
 

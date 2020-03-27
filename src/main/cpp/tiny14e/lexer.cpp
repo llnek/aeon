@@ -80,55 +80,50 @@ stdstr Token::typeToString(int type) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, const char ch, d::SrcInfo info) : d::AbstractToken(type) {
-  _impl.text= "";
-  _impl.text += ch;
-  _impl.line=info.first;
-  _impl.col=info.second;
+Token::Token(int type, Tchar ch, d::SrcInfo info) : d::AbstractToken(type) {
+  this->info = info;
+  _impl.txt= stdstr { ch };
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Token::Token(int type, const std::string& s, d::SrcInfo info) : d::AbstractToken(type) {
-  _impl.text= s;
-  _impl.line=info.first;
-  _impl.col=info.second;
+  _impl.txt= s;
+  this->info = info;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 double Token::getLiteralAsReal() const {
   if (type() != d::T_REAL) {
     RAISE(d::SemanticError,
-          "Expecting float near %d(%d).\n", _impl.line, _impl.col);
+          "Expecting float near %d(%d).\n", info.first, info.second);
   }
-  return _impl.value.num.getFloat();
+  return _impl.num.getFloat();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 llong Token::getLiteralAsInt() const {
   if (type() != d::T_INTEGER) {
     RAISE(d::SemanticError,
-          "Expecting int near %d(%d).\n", _impl.line, _impl.col);
+          "Expecting int near %d(%d).\n", info.first, info.second);
   }
-  return _impl.value.num.getInt();
+  return _impl.num.getInt();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Token::getLiteralAsStr() const {
   if (type() == d::T_IDENT ||
-      type() == d::T_STRING) {
-    return _impl.value.cs.get()->get();
-  }
+      type() == d::T_STRING) { return _impl.txt; }
 
   if (! s__contains(TOKENS,type())) {
     RAISE(d::SemanticError,
-          "Expecting identifier near %d(%d).\n", _impl.line, _impl.col);
+          "Expecting identifier near %d(%d).\n", info.first, info.second);
   }
 
   return TOKENS.at(type());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, const char c, d::SrcInfo info) {
+d::DslToken token(int type, Tchar c, d::SrcInfo info) {
   return d::DslToken(new Token(type, c, info));
 }
 
@@ -141,9 +136,6 @@ d::DslToken token(int type, const stdstr& s, d::SrcInfo info) {
 d::DslToken token(int type, const stdstr& x,
     d::SrcInfo info, const stdstr& s) {
   auto t= new Token(type, x, info);
-  auto len= s.length();
-  t->impl().value.cs = std::make_shared<a::CString>(len);
-  t->impl().value.cs.get()->copy(s.c_str());
   return d::DslToken(t);
 }
 
@@ -151,7 +143,7 @@ d::DslToken token(int type, const stdstr& x,
 d::DslToken token(int type,
     const stdstr& s, d::SrcInfo info, llong n) {
   auto t= new Token(type, s, info);
-  t->impl().value.num.setInt(n);
+  t->impl().num.setInt(n);
   return d::DslToken(t);
 }
 
@@ -159,7 +151,7 @@ d::DslToken token(int type,
 d::DslToken token(int type,
     const stdstr& s, d::SrcInfo info, double d) {
   auto t= new Token(type,s, info);
-  t->impl().value.num.setFloat(d);
+  t->impl().num.setFloat(d);
   return d::DslToken(t);
 }
 
@@ -167,7 +159,7 @@ d::DslToken token(int type,
 stdstr Token::toString() const {
   char buf[1024];
   ::sprintf(buf,
-            "Token#{type = %d, text = %s}", type(), _impl.text.c_str());
+            "Token#{type = %d, text = %s}", type(), _impl.txt.c_str());
   return stdstr(buf);
 }
 

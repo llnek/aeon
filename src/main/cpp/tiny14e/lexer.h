@@ -63,7 +63,7 @@ struct Token : public d::AbstractToken {
   static stdstr typeToString(int);
 
   Token(int type, const stdstr&, d::SrcInfo);
-  Token(int type, const char, d::SrcInfo);
+  Token(int type, Tchar, d::SrcInfo);
 
   virtual stdstr getLiteralAsStr() const;
   virtual double getLiteralAsReal() const;

@@ -76,16 +76,23 @@ enum TokenType {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct AbstractToken : public a::Counted {
+
   // A chunk of text - a sequence of chars.
   virtual stdstr getLiteralAsStr() const =0;
   virtual double getLiteralAsReal() const =0;
   virtual llong getLiteralAsInt() const =0;
   virtual stdstr toString() const =0;
-  int type() const { return ttype;}
   virtual ~AbstractToken() {}
+
+  SrcInfo srcInfo() const { return info; }
+  int type() const { return ttype;}
+
   protected:
+
   AbstractToken(int t ) { ttype=t; }
+  SrcInfo info;
   int ttype;
+
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -124,12 +131,8 @@ struct Number {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lexeme {
-  // Token info.
-  int line, col;
-  stdstr text;
-  struct {
-    Number num;
-    std::shared_ptr<a::CString> cs; } value;
+  stdstr txt;
+  Number num;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -155,7 +158,7 @@ struct SyntaxError : public a::Exception { SyntaxError(const stdstr&); };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Tchar peekNext(Context&, int offset=1);
 void skipWhitespace(Context&);
-bool advance(Context&);
+bool advance(Context&, int steps=1);
 Tchar peek(Context&);
 stdstr str(Context&);
 stdstr numeric(Context&);
@@ -244,7 +247,7 @@ struct IAnalyzer {
   virtual DslSymbol lookup(const stdstr&, bool traverseOuterScope=true) const = 0;
   virtual void pushScope(const stdstr& name) =0;
   virtual DslTable popScope()=0;
-  virtual void define(DslSymbol)=0;
+  virtual DslSymbol define(DslSymbol)=0;
   virtual ~IAnalyzer() {}
 };
 

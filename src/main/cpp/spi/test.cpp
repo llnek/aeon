@@ -1,18 +1,22 @@
-#include <iostream>
-#include <cassert>
-#include <cstdio>
-#include <cstdlib>
-#include <cstring>
-#include <cctype>
-#include <vector>
-#include <map>
-#include <set>
-#include <string>
-#include <stdexcept>
+/* Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+ * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
+#include <iostream>
 #include "interpreter.h"
 
 namespace czlab::spi {
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 using namespace czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const char* XARG="BEGIN\n\
@@ -84,43 +88,41 @@ const char* ARG18= "\n\
 program Main;\n\
 var poo : integer;\n\
 procedure Alpha(a : integer; b : integer);\n\
-var x : integer;\n\
+  var x : integer;\n\
+  procedure Beta(a : integer; b : integer);\n\
+    var x : integer;\n\
+  begin\n\
+    x := a * 10 + b * 2;\n\
+    poo := x;\n\
+  end;\n\
 begin\n\
    x := (a + b ) * 2;\n\
-    poo := x;\n\
+   Beta(5,10);\n\
 end;\n\
 \n\
 begin { Main }\n\
    Alpha(3 + 5, 7);  { procedure call }\n\
 end.  { Main }\n\
 ";
-
-int Xmain(int argc, char* argv[]) {
-  try {
-    //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
-    Interpreter i(ARG18);
-    auto r= i.interpret();
-    ::printf("result = %s\n", r->toString().c_str());
-    //Analyzer z(ARG);
-
-  } catch ( const d::SyntaxError& e) {
-    ::printf("%s", e.what().c_str());
-  }
-  return 0;
-}
 }
 
+#if 1
 int main(int argc, char* argv[]) {
   using namespace czlab::spi;
   try {
     //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
     Interpreter i(ARG18);
     auto r= i.interpret();
-    ::printf("result = %s\n", r->toString().c_str());
+    std::cout << "result = " << r->toString() << "\n";
     //Analyzer z(ARG);
 
   } catch ( const d::SyntaxError& e) {
-    ::printf("%s", e.what().c_str());
+    std::cout << e.what() << "\n";
   }
   return 0;
 }
+#endif
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
+

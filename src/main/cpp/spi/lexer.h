@@ -40,19 +40,18 @@ enum TokenType {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Token : public d::AbstractToken {
 
-  static stdstr typeToString(int);
-
   Token(int type, const stdstr&, d::SrcInfo);
-  Token(int type, const char, d::SrcInfo);
-
-  virtual ~Token();
+  Token(int type, Tchar, d::SrcInfo);
 
   virtual stdstr getLiteralAsStr() const;
   virtual double getLiteralAsReal() const;
   virtual llong getLiteralAsInt() const;
   virtual stdstr toString() const;
+  virtual ~Token() {}
 
   d::Lexeme& impl() { return _impl; }
+
+  static stdstr typeToString(int);
 
   private:
 
@@ -70,7 +69,7 @@ struct Lexer : public d::IScanner {
   virtual d::DslToken skipComment();
 
   Lexer(const char* src);
-  virtual ~Lexer();
+  virtual ~Lexer() {}
 
   d::Context& ctx() { return _ctx; }
 

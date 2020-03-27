@@ -74,7 +74,7 @@ Tchar peekNext(Context& ctx, int offset) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool advance(Context& ctx) {
+bool forward(Context& ctx) {
   // move up one char, handling newline.
   if (ctx.eof) { return false; }
   if (peek(ctx) == '\n') {
@@ -87,6 +87,12 @@ bool advance(Context& ctx) {
   } else {
     ++ctx.col;
   }
+  return !ctx.eof;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool advance(Context& ctx, int steps) {
+  for (int i=0; i < steps; ++i) { forward(ctx); }
   return !ctx.eof;
 }
 
@@ -226,24 +232,24 @@ Frame::Frame(const std::string& n) : _name(n) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string Frame::toString() const {
-  std::string b(40, '=');
-  std::string z(40, '+');
-  std::string out;
-  Tchar buf[1024];
+  stdstr b(40, '=');
+  stdstr z(40, '+');
+  stdstr out;
+  stdstr bits;
 
-  ::sprintf(buf,
-            "%s\nkey: %s\n%s\n",
-            C_STR(b), C_STR(_name), C_STR(b));
-  out += buf;
+  out += b;
+  out += "\n";
+  out += "frame: " + _name + " => ";
 
   for (auto i= slots.begin(), e= slots.end(); i != e; ++i) {
     auto v= i->second;
-    auto vs= v.isSome() ? v->toString(true).c_str() : "null";
-    ::sprintf(buf,"%s = %s\n", C_STR(i->first), vs);
-    out += buf;
+    auto vs= v.isSome() ? v->toString(true) : stdstr("null");
+    if (!bits.empty()) bits += ", ";
+    bits += i->first + "=" + vs;
   }
+  if (!bits.empty()) bits += "\n";
 
-  return out + z + "\n";
+  return out + bits + z;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

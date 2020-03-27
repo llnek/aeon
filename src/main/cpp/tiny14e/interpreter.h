@@ -42,7 +42,7 @@ struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
   virtual d::DslSymbol lookup(const stdstr&, bool traverseOuterScope=true) const;
   virtual void pushScope(const stdstr& name);
   virtual d::DslTable popScope();
-  virtual void define(d::DslSymbol);
+  virtual d::DslSymbol define(d::DslSymbol);
 
   Interpreter(const char* src);
   d::DslValue interpret();

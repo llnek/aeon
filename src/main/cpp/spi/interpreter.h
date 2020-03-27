@@ -21,6 +21,7 @@ namespace d= czlab::dsl;
 //
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Interpreter : public d::IEvaluator, public d::IAnalyzer {
+
   //evaluator
   virtual d::DslValue setValue(const stdstr&, d::DslValue, bool localOnly);
   virtual d::DslValue getValue(const stdstr&) const;
@@ -41,7 +42,7 @@ struct Interpreter : public d::IEvaluator, public d::IAnalyzer {
   virtual d::DslSymbol lookup(const stdstr&, bool traverseOuterScope=true) const;
   virtual void pushScope(const stdstr& name);
   virtual d::DslTable popScope();
-  virtual void define(d::DslSymbol);
+  virtual d::DslSymbol define(d::DslSymbol);
 
   Interpreter(const char* src);
   d::DslValue interpret();
@@ -50,10 +51,12 @@ struct Interpreter : public d::IEvaluator, public d::IAnalyzer {
   private:
 
   const char* source;
-  d::DslValue eval(d::DslAst);
-  void check(d::DslAst);
   d::DslFrame stack;
   d::DslTable symbols;
+
+  void check(d::DslAst);
+  d::DslValue eval(d::DslAst);
+
 };
 
 

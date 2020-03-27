@@ -141,7 +141,7 @@ d::DslValue BinOp::eval(d::IEvaluator* e) {
     default:
       RAISE(d::SemanticError,
             "Bad op near line %d(%d).\n",
-            token()->impl().line, token()->impl().col);
+            token()->srcInfo().first, token()->srcInfo().second);
   }
 
   //::printf("x = %lf, y = %lf, z= %lf\n", x, y, z);
@@ -189,7 +189,7 @@ stdstr Num::name() const {
     default:
       RAISE(d::SyntaxError,
             "Bad number near line %d(%d).\n",
-            token()->impl().line, token()->impl().col);
+            token()->srcInfo().first, token()->srcInfo().second);
   }
 }
 
@@ -203,7 +203,7 @@ d::DslValue Num::eval(d::IEvaluator* e) {
     default:
       RAISE(d::SyntaxError,
             "Bad number near line %d(%d).\n",
-            token()->impl().line, token()->impl().col);
+            token()->srcInfo().first, token()->srcInfo().second);
   }
 }
 
@@ -219,7 +219,7 @@ stdstr UnaryOp::name() const {
     default:
       RAISE(d::SyntaxError,
             "Bad op near line %d(%d).\n",
-            token()->impl().line, token()->impl().col);
+            token()->srcInfo().first, token()->srcInfo().second);
   }
 }
 
@@ -237,7 +237,7 @@ d::DslValue UnaryOp::eval(d::IEvaluator* e) {
          typeid(*p) == typeid(n_))) {
     RAISE(d::SyntaxError,
           "Expected number near line %d(%d).\n",
-          token()->impl().line, token()->impl().col);
+          token()->srcInfo().first, token()->srcInfo().second);
   }
   if (token()->type() == d::T_MINUS) {
     if (typeid(*p) == typeid(n_))
@@ -289,7 +289,7 @@ void Assignment::visit(d::IAnalyzer* a) {
     auto t = pl->token();
     RAISE(d::SemanticError,
           "Unknown var %s near line %d(%d).\n",
-          C_STR(pl->name()), t->impl().line, t->impl().col);
+          C_STR(pl->name()), t->srcInfo().first, t->srcInfo().second);
   }
   s__cast(Var,pl)->type_symbol= s.ptr()->type();
 }
@@ -324,7 +324,7 @@ void Var::visit(d::IAnalyzer* a) {
     RAISE(d::SemanticError,
           "Unknown var %s near line %d(%d).\n",
           n.c_str(),
-          token()->impl().line, token()->impl().col);
+          token()->srcInfo().first, token()->srcInfo().second);
   }
 }
 
@@ -370,13 +370,13 @@ void VarDecl::visit(d::IAnalyzer* a) {
     RAISE(d::SemanticError,
           "Unknown type %s near line %d(%d).\n",
           C_STR(type_name),
-          token()->impl().line, token()->impl().col);
+          token()->srcInfo().first, token()->srcInfo().second);
   }
   if (auto x = a_->lookup(var_name, false); x.isSome()) {
     RAISE(d::SemanticError,
           "Duplicate var %s near line %d(%d).\n",
           C_STR(var_name),
-          token()->impl().line, token()->impl().col);
+          token()->srcInfo().first, token()->srcInfo().second);
   }
   s__cast(Var,var_node.ptr())->type_symbol= type_symbol;
   a_->define(d::DslSymbol(new d::VarSymbol(var_name, type_symbol)));
@@ -500,7 +500,7 @@ RelationOp::RelationOp(d::DslAst left, d::DslToken op, d::DslAst right) : Ast(op
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr RelationOp::name() const {
-  return token()->impl().text;
+  return token()->impl().txt;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -524,7 +524,7 @@ d::DslValue RelationOp::eval(d::IEvaluator* e) {
     default:
       RAISE(d::SemanticError,
             "Unknown op near line %d(%d)\n.",
-            token()->impl().line, token()->impl().col);
+            token()->srcInfo().first, token()->srcInfo().second);
   }
   return res ? boolTrue() : boolFalse();
 }
@@ -616,7 +616,7 @@ void ProcedureCall::visit(d::IAnalyzer* a) {
   } else {
     RAISE(d::SemanticError,
           "Unknown proc %s near line %d(%d).\n",
-          C_STR(name()), token()->impl().line, token()->impl().col);
+          C_STR(name()), token()->srcInfo().first, token()->srcInfo().second);
   }
 }
 
@@ -773,8 +773,8 @@ d::DslAst type_spec(CrenshawParser* ps) {
       RAISE(d::SyntaxError,
             "Unknown token %d near line %d(%d).\n",
             t.ptr()->type(),
-            s__cast(Token,t.ptr())->impl().line,
-            s__cast(Token,t.ptr())->impl().col);
+            s__cast(Token,t.ptr())->srcInfo().first,
+            s__cast(Token,t.ptr())->srcInfo().second);
   }
   return d::DslAst(new Type(t));
 }
@@ -852,7 +852,7 @@ void RepeatUntil::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr RepeatUntil::name() const {
-  return token()->impl().text;
+  return token()->impl().txt;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -894,7 +894,7 @@ void IfThenElse::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr IfThenElse::name() const {
-  return token()->impl().text;
+  return token()->impl().txt;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -945,7 +945,7 @@ void ForLoop::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr ForLoop::name() const {
-  return token()->impl().text;
+  return token()->impl().txt;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -973,7 +973,7 @@ void WhileLoop::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr WhileLoop::name() const {
-  return token()->impl().text;
+  return token()->impl().txt;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1002,7 +1002,7 @@ void VarInput::visit(d::IAnalyzer* a) {
     RAISE(d::SemanticError,
           "Unknown var %s near line %d(%d).\n",
           C_STR(name()),
-          token()->impl().line, token()->impl().col);
+          token()->srcInfo().first, token()->srcInfo().second);
   }
 }
 
@@ -1027,7 +1027,7 @@ void Read::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Read::name() const {
-  return token()->impl().text;
+  return token()->impl().txt;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1058,7 +1058,7 @@ void Write::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Write::name() const {
-  return token()->impl().text;
+  return token()->impl().txt;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1364,8 +1364,8 @@ d::DslToken CrenshawParser::eat(int wanted) {
           "Expected token %s, found token %s near line %d(%d).\n",
           Token::typeToString(wanted).c_str(),
           C_STR(t->toString()),
-          s__cast(Token,t.ptr())->impl().line,
-          s__cast(Token,t.ptr())->impl().col);
+          s__cast(Token,t.ptr())->srcInfo().first,
+          s__cast(Token,t.ptr())->srcInfo().second);
   }
   lex->ctx().cur= lex->getNextToken();
   return t;

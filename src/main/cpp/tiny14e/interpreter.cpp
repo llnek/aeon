@@ -97,8 +97,9 @@ d::DslSymbol Interpreter::lookup(const stdstr& n, bool traverse) const {
     return d::DslSymbol();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::define(d::DslSymbol s) {
+d::DslSymbol Interpreter::define(d::DslSymbol s) {
   if (symbols.isSome()) symbols.ptr()->insert(s);
+  return s;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Interpreter::pushScope(const stdstr& name) {
