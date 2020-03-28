@@ -18,6 +18,7 @@
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::spi {
 namespace d = czlab::dsl;
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
 
@@ -46,7 +47,7 @@ struct Token : public d::AbstractToken {
   virtual stdstr getLiteralAsStr() const;
   virtual double getLiteralAsReal() const;
   virtual llong getLiteralAsInt() const;
-  virtual stdstr toString() const;
+  virtual stdstr pr_str() const;
   virtual ~Token() {}
 
   d::Lexeme& impl() { return _impl; }

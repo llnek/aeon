@@ -22,9 +22,10 @@ namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
   //evaluator
-  virtual d::DslValue setValue(const stdstr&, d::DslValue, bool localOnly);
+  virtual d::DslValue setValueEx(const stdstr&, d::DslValue);
+  virtual d::DslValue setValue(const stdstr&, d::DslValue);
   virtual d::DslValue getValue(const stdstr&) const;
-  virtual bool containsSymbol(const stdstr&) const;
+
   virtual d::DslFrame pushFrame(const stdstr& name);
   virtual d::DslFrame popFrame();
   virtual d::DslFrame peekFrame() const;
@@ -39,8 +40,9 @@ struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
   void writeln();
 
   //analyzer
-  virtual d::DslSymbol lookup(const stdstr&, bool traverseOuterScope=true) const;
-  virtual void pushScope(const stdstr& name);
+  virtual d::DslSymbol search(const stdstr&) const;
+  virtual d::DslSymbol find(const stdstr&) const;
+  virtual d::DslTable pushScope(const stdstr&);
   virtual d::DslTable popScope();
   virtual d::DslSymbol define(d::DslSymbol);
 
@@ -48,12 +50,13 @@ struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
   d::DslValue interpret();
   virtual ~Interpreter() {}
 
-private:
+  private:
+
   const char* source;
-  d::DslValue eval(d::DslAst);
-  void check(d::DslAst);
   d::DslFrame stack;
   d::DslTable symbols;
+  void check(d::DslAst);
+  d::DslValue eval(d::DslAst);
 };
 
 

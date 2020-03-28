@@ -45,6 +45,9 @@ struct FileNotFound : public Exception {
 struct FileError : public Exception {
   FileError(const stdstr&);
 };
+struct NPError : public Exception {
+  NPError(const stdstr&);
+};
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct CString {
 

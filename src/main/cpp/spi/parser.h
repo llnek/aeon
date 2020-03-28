@@ -22,7 +22,7 @@ namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct EVal : public d::Data {
 
-  virtual stdstr toString(bool p) const {
+  virtual stdstr pr_str(bool p=0) const {
     if (type==d::T_STRING) return str;
     if (type==d::T_REAL) return std::to_string(u.r);
     if (type==d::T_INTEGER) return std::to_string(u.n);

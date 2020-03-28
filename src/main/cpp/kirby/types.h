@@ -24,8 +24,8 @@ namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #define HASH_VAL(k,v) std::pair<d::DslValue,d::DslValue>(k,v)
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-typedef bool (*SetCompare) (d::DslValue,d::DslValue);
-typedef std::pair<d::DslValue,d::DslValue> VPair;
+typedef bool (*SetCompare) (d::DslValue, d::DslValue);
+typedef std::pair<d::DslValue, d::DslValue> VPair;
 typedef std::vector<d::Number> NumberVec;
 typedef std::vector<d::DslValue> VVec;
 typedef VVec::iterator VIter;
@@ -98,7 +98,9 @@ struct Lisper {
   stdstr PRINT(d::DslValue);
   Lisper() { seed=0; }
   ~Lisper() {}
+
   private:
+
   int seed;
 };
 
@@ -110,12 +112,8 @@ struct LValue : public d::Data {
   virtual int compare(const d::Data*) const;
   d::DslValue meta() const;
 
-  // not everything can act as key in map.
-  virtual bool keyable() const { return false; }
   // most things are true.
   virtual bool truthy() const { return true; }
-  // not everything is seq'able.
-  virtual bool seqable() const { return false; }
 
   // eval this s-expression, or form.
   virtual d::DslValue eval(Lisper*, d::DslFrame);
@@ -152,7 +150,7 @@ struct LSeqable {
 struct LFalse : public LValue {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
   virtual bool truthy() const { return false; }
 
   LFalse(const LFalse&, d::DslValue);
@@ -169,7 +167,7 @@ struct LFalse : public LValue {
 struct LTrue : public LValue {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
   LTrue(const LTrue&, d::DslValue);
   LTrue() {}
   virtual ~LTrue() {}
@@ -183,7 +181,7 @@ struct LTrue : public LValue {
 struct LNil : public LValue {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
   virtual bool truthy() const { return false; }
 
   LNil(const LNil&, d::DslValue);
@@ -200,7 +198,7 @@ struct LNil : public LValue {
 struct LChar : public LValue {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool p) const;
+  virtual stdstr pr_str(bool p=0) const;
 
   LChar(const LChar&, d::DslValue);
   LChar(Tchar c) { value = c; }
@@ -218,7 +216,7 @@ struct LChar : public LValue {
 struct LAtom : public LValue {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool p) const;
+  virtual stdstr pr_str(bool p=0) const;
 
   LAtom(const LAtom&, d::DslValue);
   LAtom() { value= NIL_VAL();}
@@ -238,7 +236,7 @@ struct LAtom : public LValue {
 struct LFloat : public LValue {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
   virtual d::Number number() const;
 
   LFloat(const LFloat& rhs, d::DslValue);
@@ -257,7 +255,7 @@ struct LFloat : public LValue {
 struct LInt : public LValue {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
   virtual d::Number number() const;
 
   llong impl() const { return value; };
@@ -275,10 +273,7 @@ struct LInt : public LValue {
 struct LString : public LValue, public LSeqable {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
-
-  virtual bool keyable() const { return true; }
-  virtual bool seqable() const { return true; }
+  virtual stdstr pr_str(bool p=0) const;
 
   LString(const LString&, d::DslValue);
   LString(const stdstr&);
@@ -305,8 +300,8 @@ struct LString : public LValue, public LSeqable {
 struct LKeyword : public LValue {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
-  virtual bool keyable() const { return true; }
+  virtual stdstr pr_str(bool p=0) const;
+
   stdstr impl() const { return value; }
 
   LKeyword(const LKeyword&, d::DslValue);
@@ -323,7 +318,7 @@ struct LKeyword : public LValue {
 struct LSymbol : public LValue {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
   virtual d::DslValue eval(Lisper*, d::DslFrame);
   stdstr impl() const { return value; }
 
@@ -343,8 +338,7 @@ struct LSymbol : public LValue {
 struct LSequential : public LValue, public LSeqable {
 
   void evalEach(Lisper*, d::DslFrame, VVec&) const;
-  virtual stdstr toString(bool pretty) const;
-  virtual bool seqable() const { return true; }
+  virtual stdstr pr_str(bool p=0) const;
 
   virtual d::DslValue conj(VSlice) const = 0;
 
@@ -374,7 +368,7 @@ struct LSequential : public LValue, public LSeqable {
 struct LList : public LSequential {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
 
   virtual d::DslValue eval(Lisper*, d::DslFrame);
 
@@ -387,7 +381,6 @@ struct LList : public LSequential {
   LList() {}
 
   virtual d::DslValue conj(VSlice) const;
-
   virtual ~LList() {}
 };
 
@@ -395,7 +388,7 @@ struct LList : public LSequential {
 struct LVec : public LSequential {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
 
   virtual d::DslValue eval(Lisper*, d::DslFrame);
 
@@ -407,7 +400,6 @@ struct LVec : public LSequential {
   LVec(VVec&);
   LVec() {}
   virtual d::DslValue conj(VSlice) const;
-
   virtual ~LVec() {}
 };
 
@@ -415,8 +407,7 @@ struct LVec : public LSequential {
 struct LSet : public LValue, public LSeqable {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
-  virtual bool seqable() const { return true; }
+  virtual stdstr pr_str(bool p=0) const;
 
   virtual d::DslValue eval(Lisper*, d::DslFrame);
   d::DslValue get(d::DslValue) const;
@@ -452,8 +443,7 @@ struct LSet : public LValue, public LSeqable {
 struct LHash : public LValue, public LSeqable {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
-  virtual bool seqable() const { return true; }
+  virtual stdstr pr_str(bool p=0) const;
 
   virtual d::DslValue eval(Lisper*, d::DslFrame);
   d::DslValue get(d::DslValue) const;
@@ -496,17 +486,19 @@ struct LFunction : public LValue {
   stdstr name() const { return _name; }
 
   protected:
+
+  virtual ~LFunction() {}
+
   stdstr _name;
   LFunction(const stdstr& n) : _name(n) {}
   LFunction(d::DslValue m) : LValue(m) {}
-  virtual ~LFunction() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LLambda : public LFunction {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
   virtual ~LLambda() {}
 
   virtual d::DslValue invoke(Lisper*, VSlice);
@@ -524,6 +516,7 @@ struct LLambda : public LFunction {
   d::DslFrame env;
 
   protected:
+
   virtual bool eq(const d::Data*) const;
   virtual int cmp(const d::Data*) const;
 };
@@ -539,9 +532,10 @@ struct LMacro : public LLambda {
 
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual bool isMacro() const { return true; }
-  stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
 
   protected:
+
   virtual bool eq(const d::Data*) const;
   virtual int cmp(const d::Data*) const;
 };
@@ -550,7 +544,7 @@ struct LMacro : public LLambda {
 struct LNative : public LFunction {
 
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr toString(bool pretty) const;
+  virtual stdstr pr_str(bool p=0) const;
   virtual ~LNative() {}
 
   virtual d::DslValue invoke(Lisper*, VSlice);
@@ -562,9 +556,10 @@ struct LNative : public LFunction {
 
   protected:
 
+  Invoker fn;
+
   virtual bool eq(const d::Data*) const;
   virtual int cmp(const d::Data*) const;
-  Invoker fn;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

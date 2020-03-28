@@ -92,7 +92,6 @@ typedef int64_t llong;
   ::sprintf(buf, (const char*)fmt, __VA_ARGS__); \
     throw exp(buf);} while (0)
 
-
 //////////////////////////////////////////////////////////////////////////////
 // memory lifecycle stuff
 #define FREE_FILE(x) do {if (x) ::fclose(x); x=nullptr;} while (0)
@@ -125,6 +124,9 @@ typedef int64_t llong;
 
 //////////////////////////////////////////////////////////////////////////////
 // c++ casting
+#define d__ccast(type,expr) dynamic_cast<const type*>(expr)
+#define s__ccast(type,expr) static_cast<const type*>(expr)
+
 #define d__cast(type,expr) dynamic_cast<type*>(expr)
 #define s__cast(type,expr) static_cast<type*>(expr)
 #define v__cast(type,expr) static_cast<type>(expr)

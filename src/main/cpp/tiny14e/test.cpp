@@ -97,7 +97,7 @@ int main(int argc, char* argv[]) {
     auto src= a::read_file("/Users/kenl/Desktop/pas_triangle.pas");
     Interpreter i(src.c_str());
     i.interpret();
-    //::printf("result = %s\n", r.toString().c_str());
+    //::printf("result = %s\n", r.pr_str().c_str());
   } catch ( const d::SyntaxError& e) {
     ::printf("%s", e.what().c_str());
   }
@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
-#if 1
+#if 0
 using namespace czlab::aeon;
 using namespace czlab::tiny14e;
 namespace d=czlab::dsl;
@@ -120,7 +120,7 @@ int main(int argc, char* argv[]) {
     auto src= read_file("/Users/kenl/Desktop/pas_triangle.pas");
     Interpreter i(src.c_str());
     i.interpret();
-    //::printf("result = %s\n", r.get()->toString().c_str());
+    //::printf("result = %s\n", r.get()->pr_str().c_str());
   } catch ( const a::Exception& e) {
     ::printf("%s", e.what().c_str());
   }

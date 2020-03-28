@@ -3,7 +3,7 @@
 
 namespace k = czlab::kirby;
 namespace a = czlab::aeon;
-
+#if 1
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int main(int argc, char* argv[]) {
 
@@ -31,3 +31,5 @@ int main(int argc, char* argv[]) {
 #endif
   return 0;
 }
+#endif
+

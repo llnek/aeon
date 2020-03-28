@@ -200,7 +200,7 @@ Assignment::Assignment(d::DslAst left, d::DslToken op, d::DslAst right)
 void Assignment::visit(d::IAnalyzer* a) {
   auto lhs_ = C_AST(lhs);
   auto v = lhs_->token->getLiteralAsStr();
-  if (auto s= a->lookup(v); s.isNull()) {
+  if (auto s= a->search(v); s.isNull()) {
     RAISE(d::SyntaxError,
           "Unknown var %s near line %d(%d).\n",
           v.c_str(),
@@ -215,8 +215,8 @@ d::DslValue Assignment::eval(d::IEvaluator* e) {
   auto v = lhs_->token->getLiteralAsStr();
   auto r= rhs->eval(e);
   DEBUG("Assigning: %s := %s\n",
-        C_STR(v), C_STR(r->toString(true)));
-  return e->setValue(v, r, false);
+        C_STR(v), C_STR(r->pr_str(1)));
+  return e->setValueEx(v, r);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -227,7 +227,7 @@ Var::Var(d::DslToken t) : Ast(t) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Var::visit(d::IAnalyzer* a) {
   auto n = token->getLiteralAsStr();
-  if (auto s= a->lookup(n); s.isNull()) {
+  if (auto s= a->search(n); s.isNull()) {
     RAISE(d::SyntaxError,
           "Unknown var %s near line %d(%d).\n",
           n.c_str(),
@@ -250,7 +250,7 @@ void Type::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Type::eval(d::IEvaluator* e) {
-  return d::DslValue();
+  return NULL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -275,7 +275,7 @@ Param::Param(d::DslAst var, d::DslAst type)
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Param::visit(d::IAnalyzer* a) {
   auto n= C_AST(type_node)->name();
-  if (auto t= a->lookup(n); t.isNull()) {
+  if (auto t= a->search(n); t.isNull()) {
     RAISE(d::SyntaxError,
           "Unknown type %s near line %d(%d).\n",
           n.c_str(),
@@ -285,12 +285,12 @@ void Param::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Param::eval(d::IEvaluator* e) {
-  return d::DslValue();
+  return NULL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 VarDecl::VarDecl(d::DslAst var, d::DslAst type)
-  : Ast(s__cast(Ast,var.ptr())->token), var_node(var), type_node(type) {
+  : Ast(C_AST(var)->token), var_node(var), type_node(type) {
   _name= C_AST(var_node)->name();
 }
 
@@ -298,7 +298,7 @@ VarDecl::VarDecl(d::DslAst var, d::DslAst type)
 void VarDecl::visit(d::IAnalyzer* a) {
   auto type_name = C_AST(type_node)->name();
   auto var_name = C_AST(var_node)->name();
-  auto type_symbol = a->lookup(type_name);
+  auto type_symbol = a->search(type_name);
   if (type_symbol.isNull()) {
     RAISE(d::SyntaxError,
           "Unknown type %s near line %d(%d).\n",
@@ -306,20 +306,20 @@ void VarDecl::visit(d::IAnalyzer* a) {
           token->srcInfo().first, token->srcInfo().second);
   }
 
-  if (auto s = a->lookup(var_name, false); s.isSome()) {
+  if (auto s = a->find(var_name); s.isSome()) {
     RAISE(d::SyntaxError,
           "Duplicate var %s near line %d(%d).\n",
           C_STR(var_name),
           token->srcInfo().first, token->srcInfo().second);
   } else {
-    a->define(d::DslSymbol(new d::VarSymbol(var_name, type_symbol)));
+    a->define(new d::VarSymbol(var_name, type_symbol));
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue VarDecl::eval(d::IEvaluator* e) {
   d::DslValue v;
-  return e->setValue(this->name(), v, true);
+  return e->setValue(this->name(), v);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -356,16 +356,16 @@ ProcedureDecl::ProcedureDecl(const stdstr& proc_name,
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ProcedureDecl::visit(d::IAnalyzer* a) {
   auto fs= new d::FnSymbol( name());
-  a->define(d::DslSymbol(fs));
+  a->define(fs);
   a->pushScope(name());
 
   for (auto& p : params) {
     auto p_ = s__cast(Param,p.ptr());
     auto pn = C_AST(p_->var_node)->name();
     auto tn = C_AST(p_->type_node)->name();
-    auto pt= a->lookup(tn);
+    auto pt= a->search(tn);
     auto v = new d::VarSymbol(pn, pt);
-    s__conj(fs->params(), a->define(d::DslSymbol(v)));
+    s__conj(fs->params(), a->define(v));
   }
 
   block->visit(a);
@@ -375,7 +375,7 @@ void ProcedureDecl::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue ProcedureDecl::eval(d::IEvaluator* e) {
-  return d::DslValue();
+  return NULL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -392,7 +392,7 @@ void ProcedureCall::visit(d::IAnalyzer* a) {
     p->visit(a);
   }
   //get the corresponding symbol
-  if (auto x = a->lookup(_name); x.isSome()) {
+  if (auto x = a->search(_name); x.isSome()) {
     proc_symbol = x;
   } else {
     RAISE(d::SyntaxError,
@@ -415,7 +415,7 @@ d::DslValue ProcedureCall::eval(d::IEvaluator* e) {
   for (auto i=0; i < z; ++i) {
     auto& p= fs->params()[i];
     auto v= args[i]->eval(e);
-    e->setValue(CAST(d::VarSymbol, p)->name(), v, true);
+    e->setValue(CAST(d::VarSymbol, p)->name(), v);
   }
 
   auto r= fs->body()->eval(e);
@@ -442,7 +442,7 @@ d::DslValue Program::eval(d::IEvaluator* e) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst variable(SimplePascalParser* ps) {
   auto node = new Var(ps->token());
-  return (ps->eat(d::T_IDENT), d::DslAst(node));
+  return (ps->eat(d::T_IDENT), node);
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -509,20 +509,20 @@ d::DslAst type_spec(SimplePascalParser* ps) {
             "Unknown token %d near line %d(%d).\n",
             t->type(), t->srcInfo().first, t->srcInfo().second);
   }
-  return d::DslAst(new Type(t));
+  return new Type(t);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::vector<d::DslAst> variable_declaration(SimplePascalParser* ps) {
-  std::vector<d::DslAst> vars { d::DslAst(new Var(ps->eat(d::T_IDENT))) };
+  std::vector<d::DslAst> vars { new Var(ps->eat(d::T_IDENT)) };
   while (ps->isCur(d::T_COMMA)) {
     ps->eat();
-    s__conj(vars, d::DslAst(new Var(ps->eat(d::T_IDENT))));
+    s__conj(vars, new Var(ps->eat(d::T_IDENT)));
   }
   auto type = (ps->eat(d::T_COLON), type_spec(ps));
   std::vector<d::DslAst> out;
   for (auto &x : vars) {
-    s__conj(out, d::DslAst(new VarDecl(x, type)));
+    s__conj(out, new VarDecl(x, type));
   }
   return out;
 }
@@ -532,12 +532,12 @@ d::DslAst assignment_statement(SimplePascalParser* ps) {
   auto left = variable(ps);
   auto t= ps->eat(T_ASSIGN);
   auto right = expr(ps);
-  return d::DslAst(new Assignment(left, t, right));
+  return new Assignment(left, t, right);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst empty(SimplePascalParser* ps) {
-  return d::DslAst(new NoOp());
+  return new NoOp();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -559,7 +559,7 @@ d::DslAst proccall_statement(SimplePascalParser* ps) {
   }
 
   return (ps->eat(d::T_RPAREN),
-      d::DslAst(new ProcedureCall(pn, pms, token)));
+          new ProcedureCall(pn, pms, token));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -616,7 +616,7 @@ d::DslAst compound_statement(SimplePascalParser* ps) {
   for (auto& node : nodes) {
     s__conj(root->statements,node);
   }
-  return d::DslAst(root);
+  return root;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -634,7 +634,7 @@ std::vector<d::DslAst> formal_parameters(SimplePascalParser* ps) {
 
   for (auto& t : param_tokens) {
     //::printf("param toke= %s\n", t->getLiteralAsStr());
-    s__conj(pnodes, d::DslAst(new Param(new Var(t), type_node)));
+    s__conj(pnodes, new Param(new Var(t), type_node));
   }
 
   return pnodes;
@@ -671,7 +671,7 @@ d::DslAst procedure_declaration(SimplePascalParser* ps) {
                                 params,
                                 (ps->eat(d::T_SEMI), block(ps)));
   //::printf("proc name=%s\n", decl->name().c_str());
-  return (ps->eat(d::T_SEMI), d::DslAst(decl));
+  return (ps->eat(d::T_SEMI), decl);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -697,7 +697,7 @@ std::vector<d::DslAst> declarations(SimplePascalParser* ps) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst block(SimplePascalParser* ps) {
   auto decls=declarations(ps);
-  return d::DslAst(new Block(decls, compound_statement(ps)));
+  return new Block(decls, compound_statement(ps));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -706,7 +706,7 @@ d::DslAst program(SimplePascalParser* ps) {
   auto pn= C_AST(var_node)->name();
   auto prog = new Program(pn, (ps->eat(d::T_SEMI),block(ps)));
   //::printf("program = %s\n", prog->name().c_str());
-  return (ps->eat(d::T_DOT), d::DslAst(prog));
+  return (ps->eat(d::T_DOT), prog);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -763,7 +763,7 @@ d::DslToken SimplePascalParser::eat(int wanted) {
     RAISE(d::SyntaxError,
           "Expected token %s, got token %s near line %d(%d).\n",
           C_STR(Token::typeToString(wanted)),
-          C_STR(t->toString()),
+          C_STR(t->pr_str()),
           t->srcInfo().first, t->srcInfo().second);
   }
   lex->ctx().cur=lex->getNextToken();

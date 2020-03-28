@@ -18,6 +18,7 @@
 namespace czlab::tiny14e {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<int, stdstr> TOKENS {
   {T_PROCEDURE, "PROCEDURE"},
@@ -72,23 +73,21 @@ std::map<stdstr,int> KEYWORDS {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Token::typeToString(int type) {
-  if (auto x= TOKENS.find(type); x != TOKENS.end()) {
-    return map__val(TOKENS,type);
-  } else  {
-    return stdstr("token-type=") + std::to_string(type);
-  }
+  return s__contains(TOKENS, type)
+         ? map__val(TOKENS,type)
+         : stdstr("token-type=") + std::to_string(type);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Token::Token(int type, const stdstr& s, d::SrcInfo info) : d::AbstractToken(type) {
+  _impl.txt= s;
+  this->info = info;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Token::Token(int type, Tchar ch, d::SrcInfo info) : d::AbstractToken(type) {
   this->info = info;
   _impl.txt= stdstr { ch };
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, const std::string& s, d::SrcInfo info) : d::AbstractToken(type) {
-  _impl.txt= s;
-  this->info = info;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -123,43 +122,39 @@ stdstr Token::getLiteralAsStr() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, Tchar c, d::SrcInfo info) {
-  return d::DslToken(new Token(type, c, info));
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& s, d::SrcInfo info) {
-  return d::DslToken(new Token(type, s, info));
+  return new Token(type, s, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, const stdstr& x,
-    d::SrcInfo info, const stdstr& s) {
-  auto t= new Token(type, x, info);
-  return d::DslToken(t);
+d::DslToken token(int type, Tchar c, d::SrcInfo info) {
+  return new Token(type, c, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type,
-    const stdstr& s, d::SrcInfo info, llong n) {
+d::DslToken token(int type, const stdstr& x, d::SrcInfo info, const stdstr& s) {
+  return new Token(type, x, info);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslToken token(int type, const stdstr& s, d::SrcInfo info, llong n) {
   auto t= new Token(type, s, info);
   t->impl().num.setInt(n);
-  return d::DslToken(t);
+  return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type,
-    const stdstr& s, d::SrcInfo info, double d) {
+d::DslToken token(int type, const stdstr& s, d::SrcInfo info, double d) {
   auto t= new Token(type,s, info);
   t->impl().num.setFloat(d);
-  return d::DslToken(t);
+  return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Token::toString() const {
-  char buf[1024];
+stdstr Token::pr_str() const {
+  Tchar buf[1024];
   ::sprintf(buf,
-            "Token#{type = %d, text = %s}", type(), _impl.txt.c_str());
+            "Token#{type = %d, text = %s}", type(), C_STR(_impl.txt));
   return stdstr(buf);
 }
 
@@ -176,25 +171,27 @@ Lexer::Lexer(const char* src) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool Lexer::isKeyword(const stdstr& k) const {
-  return KEYWORDS.find(k) != KEYWORDS.end();
+  return s__contains(KEYWORDS, k);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken Lexer::skipComment() {
+  auto m= _ctx.mark();
+  stdstr out;
   while (!_ctx.eof) {
+    auto ch= d::peek(_ctx);
     d::advance(_ctx);
-    if (d::peek(_ctx) == '}') {
-      d::advance(_ctx);
-      break;
-    }
+    if (ch == '}')
+    break;
+    out += ch;
   }
-  return d::DslToken();
+  return token(d::T_COMMENT,out, m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken Lexer::number() {
   auto m= _ctx.mark();
-  auto s = d::numeric(_ctx).c_str();
+  auto s = C_STR(d::numeric(_ctx));
   return ::strchr(s, '.')
     ? token(d::T_REAL, s, m, ::atof(s))
     : token(d::T_INTEGER, s, m, (llong) ::atol(s));
@@ -203,8 +200,7 @@ d::DslToken Lexer::number() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken Lexer::string() {
   auto m = _ctx.mark();
-  auto s = d::str(_ctx);
-  return token(d::T_STRING, s, m, s);
+  return token(d::T_STRING, d::str(_ctx), m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -222,8 +218,8 @@ d::DslToken Lexer::id() {
   auto S= a::to_upper(s);
   auto m= _ctx.mark();
   return !isKeyword(S)
-    ? token(d::T_IDENT, s, m, s)
-    : d::DslToken(new Token(KEYWORDS.at(S), S, m));
+         ? token(d::T_IDENT, s, m)
+         : token(KEYWORDS.at(S), S, m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -279,21 +275,19 @@ d::DslToken Lexer::getNextToken() {
       return token(d::T_RPAREN, ch, m);
     }
     else
-    if (ch == '_' || ::isalpha(ch)) {
+    if (lexer_id(ch,true)) {
       return id();
     }
     else
     if (ch== ':' && '=' == d::peekNext(_ctx)) {
       auto m= _ctx.mark();
-      d::advance(_ctx);
-      d::advance(_ctx);
+      d::advance(_ctx,2);
       return token(T_ASSIGN, ":=", m);
     }
     else
     if (ch== '=' && '=' == d::peekNext(_ctx)) {
       auto m= _ctx.mark();
-      d::advance(_ctx);
-      d::advance(_ctx);
+      d::advance(_ctx,2);
       return token(T_EQUALS, "==", m);
     }
     else
@@ -305,13 +299,11 @@ d::DslToken Lexer::getNextToken() {
     if (ch == '<') {
       auto m= _ctx.mark();
       if (d::peekNext(_ctx) == '=') {
-        d::advance(_ctx);
-        d::advance(_ctx);
+        d::advance(_ctx,2);
         return token(T_LTEQ, "<=", m);
       }
       else if (d::peekNext(_ctx) == '>') {
-        d::advance(_ctx);
-        d::advance(_ctx);
+        d::advance(_ctx,2);
         return token(T_NOTEQ, "<>", m);
       }
       else {
@@ -323,8 +315,7 @@ d::DslToken Lexer::getNextToken() {
     if (ch == '>') {
       auto m= _ctx.mark();
       if (d::peekNext(_ctx) == '=') {
-        d::advance(_ctx);
-        d::advance(_ctx);
+        d::advance(_ctx,2);
         return token(T_GTEQ, ">=", m);
       } else {
         d::advance(_ctx);
@@ -335,8 +326,7 @@ d::DslToken Lexer::getNextToken() {
     if (ch == '|') {
       if (d::peekNext(_ctx) == '|') {
         auto m= _ctx.mark();
-        d::advance(_ctx);
-        d::advance(_ctx);
+        d::advance(_ctx,2);
         return token(T_OR, "||", m);
       }
     }
@@ -344,8 +334,7 @@ d::DslToken Lexer::getNextToken() {
     if (ch == '&') {
       if (d::peekNext(_ctx) == '&') {
         auto m= _ctx.mark();
-        d::advance(_ctx);
-        d::advance(_ctx);
+        d::advance(_ctx,2);
         return token(T_AND, "&&", m);
       }
     }

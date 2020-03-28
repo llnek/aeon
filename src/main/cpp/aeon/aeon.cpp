@@ -21,12 +21,13 @@ namespace czlab::aeon {
 char MSGBUF[1024];
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-FileNotFound::FileNotFound(const stdstr& s) : Exception(s) {
-}
+FileNotFound::FileNotFound(const stdstr& s) : Exception(s) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-FileError::FileError(const stdstr& s) : Exception(s) {
-}
+FileError::FileError(const stdstr& s) : Exception(s) { }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+NPError::NPError(const stdstr& s) : Exception(s) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 CString::CString(size_t z) {

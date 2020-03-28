@@ -24,7 +24,7 @@ namespace a = czlab::aeon;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SInt : public d::Data {
-  virtual stdstr toString(bool pretty) const {
+  virtual stdstr pr_str(bool p=0) const {
     return std::to_string(value);
   }
   virtual int compare(const d::Data* rhs) const {
@@ -41,7 +41,7 @@ struct SInt : public d::Data {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SReal : public d::Data {
-  virtual stdstr toString(bool pretty) const {
+  virtual stdstr pr_str(bool p=0) const {
     return std::to_string(value);
   }
   virtual bool equals(const Data* rhs) const {
@@ -66,7 +66,7 @@ struct SStr : public d::Data {
   virtual int compare(const d::Data* rhs) const {
     return 0;
   }
-  virtual stdstr toString(bool pretty) const { return value; }
+  virtual stdstr pr_str(bool p=0) const { return value; }
   SStr(const stdstr& s) : value(s) {}
   SStr(const char* s) : value(s) {}
   stdstr value;
@@ -109,9 +109,13 @@ struct Ast : public d::Node {
   virtual ~Ast() {}
   //DslToken token() { return _token; }
   Ast(d::DslToken t) { _token=t; }
+
   protected:
+
   d::DslToken _token;
+
   private:
+
   Ast() {}
 };
 
@@ -125,6 +129,7 @@ struct BoolExpr : public Ast {
   virtual ~BoolExpr() {}
 
   private:
+
   TokenVec ops;
   AstVec terms;
 };
@@ -139,6 +144,7 @@ struct BoolTerm : public Ast {
   virtual ~BoolTerm() {}
 
   private:
+
   AstVec terms;
 };
 
@@ -152,6 +158,7 @@ struct RelationOp : public Ast {
   virtual ~RelationOp() {}
 
   private:
+
   d::DslAst lhs;
   d::DslAst rhs;
 };
@@ -166,6 +173,7 @@ struct BinOp : public Ast {
   virtual ~BinOp() {}
 
   private:
+
   d::DslAst lhs;
   d::DslAst rhs;
 };
@@ -298,6 +306,7 @@ struct ForLoop : public Ast {
   virtual stdstr name() const;
 
   private:
+
   d::DslAst init;
   d::DslAst term;
   d::DslAst code;
@@ -314,6 +323,7 @@ struct IfThenElse : public Ast {
   virtual stdstr name() const;
 
   private:
+
   d::DslAst cond;
   d::DslAst then;
   d::DslAst elze;
@@ -328,6 +338,7 @@ struct RepeatUntil : public Ast {
   virtual stdstr name() const;
 
   private:
+
   d::DslAst cond;
   d::DslAst code;
 };
@@ -341,6 +352,7 @@ struct Assignment : public Ast {
   virtual stdstr name() const;
 
   private:
+
   d::DslAst lhs;
   d::DslAst rhs;
 };
@@ -378,6 +390,7 @@ struct Block : public Ast {
   virtual stdstr name() const;
 
   private:
+
   d::DslAst compound;
   AstVec declarations;
 };
@@ -391,6 +404,7 @@ struct ProcedureDecl : public Ast {
   virtual stdstr name() const;
 
   private:
+
   d::DslAst block;
   AstVec params;
 };
@@ -404,6 +418,7 @@ struct ProcedureCall : public Ast {
   virtual stdstr name() const;
 
   private:
+
   AstVec args;
   d::DslSymbol proc_symbol;
 };
@@ -417,25 +432,30 @@ struct Program : public Ast {
   virtual stdstr name() const;
 
   private:
+
   d::DslAst block;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct CrenshawParser : public d::IParser {
+
   CrenshawParser(const char* src);
   virtual ~CrenshawParser();
+
   d::DslAst parse();
   Lexer* rdr() { return lex; }
   int cur();
   Tchar peek();
   bool isCur(int);
   virtual bool isEof() const;
+
   d::DslToken token();
   d::DslToken getEthereal();
   virtual d::DslToken eat();
   virtual d::DslToken eat(int wanted);
 
   private:
+
   Lexer* lex;
 };
 

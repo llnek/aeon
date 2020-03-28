@@ -106,14 +106,14 @@ end.  { Main }\n\
 ";
 }
 
-#if 1
+#if 0
 int main(int argc, char* argv[]) {
   using namespace czlab::spi;
   try {
     //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
     Interpreter i(ARG18);
     auto r= i.interpret();
-    std::cout << "result = " << r->toString() << "\n";
+    std::cout << "result = " << r->pr_str() << "\n";
     //Analyzer z(ARG);
 
   } catch ( const d::SyntaxError& e) {

@@ -81,7 +81,7 @@ struct AbstractToken : public a::Counted {
   virtual stdstr getLiteralAsStr() const =0;
   virtual double getLiteralAsReal() const =0;
   virtual llong getLiteralAsInt() const =0;
-  virtual stdstr toString() const =0;
+  virtual stdstr pr_str() const =0;
   virtual ~AbstractToken() {}
 
   SrcInfo srcInfo() const { return info; }
@@ -187,7 +187,9 @@ struct Table : public a::Counted {
 
   // A symbol table (with hierarchy)
 
-  DslSymbol lookup(const stdstr& s, bool traverseOuterScope) const;
+  DslSymbol search(const stdstr&) const;
+  DslSymbol find(const stdstr&) const;
+
   DslTable outer() const { return enclosing; }
   stdstr name() const { return _name; }
   void insert(DslSymbol);
@@ -207,23 +209,23 @@ struct Table : public a::Counted {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Data : public a::Counted {
   // Abstract class to store data value in parsers.
-  virtual stdstr toString(bool prettyPrint=false) const = 0;
   virtual bool equals(const Data*) const = 0;
   virtual int compare(const Data*) const = 0;
+  virtual stdstr pr_str(bool p = 0) const = 0;
   virtual ~Data() {}
   Data() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Nothing : public Data {
-  stdstr toString(bool b) const { return "nothing"; }
+  stdstr pr_str(bool b=0) const { return "nothing"; }
   virtual bool equals(const Data* rhs) const {
     return X_NIL(rhs) &&
            typeid(*rhs) == typeid(*this);
   }
   virtual int compare(const Data* rhs) const {
     return E_NIL(rhs)
-        ? 1 : (typeid(*rhs) == typeid(*this) ? 0 : toString(false).compare(rhs->toString(false)));
+        ? 1 : (typeid(*rhs) == typeid(*this) ? 0 : pr_str().compare(rhs->pr_str()));
   }
   virtual ~Nothing() {}
   Nothing() {}
@@ -232,9 +234,10 @@ struct Nothing : public Data {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IEvaluator {
   // Interface support for parser evaluation.
-  virtual DslValue setValue(const stdstr&, DslValue, bool localOnly) = 0;
+  virtual DslValue setValueEx(const stdstr&, DslValue) = 0;
+  virtual DslValue setValue(const stdstr&, DslValue) = 0;
   virtual DslValue getValue(const stdstr&) const = 0;
-  virtual bool containsSymbol(const stdstr&) const = 0;
+  //virtual bool contains(const stdstr&) const = 0;
   virtual DslFrame pushFrame(const stdstr& name)=0;
   virtual DslFrame popFrame()=0;
   virtual DslFrame peekFrame() const =0;
@@ -244,10 +247,13 @@ struct IEvaluator {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IAnalyzer {
   // Interface support for abstract syntax tax analysis.
-  virtual DslSymbol lookup(const stdstr&, bool traverseOuterScope=true) const = 0;
-  virtual void pushScope(const stdstr& name) =0;
+  virtual DslSymbol search(const stdstr&) const = 0;
+  virtual DslSymbol find(const stdstr&) const = 0;
+
+  virtual DslTable pushScope(const stdstr& name) = 0;
   virtual DslTable popScope()=0;
   virtual DslSymbol define(DslSymbol)=0;
+
   virtual ~IAnalyzer() {}
 };
 
@@ -271,13 +277,15 @@ struct Frame : public a::Counted {
   ~Frame() {}
 
   stdstr name() const { return _name; }
-  stdstr toString() const;
+  stdstr pr_str() const;
 
-  DslValue set(const stdstr& sym, DslValue, bool localOnly);
+  DslValue setEx(const stdstr& sym, DslValue);
+  DslValue set(const stdstr& sym, DslValue);
   DslValue get(const stdstr& sym) const;
-  DslFrame find(const stdstr& sym) const;
 
-  bool containsKey(const stdstr&) const;
+  DslFrame search(const stdstr& sym) const;
+
+  bool contains(const stdstr&) const;
   std::set<stdstr> keys() const;
 
   DslFrame getOuterRoot() const;

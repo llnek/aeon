@@ -18,6 +18,7 @@
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::kirby {
 namespace d = czlab::dsl;
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
   T_SPLICE_UNQUOTE = 100,
@@ -38,18 +39,19 @@ struct Token : public d::AbstractToken {
   static stdstr typeToString(int);
 
   Token(int type, const stdstr&, d::SrcInfo);
-  Token(int type, const char, d::SrcInfo);
+  Token(int type, Tchar, d::SrcInfo);
 
   virtual stdstr getLiteralAsStr() const;
   virtual double getLiteralAsReal() const;
   virtual llong getLiteralAsInt() const;
 
   d::Lexeme& impl() { return _impl; }
-  stdstr toString() const;
+  virtual stdstr pr_str() const;
 
   virtual ~Token() {}
 
   private:
+
   Token();
   d::Lexeme _impl;
 };
@@ -73,7 +75,6 @@ struct Reader : public d::IScanner {
 
   d::Context _ctx;
 
-  d::DslToken _getNextToken();
   Reader();
   void skipCommas();
   d::DslToken keywd();

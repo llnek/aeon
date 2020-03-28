@@ -59,13 +59,13 @@ d::DslFrame lambda_env(LLambda* fn, VSlice args) {
       ASSERT1((i+1 == (z-1)));
       VVec x;
       appendAll(args,j,x);
-      fm->set(fn->params[i+1], LIST_VAL(x),true);
+      fm->set(fn->params[i+1], LIST_VAL(x));
       j=len;
       i= z;
       break;
     }
     ASSERT1(j < len);
-    fm->set(k, *(args.begin + j), true);
+    fm->set(k, *(args.begin + j));
     ++j;
   }
   // make sure arg count matches param count
@@ -87,7 +87,7 @@ LSeqable* is_pair(d::DslValue v, int panic) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Lisper::PRINT(d::DslValue v) {
-  return s__cast(LValue,v.ptr())->toString(true);
+  return s__cast(LValue,v.ptr())->pr_str(1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -126,7 +126,7 @@ d::DslValue Lisper::syntaxQuote(d::DslValue ast, d::DslFrame env) {
 LMacro* maybeMacro(Lisper* p, d::DslValue ast, d::DslFrame env) {
   if (auto s = is_pair(ast,0); X_NIL(s)) {
     if (auto sym = cast_symbol(s->first()); X_NIL(sym)) {
-      if (auto f = env->find(sym->impl()); f.isSome()) {
+      if (auto f = env->search(sym->impl()); f.isSome()) {
         return cast_macro(sym->eval(p, f));
       }
     }
@@ -224,7 +224,7 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
       if (code == "def") {
         preEqual(3, len, "def");
         auto var= cast_symbol(list->nth(1),1)->impl();
-        return env->set(var, EVAL(list->nth(2), env), true);
+        return env->set(var, EVAL(list->nth(2), env));
       }
 
       if (code == "let") {
@@ -233,7 +233,7 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
         auto cnt= preEven(args->count(), "let bindings");
         auto f= d::DslFrame(new d::Frame("let", env));
         for (auto i = 0; i < cnt; i += 2) {
-          f->set(cast_symbol(args->nth(i),1)->impl(), EVAL(args->nth(i+1), f), true);
+          f->set(cast_symbol(args->nth(i),1)->impl(), EVAL(args->nth(i+1), f));
         }
         ast = wrapAsDo(list,2);
         env = f;
@@ -256,7 +256,7 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
         auto var = cast_symbol(list->nth(1),1)->impl();
         auto pms= cast_params(list->nth(2));
         return env->set(var,
-            MACRO_VAL(var, pms, list->nth(3), env), true);
+            MACRO_VAL(var, pms, list->nth(3), env));
       }
 
       if (code == "macroexpand") {
@@ -275,7 +275,7 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
           if (auto c= cast_list(n); X_NIL(c) && c->count() > 0) {
             if (auto s= cast_symbol(c->nth(0)); X_NIL(s) && s->impl() == "catch") {
               ASSERT(j==(len-1),
-                  "catch must be last form: %s.\n", C_STR(list->toString(true)));
+                  "catch must be last form: %s.\n", C_STR(list->pr_str(1)));
               preMin(2,c->count(), "catch");
               errorVar = cast_symbol(c->nth(1),1)->impl();
               cbody=wrapAsDo(c,2);
@@ -296,7 +296,7 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
         }
         if (cbody.isSome() && error.isSome()) {
           env = d::DslFrame(new d::Frame("catch", env));
-          env->set(errorVar, error, true);
+          env->set(errorVar, error);
           ast = EVAL(cbody,env);
         }
         continue;
@@ -326,7 +326,7 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
         auto var = cast_symbol(list->nth(1),1)->impl();
         auto pms= cast_params(list->nth(2));
         return env->set(var,
-            LAMBDA_VAL(var, pms, wrapAsDo(list,3), env), true);
+            LAMBDA_VAL(var, pms, wrapAsDo(list,3), env));
       }
 
       if (code == "fn") {

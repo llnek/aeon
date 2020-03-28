@@ -100,32 +100,30 @@ stdstr Token::getLiteralAsStr() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, Tchar c, d::SrcInfo info) {
-  auto t= new Token(type, c, info);
-  return d::DslToken(t);
+  return new Token(type, c, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& x, d::SrcInfo info) {
-  auto t= new Token(type, x, info);
-  return d::DslToken(t);
+  return new Token(type, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& s, d::SrcInfo info, llong n) {
   auto t= new Token(type, s, info);
   t->impl().num.setInt(n);
-  return d::DslToken(t);
+  return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& s, d::SrcInfo info, double d) {
   auto t= new Token(type,s, info);
   t->impl().num.setFloat(d);
-  return d::DslToken(t);
+  return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Token::toString() const {
+stdstr Token::pr_str() const {
   return "Token#{type =" + std::to_string(type()) + ", text = " + _impl.txt + "}";
 }
 
@@ -190,7 +188,7 @@ d::DslToken Lexer::id() {
   auto S= a::to_upper(s);
   return !isKeyword(S)
     ? token(d::T_IDENT, s, m)
-    : new Token(KEYWORDS.at(S), S, m);
+    : token(KEYWORDS.at(S), S, m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

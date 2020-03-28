@@ -231,7 +231,7 @@ Frame::Frame(const std::string& n, DslFrame outer) : _name(n) { prev=outer; }
 Frame::Frame(const std::string& n) : _name(n) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string Frame::toString() const {
+stdstr Frame::pr_str() const {
   stdstr b(40, '=');
   stdstr z(40, '+');
   stdstr out;
@@ -243,7 +243,7 @@ std::string Frame::toString() const {
 
   for (auto i= slots.begin(), e= slots.end(); i != e; ++i) {
     auto v= i->second;
-    auto vs= v.isSome() ? v->toString(true) : stdstr("null");
+    auto vs= v.isSome() ? v->pr_str(1) : stdstr("null");
     if (!bits.empty()) bits += ", ";
     bits += i->first + "=" + vs;
   }
@@ -270,38 +270,46 @@ DslValue Frame::get(const std::string& key) const {
           : (prev.isSome() ? prev->get(key) : DslValue());
 
   DEBUG("frame:get %s <- %s\n",
-        C_STR(key), C_STR(r->toString()));
+        C_STR(key), C_STR(r->pr_str()));
 
   return r;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslValue Frame::set(const std::string& key, DslValue v, bool localOnly) {
+DslValue Frame::setEx(const std::string& key, DslValue v) {
 
   auto x= slots.find(key);
-  if (x != slots.end() || localOnly) {
+  if (x != slots.end()) {
     slots[key]=v;
+    DEBUG("frame:setEx %s -> %s\n",
+          C_STR(key), C_STR(v->pr_str(1)));
+    return v;
   } else if (prev.isSome()) {
-    prev->set(key,v,localOnly);
+    return prev->setEx(key,v);
+  } else {
+    return DslValue();
   }
+}
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DslValue Frame::set(const std::string& key, DslValue v) {
+  slots[key]=v;
   DEBUG("frame:set %s -> %s\n",
-        C_STR(key), C_STR(v->toString(true)));
-
+        C_STR(key), C_STR(v->pr_str(1)));
   return v;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Frame::containsKey(const stdstr& key) const {
+bool Frame::contains(const stdstr& key) const {
   return slots.find(key) != slots.end();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFrame Frame::find(const stdstr& key) const {
+DslFrame Frame::search(const stdstr& key) const {
   auto x= slots.find(key);
   return x != slots.end()
          ? DslFrame(const_cast<Frame*>(this))
-         : (prev.isSome() ? prev->find(key) : DslFrame());
+         : (prev.isSome() ? prev->search(key) : DslFrame());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -337,16 +345,21 @@ void Table::insert(DslSymbol s) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslSymbol Table::lookup(const std::string& name, bool traverse) const {
+DslSymbol Table::search(const std::string& name) const {
   if (auto s = symbols.find(name); s != symbols.end()) {
     return s->second;
   } else {
-    return
-      (!traverse || enclosing.isNull())
-      ? DslSymbol() : enclosing->lookup(name, traverse);
+    return enclosing.isNull() ? DslSymbol() : enclosing->search(name);
   }
 }
 
+DslSymbol Table::find(const std::string& name) const {
+  if (auto s = symbols.find(name); s != symbols.end()) {
+    return s->second;
+  } else {
+    return DslSymbol();
+  }
+}
 
 
 

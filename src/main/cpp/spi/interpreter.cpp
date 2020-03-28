@@ -46,10 +46,14 @@ d::DslFrame Interpreter::pushFrame(const std::string& name) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame Interpreter::popFrame() {
-  auto f= d::DslFrame(s__cast(d::Frame,stack.ptr()));
-  std::cout << f->toString() << "\n";
-  stack=stack->getOuter();
-  return f;
+  if (stack.isSome()) {
+    auto f= stack;
+    std::cout << f->pr_str() << "\n";
+    stack=stack->getOuter();
+    return f;
+  } else {
+    return NULL;
+  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -58,16 +62,18 @@ d::DslFrame Interpreter::peekFrame() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::setValue(const stdstr& name, d::DslValue v, bool localOnly) {
-  auto x = s__cast(d::Frame,stack.ptr());
-  if (x) x->set(name, v, localOnly);
-  return v;
+d::DslValue Interpreter::setValueEx(const stdstr& name, d::DslValue v) {
+  return stack.isSome() ? stack->setEx(name, v) : NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Interpreter::setValue(const stdstr& name, d::DslValue v) {
+  return stack.isSome() ? stack->set(name, v) : NULL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Interpreter::getValue(const stdstr& name) const {
-  auto x = s__cast(d::Frame,stack.ptr());
-  return X_NIL(x) ? x->get(name) : d::DslValue();
+  return stack.isSome() ? stack->get(name) : NULL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -77,13 +83,13 @@ void Interpreter::check(d::DslAst tree) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::lookup(const stdstr& n, bool traverse) const {
-  return s__cast(d::Table,symbols.ptr())->lookup(n, traverse);
+d::DslSymbol Interpreter::search(const stdstr& n) const {
+  return s__cast(d::Table,symbols.ptr())->search(n);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Interpreter::containsSymbol(const stdstr& name) const {
-  return stack->find(name).isSome();
+d::DslSymbol Interpreter::find(const stdstr& n) const {
+  return s__cast(d::Table,symbols.ptr())->find(n);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -93,8 +99,9 @@ d::DslSymbol Interpreter::define(d::DslSymbol s) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::pushScope(const stdstr& name) {
+d::DslTable Interpreter::pushScope(const stdstr& name) {
   symbols = d::DslTable(new SymTable(name, symbols));
+  return symbols;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

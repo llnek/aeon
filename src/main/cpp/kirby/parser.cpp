@@ -46,7 +46,7 @@ stdstr gensym(const stdstr& prefix) {
   }
 
   ++seed;
-  return prefix+out+std::to_string(seed);
+  return prefix + out + std::to_string(seed);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -257,7 +257,7 @@ d::DslValue readForm(SExprParser* p) {
     case d::T_RPAREN:
     case d::T_RBRACE:
     case d::T_RBRACKET:
-      return d::DslValue();
+      return NULL;
     default:
       return readAtom(p);
   }
@@ -316,13 +316,13 @@ d::DslToken SExprParser::eat() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken SExprParser::eat(int wanted) {
   auto t= token();
-  if (t.ptr()->type() != wanted) {
+  if (t->type() != wanted) {
     RAISE(d::SyntaxError,
           "Expected token %s, found token %s near line %d(%d).\n",
           C_STR(Token::typeToString(wanted)),
-          C_STR(t->toString()),
-          s__cast(Token,t.ptr())->impl().line,
-          s__cast(Token,t.ptr())->impl().col);
+          C_STR(t->pr_str()),
+          t->srcInfo().first,
+          t->srcInfo().second);
   }
   lexer->ctx().cur= lexer->getNextToken();
   return t;
