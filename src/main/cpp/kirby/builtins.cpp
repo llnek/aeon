@@ -69,7 +69,7 @@ d::DslValue op_math(int op, T res, NumberVec& slots) {
       break;
     }
   }
-  return d::DslValue(op_num(res));
+  return op_num(res);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -625,15 +625,15 @@ static d::DslValue native_time_ms(Lisper* lisp, VSlice args) {
   // (time-ms)
   preEqual(0, args.size(), "time-ms");
   return INT_VAL(cc::duration_cast<cc::milliseconds>(
-                 cc::high_resolution_clock::now().time_since_epoch()).count());
+                 cc::system_clock::now().time_since_epoch()).count());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DslValue native_vals(Lisper* lisp, VSlice args) {
   preEqual(1, args.size(), "vals");
   return X_NIL(cast_nil(*args.begin))
-    ? *args.begin
-    : cast_map(*args.begin, 1)->vals();
+         ? *args.begin
+         : cast_map(*args.begin, 1)->vals();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
