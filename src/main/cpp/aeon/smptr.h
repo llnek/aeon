@@ -21,7 +21,7 @@
 namespace czlab::aeon {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct MS_DLL Counted {
+struct MSVC_DLL Counted {
 
   Counted() : count(0) {}
   virtual ~Counted() {}
@@ -52,7 +52,7 @@ private:
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template<class T>
-struct MS_DLL RefPtr {
+struct MSVC_DLL RefPtr {
 
   RefPtr(const RefPtr& rhs) : RefPtr() { retain(rhs.pObj); }
 

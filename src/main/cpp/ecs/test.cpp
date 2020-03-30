@@ -10,37 +10,31 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright (c) 2013-2016, Kenneth Leung. All rights reserved. */
-
-#pragma once
-//////////////////////////////////////////////////////////////////////////////
-
-#include "Ecs.h"
-NS_BEGIN(ecs)
+ * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
 //////////////////////////////////////////////////////////////////////////////
-//
-class MS_DLL TypeRegistry {
 
-  __decl_map(COMType, CompoCache*, _rego)
-  __decl_nocpyass(TypeRegistry)
+#include <iostream>
+#include "types.h"
 
-public:
-
-  void unbind(not_null<Component*>, not_null<Node*>);
-  void unbind(const COMType&, not_null<Node*>);
-
-  void bind(not_null<Component*>, not_null<Node*>);
-
-  CompoCache* getCache(const COMType&);
-
-  virtual ~TypeRegistry();
-  TypeRegistry() {}
-
-};
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+namespace czlab::ecs {
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+namespace a= czlab::aeon;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+}
 
 
-NS_END
 
 
+int main(int ac, char** av) {
+  std::cout << "yo!" << "\n";
+  return 0;
+}
+
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+//EOF
 

@@ -19,7 +19,7 @@ namespace czlab::aeon {
 //////////////////////////////////////////////////////////////////////////////
 // owns all items in this list
 template <typename T>
-struct MS_DLL DList {
+struct MSVC_DLL DList {
 
   struct DListItem {
     DListItem(T e) {
@@ -57,15 +57,15 @@ struct MS_DLL DList {
     DListItem* node;
   };
 
-  bool isEmpty() { return anchor._head==nullptr; }
-  void remove(T);
-  void add(T);
+  bool isEmpty() const { return anchor._head==nullptr; }
+  virtual void remove(T);
+  virtual void add(T);
 
-  const std::vector<T> list();
+  std::vector<T> list() const;
   void clear();
-  int size();
+  int size() const;
 
-  ~DList();
+  virtual ~DList();
   DList() {}
 
   DList& operator=(const DList&) = delete;
@@ -73,7 +73,8 @@ struct MS_DLL DList {
   DList(const DList&) = delete;
   DList(DList&&) = delete;
 
-private:
+  protected:
+
   void purge(DListItem*);
   DListAnchor anchor;
 };
@@ -93,7 +94,7 @@ void DList<T>::add(T e) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template<typename T>
-int DList<T>::size() {
+int DList<T>::size() const {
   auto n= anchor._head;
   int c=0;
   while (X_NIL(n)) {
@@ -142,7 +143,7 @@ void DList<T>::clear() {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename T>
-const std::vector<T> DList<T>::list() {
+std::vector<T> DList<T>::list() const {
   std::vector<T> v;
   for (auto p= anchor._head; X_NIL(p); p=p->_next) {
     s__conj(v,p->item);

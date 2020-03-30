@@ -19,7 +19,7 @@ namespace czlab {
 namespace aeon {
 //////////////////////////////////////////////////////////////////////////////
 template<typename T>
-class MS_DLL Array {
+class MSVC_DLL Array {
 
   T *_data=nullptr;
   int _sz=0;

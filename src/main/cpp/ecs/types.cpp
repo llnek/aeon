@@ -16,34 +16,16 @@
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::ecs {
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Node::Node(Engine* e, const stdstr& n, NodeId eid) {
-  this->_eid= eid;
-  this->_name=n;
-  this->_engine= e;
-}
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Node::checkin(EAttr c) {
-  auto z = c->typeId();
-  ASSERT1(! has(z));
-  _engine->rego()->bind(c,this);
-  c->setNode(this);
-  _parts.insert(s__pair(AttrType, EAttr, z, c));
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Node::purge(const AttrType& z) {
-  if (auto it = _parts.find(z); it != _parts.end()) {
-    auto c= it->second;
-    _parts.erase(it);
-    _engine->rego()->unbind(c,this);
+  Registry::~Registry() {
+    for (auto i=_rego.begin(),e=_rego.end();i!=e;++i) {
+      DEL_PTR(i->second);
+    }
   }
-}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-EAttr Node::get(const AttrType& z) const {
-  if (auto it=  _parts.find(z); it != _parts.end()) {
+AttrCache* Registry::getCache(const AttrType& c) const {
+  if (auto it= _rego.find(c); it != _rego.end()) {
     return it->second;
   } else {
     return NULL;
@@ -51,18 +33,36 @@ EAttr Node::get(const AttrType& z) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-AttrVec Node::getAll() const {
-  AttrVec out;
-  for (auto b= _parts.begin(), e= _parts.end(); b != e; ++b) {
-    s__conj(out, b->second);
-  }
-  return out;
+void Registry::unbind(EAttr c, ENode e) {
+  unbind(c->typeId(), e);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Node::has(const AttrType& z) const {
-  return s__contains(_parts, z);
+void Registry::unbind(const AttrType& cid, ENode e) {
+  if (auto it= _rego.find(cid); it != _rego.end()) {
+    auto eid= e->eid();
+    auto m= it->second;
+    if (auto it2= m->find(eid); it2 != m->end()) {
+      m->erase(it2);
+    }
+  }
 }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Registry::bind(EAttr c, ENode e) {
+  auto cid= c->typeId();
+  auto eid= e->eid();
+  AttrCache* m;
+
+  if (auto it= _rego.find(cid); it != _rego.end()) {
+    m= it->second;
+  } else {
+    m= new AttrCache;
+    _rego.insert(s__pair(AttrType,AttrCache*,cid,m));
+  }
+  m->insert(s__pair(NodeId,EAttr, eid, c));
+}
+
 
 
 
@@ -76,6 +76,7 @@ bool Node::has(const AttrType& z) const {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
+
 
 
 

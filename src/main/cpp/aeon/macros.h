@@ -16,16 +16,16 @@
 //////////////////////////////////////////////////////////////////////////////
 #if defined(WIN32) || defined(_WIN32)
 #if defined(MS_STATIC)
-#define MS_DLL
+#define MSVC_DLL
 #else
 #if defined(_USRDLL)
-#define MS_DLL __declspec(dllexport)
+#define MSVC_DLL __declspec(dllexport)
 #else /* use a DLL library */
-#define MS_DLL __declspec(dllimport)
+#define MSVC_DLL __declspec(dllimport)
 #endif
 #endif
 #else
-#define MS_DLL
+#define MSVC_DLL
 #endif
 
 //////////////////////////////////////////////////////////////////////////////
