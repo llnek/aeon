@@ -17,60 +17,20 @@
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::ecs {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-static NodeId _lastNodeId=0;
+static EntityId _lastNodeId=0;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Node::Node(Engine* e, const stdstr& n) : Node (e) {
+Entity::Entity(Engine* e, const stdstr& n) : Entity (e) {
   this->_name=n;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Node::Node(Engine* e) {
+Entity::Entity(Engine* e) {
   _engine=e;
   _eid = ++_lastNodeId;
   _name = "node#" + std::to_string(_eid);
 }
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Node::checkin(EAttr c) {
-  auto z = c->id();
-  ASSERT1(! has(z));
-  _engine->rego()->bind(c,this);
-  c->setNode(this);
-  _attrs.insert(s__pair(AttrId, EAttr, z, c));
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Node::purge(const AttrId& z) {
-  if (auto i = _attrs.find(z); i != _attrs.end()) {
-    auto c= i->second;
-    _attrs.erase(i);
-    _engine->rego()->unbind(c,this);
-  }
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-EAttr Node::get(const AttrId& z) const {
-  if (auto i=  _attrs.find(z); i != _attrs.end()) {
-    return i->second;
-  } else {
-    return NULL;
-  }
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-AttrVec Node::getAll() const {
-  AttrVec out;
-  for (auto b= _attrs.begin(),e=_attrs.end();b != e;++b) {
-    s__conj(out, b->second);
-  }
-  return out;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Node::has(const AttrId& z) const {
-  return s__contains(_attrs, z);
-}
 
 
 

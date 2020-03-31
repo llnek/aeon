@@ -39,10 +39,10 @@ Engine::Engine() { _types= new Registry(); }
 Engine::~Engine() { DEL_PTR(_types); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NodeVec Engine::getNodes(const ATypeVec& cs) const {
-  std::vector<AttrCache*> ccs;
-  NodeVec out;
-  AttrCache* pm;
+EntVec Engine::getEnts(const std::vector<Cid>& cs) const {
+  std::vector<MapEidC*> ccs;
+  EntVec out;
+  MapEidC* pm;
   auto pmin= LONG_MAX;
 
   //find shortest cache, doing an intersection
@@ -84,22 +84,8 @@ NodeVec Engine::getNodes(const ATypeVec& cs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NodeVec Engine::getNodes(const AttrId& c) const {
-  NodeVec out;
-  if (auto cc= _types->getCache(c); cc) {
-    for (auto i= cc->begin(),e=cc->end();i != e;++i) {
-      auto z= i->first;
-      if (auto it2= _ents.find(z); it2 != _ents.end()) {
-        s__conj(out,it2->second);
-      }
-    }
-  }
-  return out;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NodeVec Engine::getNodes() const {
-  NodeVec out;
+EntVec Engine::getEnts() const {
+  EntVec out;
   for (auto i=_ents.begin(),e= _ents.end();i != e; ++i) {
     s__conj(out, i->second);
   }
@@ -107,23 +93,23 @@ NodeVec Engine::getNodes() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ENode Engine::reifyNode(const stdstr& n, bool take) {
-  auto e= new Node(this, n);
-  _ents.insert(s__pair(NodeId,ENode,e->id(),e));
+EEntity Engine::reifyEnt(const stdstr& n, bool take) {
+  auto e= new Entity(this, n);
+  _ents.insert(s__pair(EntityId,EEntity,e->id(),e));
   //if (take) {e->take();}
   return e;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ENode Engine::reifyNode(bool take) {
-  auto e= new Node(this);
-  _ents.insert(s__pair(NodeId,ENode,e->id(),e));
+EEntity Engine::reifyEnt(bool take) {
+  auto e= new Entity(this);
+  _ents.insert(s__pair(EntityId,EEntity,e->id(),e));
   //if (take) {e->take();}
   return e;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Engine::purgeNode(ENode e) {
+void Engine::purgeEnt(EEntity e) {
   assert(e.isSome());
   e->die();
   s__conj(_garbo, e);
@@ -134,7 +120,7 @@ void Engine::purgeNode(ENode e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Engine::purgeNodes() {
+void Engine::purgeEnts() {
   _garbo.clear();
   _ents.clear();
 }
@@ -185,7 +171,7 @@ void Engine::update(float time) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Engine::ignite() {
-  (initNodes(), initSystems());
+  (initEnts(), initSystems());
   for (auto i= _systems.begin(),e= _systems.end();i != e;++i) {
     auto s= *i;
     s->preamble();

@@ -23,19 +23,22 @@ namespace czlab::ecs {
 namespace a= czlab::aeon;
 namespace e= czlab::ecs;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Location : public e::Attribute {
+struct Location : public e::Component {
   Location() {}
   virtual ~Location() {}
 };
-struct Health : public e::Attribute {
+
+struct Health : public e::Component {
   Health() {}
   virtual ~Health() {}
 };
-struct Flyable : public e::Attribute {
+
+struct Flyable : public e::Component {
   Flyable() {}
   virtual ~Flyable() {}
 };
-struct Runnable : public e::Attribute {
+
+struct Runnable : public e::Component {
   Runnable() {}
   virtual ~Runnable() {}
 };
@@ -96,17 +99,17 @@ struct Game : public e::Engine {
   Game() {}
   virtual ~Game() {}
 
-  virtual void initNodes() {
-    auto a= reifyNode("a");
-    auto b= reifyNode("b");
-    rego()->bind(new Location(),a);
-    rego()->bind(new Location(),b);
+  virtual void initEnts() {
+    auto a= reifyEnt("a");
+    auto b= reifyEnt("b");
+    rego()->bind<Location>(new Location(),a);
+    rego()->bind<Location>(new Location(),b);
 
-    rego()->bind(new Health(),a);
-    rego()->bind(new Health(),b);
+    rego()->bind<Health>(new Health(),a);
+    rego()->bind<Health>(new Health(),b);
 
-    rego()->bind(new Runnable(),a);
-    rego()->bind(new Flyable(),b);
+    rego()->bind<Runnable>(new Runnable(),a);
+    rego()->bind<Flyable>(new Flyable(),b);
   }
 
   virtual void initSystems() {
@@ -127,6 +130,20 @@ int main(int ac, char** av) {
   Game* g = new Game();
   g->ignite();
   g->update(1);
+
+  auto rc= g->getEnts();
+  for (auto & i : rc) {
+    std::cout << "eid = " << i->id() << "\n";
+    g->rego()->unbind<Flyable>(i);
+  }
+
+
+  auto t= g->getEnts<Flyable>();
+  std::cout << "cnt = " << t.size() << "\n";
+
+
+
+
   delete g;
   std::cout << "yo! "    << "\n";
   return 0;
