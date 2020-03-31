@@ -33,32 +33,24 @@ bool _compSystem(ESystem lhs, ESystem rhs) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Engine::Engine() {
-  _types= new Registry();
-}
+Engine::Engine() { _types= new Registry(); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Engine::~Engine() {
-  doHouseKeeping();
-  DEL_PTR(_types);
-}
+Engine::~Engine() { DEL_PTR(_types); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 NodeVec Engine::getNodes(const ATypeVec& cs) const {
   std::vector<AttrCache*> ccs;
   NodeVec out;
   AttrCache* pm;
-  auto pmin= INT_MAX;
-  auto missed=false;
+  auto pmin= LONG_MAX;
 
   //find shortest cache, doing an intersection
-  for (auto it= cs.begin(), e=cs.end(); it != e; ++it) {
-    auto cid= *it;
+  for (auto& cid : cs) {
     auto c= _types->getCache(cid);
     if (E_NIL(c)) {
-      DEBUG("cache missed when looking for intersection on %s", C_STR(cid));
-      missed=true;
-      break;
+      DEBUG("cache missed on %s", C_STR(cid));
+      return out;
     }
     if (c->size() < pmin) {
       pmin= c->size();
@@ -67,25 +59,17 @@ NodeVec Engine::getNodes(const ATypeVec& cs) const {
     s__conj(ccs, c);
   }
 
-  if (missed) { return out; }
-
-  DEBUG("intesection on %d caches", (int)ccs.size());
+  DEBUG("intesection on %ud caches", ccs.size());
 
   if (ccs.size() > 0) {
     //use the shortest cache as the baseline
-    for (auto it = pm->begin(), e= pm->end(); it != e; ++it) {
-      auto eid= it->first;
+    for (auto i= pm->begin(),e= pm->end();i != e;++i) {
+      auto eid= i->first;
       auto sum=0;
-      for (auto it2 = ccs.begin(), e2= ccs.end(); it2 != e2; ++it2) {
+      for (auto& c : ccs) {
         // look for intersection
-        auto c= *it2;
-        if (c == pm) {
-          ++sum;
-          continue;
-        }
-        if (auto it3= c->find(eid); it3 != c->end()) {
-          ++sum;
-        }
+        if (c == pm) { ++sum; continue; }
+        if (s__contains(*c, eid)) { ++sum; }
       }
       // if found in all caches...matched!
       if (sum == ccs.size()) {
@@ -100,44 +84,40 @@ NodeVec Engine::getNodes(const ATypeVec& cs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NodeVec Engine::getNodes(const AttrType& c) const {
-  auto cc= _types->getCache(c);
+NodeVec Engine::getNodes(const AttrId& c) const {
   NodeVec out;
-
-  if (cc)
-  for (auto it= cc->begin(), e=cc->end(); it != e; ++it) {
-    auto z= it->first;
-    if (auto it2= _ents.find(z); it2 != _ents.end()) {
-      s__conj(out,it2->second);
+  if (auto cc= _types->getCache(c); cc) {
+    for (auto i= cc->begin(),e=cc->end();i != e;++i) {
+      auto z= i->first;
+      if (auto it2= _ents.find(z); it2 != _ents.end()) {
+        s__conj(out,it2->second);
+      }
     }
   }
-
   return out;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 NodeVec Engine::getNodes() const {
   NodeVec out;
-  for (auto it = _ents.begin(), e= _ents.end(); it != e; ++it) {
-    s__conj(out, it->second);
+  for (auto i=_ents.begin(),e= _ents.end();i != e; ++i) {
+    s__conj(out, i->second);
   }
   return out;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NodeId Engine::generateEid() {
-  auto rc= ++_lastId;
-  if (rc < INT_MAX) {} else {
-    throw "too many entities";
-  }
-  return rc;
+ENode Engine::reifyNode(const stdstr& n, bool take) {
+  auto e= new Node(this, n);
+  _ents.insert(s__pair(NodeId,ENode,e->id(),e));
+  //if (take) {e->take();}
+  return e;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ENode Engine::reifyNode(const stdstr& n, bool take) {
-  auto eid= generateEid();
-  auto e= new Node(this, n, eid);
-  _ents.insert(s__pair(NodeId,ENode,eid,e));
+ENode Engine::reifyNode(bool take) {
+  auto e= new Node(this);
+  _ents.insert(s__pair(NodeId,ENode,e->id(),e));
   //if (take) {e->take();}
   return e;
 }
@@ -148,19 +128,19 @@ void Engine::purgeNode(ENode e) {
   e->die();
   s__conj(_garbo, e);
 
-  if (auto it= _ents.find(e->eid()); it != _ents.end()) {
-    _ents.erase(it);
+  if (auto i= _ents.find(e->id()); i != _ents.end()) {
+    _ents.erase(i);
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Engine::purgeNodes() {
+  _garbo.clear();
   _ents.clear();
-  doHouseKeeping();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ESystem Engine::regoSystem(ESystem arg) {
+ESystem Engine::addSystem(ESystem arg) {
   auto p= arg->priority();
   auto i= _systems.begin();
   auto e= _systems.end();
@@ -179,6 +159,7 @@ void Engine::purgeSystem(ESystem s) {
     auto p= *i;
     if (p.ptr()== s.ptr()) {
       _systems.erase(i);
+      s=NULL;
       break;
     }
   }
@@ -192,30 +173,25 @@ void Engine::purgeSystems() {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Engine::update(float time) {
   _updating = true;
-  for (auto i= _systems.begin(), e= _systems.end(); i != e; ++i) {
+  for (auto i=_systems.begin(),e=_systems.end();i != e;++i) {
     auto s= *i;
     if (s->isActive()) {
       if (! s->update(time)) { break; }
     }
   }
-  doHouseKeeping();
+  _garbo.clear();
   _updating = false;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Engine::ignite() {
-  initEntities();
-  initSystems();
-  for (auto i= _systems.begin(), e= _systems.end(); i != e; ++i) {
+  (initNodes(), initSystems());
+  for (auto i= _systems.begin(),e= _systems.end();i != e;++i) {
     auto s= *i;
     s->preamble();
   }
 }
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Engine::doHouseKeeping() {
-  _garbo.clear();
-}
 
 
 

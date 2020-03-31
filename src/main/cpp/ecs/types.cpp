@@ -16,17 +16,24 @@
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::ecs {
-
-  Registry::~Registry() {
-    for (auto i=_rego.begin(),e=_rego.end();i!=e;++i) {
-      DEL_PTR(i->second);
-    }
-  }
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static AttrId _lastAttrId=0;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Attribute::Attribute() {
+  _id= ++_lastAttrId;
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-AttrCache* Registry::getCache(const AttrType& c) const {
-  if (auto it= _rego.find(c); it != _rego.end()) {
-    return it->second;
+Registry::~Registry() {
+  for (auto i=_rego.begin(),e=_rego.end();i!=e;++i) {
+    DEL_PTR(i->second);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+AttrCache* Registry::getCache(const AttrId& c) const {
+  if (auto i=_rego.find(c); i != _rego.end()) {
+    return i->second;
   } else {
     return NULL;
   }
@@ -34,14 +41,14 @@ AttrCache* Registry::getCache(const AttrType& c) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Registry::unbind(EAttr c, ENode e) {
-  unbind(c->typeId(), e);
+  unbind(c->id(), e);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Registry::unbind(const AttrType& cid, ENode e) {
-  if (auto it= _rego.find(cid); it != _rego.end()) {
-    auto eid= e->eid();
-    auto m= it->second;
+void Registry::unbind(const AttrId& cid, ENode e) {
+  if (auto i= _rego.find(cid); i != _rego.end()) {
+    auto eid= e->id();
+    auto m= i->second;
     if (auto it2= m->find(eid); it2 != m->end()) {
       m->erase(it2);
     }
@@ -50,25 +57,14 @@ void Registry::unbind(const AttrType& cid, ENode e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Registry::bind(EAttr c, ENode e) {
-  auto cid= c->typeId();
-  auto eid= e->eid();
-  AttrCache* m;
+  auto cid= c->id();
+  auto eid= e->id();
 
-  if (auto it= _rego.find(cid); it != _rego.end()) {
-    m= it->second;
-  } else {
-    m= new AttrCache;
-    _rego.insert(s__pair(AttrType,AttrCache*,cid,m));
+  if (auto i= _rego.find(cid); i != _rego.end()) {} else {
+    _rego.insert(s__pair(AttrId,AttrCache*,cid, new AttrCache));
   }
-  m->insert(s__pair(NodeId,EAttr, eid, c));
+  _rego[cid]->insert(s__pair(NodeId,EAttr, eid, c));
 }
-
-
-
-
-
-
-
 
 
 

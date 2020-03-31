@@ -21,13 +21,113 @@
 namespace czlab::ecs {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a= czlab::aeon;
+namespace e= czlab::ecs;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Location : public e::Attribute {
+  Location() {}
+  virtual ~Location() {}
+};
+struct Health : public e::Attribute {
+  Health() {}
+  virtual ~Health() {}
+};
+struct Flyable : public e::Attribute {
+  Flyable() {}
+  virtual ~Flyable() {}
+};
+struct Runnable : public e::Attribute {
+  Runnable() {}
+  virtual ~Runnable() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct S1 : public e::System {
+
+  virtual ~S1() {}
+  S1(Engine* g) : e::System(g) {}
+
+  virtual bool update(float time) {
+    std::cout << "update - S1\n";
+    return true;
+  }
+  virtual void preamble() {
+    std::cout << "preamble - S1\n";
+  }
+  virtual int priority() const {
+    return 1;
+  }
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct S2 : public e::System {
+
+  virtual ~S2() {}
+  S2(Engine* g) : e::System(g) {}
+
+  virtual bool update(float time) {
+    std::cout << "update - S2\n";
+    return true;
+  }
+  virtual void preamble() {
+    std::cout << "preamble - S2\n";
+  }
+  virtual int priority() const { return 2; }
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct S3 : public e::System {
+
+  virtual ~S3() {}
+  S3(Engine* g) : e::System(g) {}
+
+  virtual bool update(float time) {
+    std::cout << "update - S3\n";
+    return true;
+  }
+  virtual void preamble() {
+    std::cout << "preamble - S3\n";
+  }
+  virtual int priority() const { return 3; }
+};
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Game : public e::Engine {
+  Game() {}
+  virtual ~Game() {}
+
+  virtual void initNodes() {
+    auto a= reifyNode("a");
+    auto b= reifyNode("b");
+    rego()->bind(new Location(),a);
+    rego()->bind(new Location(),b);
+
+    rego()->bind(new Health(),a);
+    rego()->bind(new Health(),b);
+
+    rego()->bind(new Runnable(),a);
+    rego()->bind(new Flyable(),b);
+  }
+
+  virtual void initSystems() {
+    addSystem(new S2(this));
+    addSystem(new S1(this));
+    addSystem(new S3(this));
+  }
+
+};
+
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 
 using namespace czlab::ecs;
 
 int main(int ac, char** av) {
+  Game* g = new Game();
+  g->ignite();
+  g->update(1);
+  delete g;
   std::cout << "yo! "    << "\n";
   return 0;
 }

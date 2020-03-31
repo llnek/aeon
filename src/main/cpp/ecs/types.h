@@ -25,9 +25,7 @@ namespace a= czlab::aeon;
 namespace j= nlohmann;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-typedef stdstr SystemType;
-typedef stdstr AttrType;
-typedef stdstr NodeType;
+typedef long AttrId;
 typedef long NodeId;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -44,40 +42,46 @@ typedef a::RefPtr<Node> ENode;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct MSVC_DLL Attribute : public a::Counted {
 
-  virtual ENode getNode() const { return _compNode; }
-  virtual AttrType typeId() const = 0;
+  friend struct Node;
+
+  ENode node() const { return _node; }
+  AttrId id() { return _id; }
+
   virtual ~Attribute() {}
 
   protected:
 
-  Attribute() {}
+  Attribute();
 
   private:
 
-  friend struct Node;
-  void setNode(ENode n) { _compNode=n; }
-  ENode _compNode;
+  void setNode(ENode n) { _node=n; }
+
+  ENode _node;
+  AttrId _id;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 typedef std::map<NodeId,EAttr> AttrCache;
 typedef std::map<NodeId,ENode> NodeCache;
 
-typedef std::vector<AttrType> ATypeVec;
 typedef std::vector<ESystem> SystemVec;
+typedef std::vector<AttrId> ATypeVec;
 typedef std::vector<EAttr> AttrVec;
 typedef std::vector<ENode> NodeVec;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct MSVC_DLL Node : public a::Counted {
 
+  friend struct Engine;
+
   bool isOk() const { return !_dead; };
-  NodeId eid() const { return _eid; }
+  NodeId id() const { return _eid; }
 
-  EAttr get(const AttrType&) const;
-  bool has(const AttrType&) const;
+  EAttr get(const AttrId&) const;
+  bool has(const AttrId&) const;
 
-  void purge(const AttrType&);
+  void purge(const AttrId&);
   void checkin(EAttr);
 
   AttrVec getAll() const;
@@ -86,15 +90,14 @@ struct MSVC_DLL Node : public a::Counted {
 
   private:
 
-  friend struct Engine;
-
-  std::map<AttrType, EAttr> _parts;
+  std::map<AttrId, EAttr> _attrs;
   Engine* _engine;
   bool _dead=false;
   NodeId _eid;
   stdstr _name;
 
-  Node(Engine*, const stdstr&, NodeId);
+  Node(Engine*, const stdstr&);
+  Node(Engine*);
   void die() { _dead=true; }
 
   Node(const Node&) = delete;
@@ -106,24 +109,21 @@ struct MSVC_DLL Node : public a::Counted {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct MSVC_DLL System : public a::Counted {
 
-  virtual SystemType typeId() const = 0;
-  virtual bool update(float time) = 0;
-  virtual void preamble() = 0;
-  virtual int priority() const = 0;
-
   Engine* engine() const { return _engine; }
   bool isActive() const { return _active; }
-  bool isa(const SystemType&  t) const {
-    return typeId() == t;
-  }
 
   void suspend() { _active=false; }
   void restart() { _active=true; }
 
-  System(Engine* e) { _engine= e; }
+  virtual bool update(float time) = 0;
+  virtual void preamble() = 0;
+  virtual int priority() const = 0;
+
   virtual ~System() {}
 
   protected:
+
+  System(Engine* e) { _engine= e; }
 
   Engine* _engine;
   bool _active=true;
@@ -137,9 +137,9 @@ struct MSVC_DLL System : public a::Counted {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct MSVC_DLL Registry {
 
-  AttrCache* getCache(const AttrType&) const;
+  AttrCache* getCache(const AttrId&) const;
 
-  void unbind(const AttrType&, ENode);
+  void unbind(const AttrId&, ENode);
   void unbind(EAttr, ENode);
   void bind(EAttr, ENode);
 
@@ -148,7 +148,7 @@ struct MSVC_DLL Registry {
 
   private:
 
-  std::map<AttrType, AttrCache*> _rego;
+  std::map<AttrId, AttrCache*> _rego;
   Registry(const Registry&) = delete;
   Registry& operator=(const Registry&) = delete;
 
@@ -162,7 +162,7 @@ struct MSVC_DLL Engine {
   NodeVec getNodes(const ATypeVec&) const;
 
   // return entities with this component
-  NodeVec getNodes(const AttrType&) const;
+  NodeVec getNodes(const AttrId&) const;
 
   // return all the entities
   NodeVec getNodes() const;
@@ -170,6 +170,7 @@ struct MSVC_DLL Engine {
   // @name name a node, really for debugging only
   // @take only relevant when entity is pooled
   ENode reifyNode(const stdstr& name, bool take=false);
+  ENode reifyNode(bool take=false);
 
   // return the config
   const j::json& getCfg() const { return _config; }
@@ -186,7 +187,7 @@ struct MSVC_DLL Engine {
   void purgeNodes();
 
   // register+add a system
-  ESystem regoSystem(ESystem);
+  ESystem addSystem(ESystem);
 
   // start the engine
   void ignite();
@@ -202,8 +203,8 @@ struct MSVC_DLL Engine {
 
   protected:
 
-  virtual void initEntities() = 0;
   virtual void initSystems() = 0;
+  virtual void initNodes() = 0;
 
   private:
 
@@ -212,11 +213,7 @@ struct MSVC_DLL Engine {
   NodeCache _ents;
   NodeVec _garbo;
   Registry* _types;
-  int _lastId=0;
   bool _updating=false;
-
-  void doHouseKeeping();
-  NodeId generateEid();
 
   Engine(const Engine&)=delete;
   Engine& operator=(const Engine&)=delete;

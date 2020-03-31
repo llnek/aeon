@@ -17,34 +17,42 @@
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::ecs {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Node::Node(Engine* e, const stdstr& n, NodeId eid) {
-  this->_eid= eid;
+static NodeId _lastNodeId=0;
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Node::Node(Engine* e, const stdstr& n) : Node (e) {
   this->_name=n;
-  this->_engine= e;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Node::Node(Engine* e) {
+  _engine=e;
+  _eid = ++_lastNodeId;
+  _name = "node#" + std::to_string(_eid);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Node::checkin(EAttr c) {
-  auto z = c->typeId();
+  auto z = c->id();
   ASSERT1(! has(z));
   _engine->rego()->bind(c,this);
   c->setNode(this);
-  _parts.insert(s__pair(AttrType, EAttr, z, c));
+  _attrs.insert(s__pair(AttrId, EAttr, z, c));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Node::purge(const AttrType& z) {
-  if (auto it = _parts.find(z); it != _parts.end()) {
-    auto c= it->second;
-    _parts.erase(it);
+void Node::purge(const AttrId& z) {
+  if (auto i = _attrs.find(z); i != _attrs.end()) {
+    auto c= i->second;
+    _attrs.erase(i);
     _engine->rego()->unbind(c,this);
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-EAttr Node::get(const AttrType& z) const {
-  if (auto it=  _parts.find(z); it != _parts.end()) {
-    return it->second;
+EAttr Node::get(const AttrId& z) const {
+  if (auto i=  _attrs.find(z); i != _attrs.end()) {
+    return i->second;
   } else {
     return NULL;
   }
@@ -53,15 +61,15 @@ EAttr Node::get(const AttrType& z) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 AttrVec Node::getAll() const {
   AttrVec out;
-  for (auto b= _parts.begin(), e= _parts.end(); b != e; ++b) {
+  for (auto b= _attrs.begin(),e=_attrs.end();b != e;++b) {
     s__conj(out, b->second);
   }
   return out;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Node::has(const AttrType& z) const {
-  return s__contains(_parts, z);
+bool Node::has(const AttrId& z) const {
+  return s__contains(_attrs, z);
 }
 
 
