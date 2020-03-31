@@ -25,11 +25,10 @@ namespace a= czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 
-
-
+using namespace czlab::ecs;
 
 int main(int ac, char** av) {
-  std::cout << "yo!" << "\n";
+  std::cout << "yo! "    << "\n";
   return 0;
 }
 
