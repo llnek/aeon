@@ -36,6 +36,15 @@ typedef a::RefPtr<Table> DslTable;
 typedef a::RefPtr<AbstractToken> DslToken;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+typedef std::vector<DslToken> TokenVec;
+typedef std::vector<DslAst> AstVec;
+
+typedef std::vector<DslToken>::iterator TokenVIter;
+typedef std::vector<DslAst>::iterator AstVIter;
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
   T_INTEGER = 1000000,
   T_REAL,
@@ -162,6 +171,7 @@ bool advance(Context&, int steps=1);
 Tchar peek(Context&);
 stdstr str(Context&);
 stdstr numeric(Context&);
+stdstr line(Context&);
 Data* nothing();
 stdstr identifier(Context& ctx, IdPredicate pred);
 

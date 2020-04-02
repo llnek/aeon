@@ -103,6 +103,20 @@ void skipWhitespace(Context& ctx) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::string line(Context& ctx) {
+  std::string res;
+  while (!ctx.eof) {
+    auto ch = peek(ctx);
+    advance(ctx);
+    if (ch == '\n')
+    break;
+    res += peek(ctx);
+  }
+  return res;
+}
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::string digits(Context& ctx) {
   std::string res;
   while (!ctx.eof && ::isdigit(peek(ctx))) {
