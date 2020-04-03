@@ -175,6 +175,91 @@ struct UnaryOp : public Ast {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Run : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  Run();
+  virtual stdstr pr_str() const;
+  virtual ~Run() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct End : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  End();
+  virtual stdstr pr_str() const;
+  virtual ~End() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct GoSubReturn : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  GoSubReturn();
+  virtual stdstr pr_str() const;
+  virtual ~GoSubReturn() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct GoSub : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  GoSub(d::DslAst);
+  virtual stdstr pr_str() const;
+  virtual ~GoSub() {}
+  private:
+  d::DslAst expr;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Goto : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  Goto(d::DslAst);
+  virtual stdstr pr_str() const;
+  virtual ~Goto() {}
+  private:
+  d::DslAst expr;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct ForLoop : public Ast {
+  ForLoop(d::DslAst var, d::DslAst init, d::DslAst term);
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  virtual stdstr pr_str() const;
+  virtual ~ForLoop() {}
+  private:
+  d::DslAst init;
+  d::DslAst var;
+  d::DslAst term;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Print : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  Print(const d::AstVec&);
+  virtual stdstr pr_str() const;
+  virtual ~Print() {}
+  private:
+  d::AstVec exprs;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct IfThen : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  IfThen(d::DslAst c, d::DslAst t);
+  virtual stdstr pr_str() const;
+  virtual ~IfThen() {}
+  private:
+  d::DslAst cond;
+  d::DslAst then;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Input : public Ast {
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);

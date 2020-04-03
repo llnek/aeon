@@ -22,10 +22,172 @@ namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst expr(BasicParser*);
+d::DslAst b_expr(BasicParser*);
+d::DslAst statement(BasicParser*);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Ast::Ast() {
   token=new Token(d::T_ETHEREAL,"?", s__pair(int,int,0,0));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ForLoop::ForLoop(d::DslAst var, d::DslAst init, d::DslAst term) {
+  this->var=var;
+  this->init= init;
+  this->term= term;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue ForLoop::eval(d::IEvaluator*) {
+  return NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void ForLoop::visit(d::IAnalyzer* a) {
+  var->visit(a);
+  init->visit(a);
+  term->visit(a);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr ForLoop::pr_str() const {
+  stdstr buf {"FOR"};
+
+  buf += " ";
+  buf += AST(var)->pr_str();
+  buf += " = ";
+  buf += AST(init)->pr_str();
+  buf += " TO ";
+  buf += AST(term)->pr_str();
+
+  return buf;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+IfThen::IfThen(d::DslAst c, d::DslAst t) {
+  cond=c;
+  then=t;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue IfThen::eval(d::IEvaluator*) {
+  return NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void IfThen::visit(d::IAnalyzer* a) {
+  cond->visit(a);
+  then->visit(a);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr IfThen::pr_str() const {
+  stdstr buf { "IF" };
+
+  buf += " ";
+  buf += AST(cond)->pr_str();
+  buf += " ";
+  buf += AST(then)->pr_str();
+  return buf;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Run::Run() {
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Run::eval(d::IEvaluator*) {
+  return NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Run::visit(d::IAnalyzer* a) {
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr Run::pr_str() const {
+  return "RUN";
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+End::End() {
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue End::eval(d::IEvaluator*) {
+  return NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void End::visit(d::IAnalyzer* a) {
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr End::pr_str() const {
+  return "END";
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+GoSubReturn::GoSubReturn() {
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue GoSubReturn::eval(d::IEvaluator*) {
+  return NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void GoSubReturn::visit(d::IAnalyzer* a) {
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr GoSubReturn::pr_str() const {
+  return "RETURN";
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+GoSub::GoSub(d::DslAst e) {
+  expr=e;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue GoSub::eval(d::IEvaluator*) {
+  return NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void GoSub::visit(d::IAnalyzer* a) {
+  expr->visit(a);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr GoSub::pr_str() const {
+  stdstr buf { "GOSUB"};
+
+  buf += " ";
+  buf += AST(expr)->pr_str();
+
+  return buf;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Goto::Goto(d::DslAst e) {
+  expr=e;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Goto::eval(d::IEvaluator*) {
+  return NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Goto::visit(d::IAnalyzer* a) {
+  expr->visit(a);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr Goto::pr_str() const {
+  return stdstr("GOTO ") + AST(expr)->pr_str();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -44,11 +206,11 @@ d::DslValue FuncCall::eval(d::IEvaluator* e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr FuncCall::pr_str() const {
-  stdstr buf { token->getLiteralAsStr() };
+  stdstr buf { AST(fn)->pr_str() };
   stdstr pms;
   buf += "(";
   for (auto& i : args) {
-    if (pms.empty()) pms += " , ";
+    if (!pms.empty()) pms += " , ";
     pms += AST(i)->pr_str();
   }
   buf += pms;
@@ -78,7 +240,7 @@ d::DslValue BoolTerm::eval(d::IEvaluator*) {
 stdstr BoolTerm::pr_str() const {
   stdstr buf;
   for (auto& i : terms) {
-    if (buf.empty()) buf += " , ";
+    if (!buf.empty()) buf += " , ";
     buf += AST(i)->pr_str();
   }
   return buf;
@@ -184,11 +346,13 @@ d::DslValue BinOp::eval(d::IEvaluator*) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr BinOp::pr_str() const {
   stdstr buf;
+  buf += "( ";
   buf += AST(lhs)->pr_str();
   buf += " ";
   buf += TKN(token)->pr_str();
   buf += " ";
   buf += AST(rhs)->pr_str();
+  buf += " )";
   return buf;
 }
 
@@ -268,6 +432,38 @@ d::DslValue UnaryOp::eval(d::IEvaluator*) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void UnaryOp::visit(d::IAnalyzer* a) {
   expr->visit(a);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Print::Print(const d::AstVec& es) {
+  s__ccat(exprs, es);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Print::eval(d::IEvaluator*) {
+  return NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Print::visit(d::IAnalyzer* a) {
+  for (auto& i : exprs) {
+    i->visit(a);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr Print::pr_str() const {
+  stdstr buf {"PRINT"};
+  stdstr b;
+
+  for (auto& i : exprs) {
+    if (!b.empty()) b += " , ";
+    b += AST(i)->pr_str();
+  }
+
+  buf += " ";
+  buf += b;
+  return buf;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -422,7 +618,7 @@ d::DslToken BasicParser::eat() {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool BasicParser::isEof() const {
-  return lex->ctx().eof;
+  return lex->ctx().cur->type() == d::T_EOF;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -455,8 +651,8 @@ d::DslAst funcall(BasicParser* bp, d::DslToken name) {
 d::DslAst skipComment(BasicParser* bp) {
   std::vector<d::DslToken> tkns;
   bp->eat(T_REM);
-  while (!bp->isEof()) {
-    if (bp->isCur(T_EOL))
+  while (1) {
+    if (bp->isEof() || bp->isCur(T_EOL))
     break;
     s__conj(tkns, bp->eat());
   }
@@ -472,6 +668,70 @@ d::DslAst input(BasicParser* bp) {
   }
   bp->eat(d::T_SEMI);
   return new Input(new Var(bp->eat(d::T_IDENT)),prompt);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst ifThen(BasicParser* bp) {
+  bp->eat(T_IF);
+  auto c= b_expr(bp);
+  bp->eat(T_THEN);
+  return new IfThen(c, statement(bp));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst forLoop(BasicParser* bp) {
+  bp->eat(T_FOR);
+  auto v= bp->eat(d::T_IDENT);
+  bp->eat(d::T_EQ);
+  auto b=expr(bp);
+  bp->eat(T_TO);
+  auto e= expr(bp);
+  return new ForLoop(new Var(v), b, e);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst print(BasicParser* bp) {
+  bp->eat(T_PRINT);
+  d::AstVec out;
+  auto e= expr(bp);
+  if (e.isSome()) {
+    s__conj(out,e);
+    while (bp->isCur(d::T_COMMA)) {
+      bp->eat();
+      s__conj(out, expr(bp));
+    }
+  }
+  return new Print(out);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst gotoLine(BasicParser* bp) {
+  bp->eat(T_GOTO);
+  return new Goto(expr(bp));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst gosub(BasicParser* bp) {
+  bp->eat(T_GOSUB);
+  return new GoSub(expr(bp));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst returnSub(BasicParser* bp) {
+  bp->eat(T_RETURN);
+  return new GoSubReturn();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst runProg(BasicParser* bp) {
+  bp->eat(T_RUN);
+  return new Run();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst endProg(BasicParser* bp) {
+  bp->eat(T_END);
+  return new End();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -651,7 +911,9 @@ d::DslAst term2(BasicParser* bp) {
   static std::set<int> ops { T_POWER };
   auto res= factor(bp);
   while (s__contains(ops,bp->cur())) {
-    res = d::DslAst(new BinOp(res, bp->eat(), factor(bp)));
+    //res = d::DslAst(new BinOp(res, bp->eat(), factor(bp)));
+    //handles right associativity
+    res = d::DslAst(new BinOp(res, bp->eat(), term2(bp)));
   }
   return res;
 }
@@ -705,18 +967,35 @@ d::DslAst statement(BasicParser* bp) {
     break;
 
     case T_IF:
+      res= ifThen(bp);
     break;
 
     case T_FOR:
+      res= forLoop(bp);
     break;
 
     case T_PRINT:
+      res= print(bp);
     break;
 
     case T_GOTO:
+      res= gotoLine(bp);
+    break;
+
+    case T_RETURN:
+      res= returnSub(bp);
+    break;
+
+    case T_END:
+      res= endProg(bp);
+    break;
+
+    case T_RUN:
+      res= runProg(bp);
     break;
 
     case T_GOSUB:
+      res= gosub(bp);
     break;
 
     case T_DIM:
