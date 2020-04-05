@@ -21,6 +21,10 @@ namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#define TKN(x) CAST(Token,x)
+#define AST(x) CAST(Ast,x)
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst expr(BasicParser*);
 d::DslAst b_expr(BasicParser*);
 d::DslAst statement(BasicParser*);
@@ -28,6 +32,102 @@ d::DslAst statement(BasicParser*);
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Ast::Ast() {
   token=new Token(d::T_ETHEREAL,"?", s__pair(int,int,0,0));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Program::Program(const std::map<llong,d::DslAst>& lines) {
+  auto pos=0;
+  for (auto i=lines.begin(), e=lines.end(); i!=e;++i) {
+    mlines[i->first] = pos++;
+    s__conj(vlines, i->second);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Program::eval(d::IEvaluator* e) {
+  auto _e = s__cast(Basic,e);
+  auto len=vlines.size();
+  d::DslValue last;
+  _e->init_counters();
+  //std::cout << "len = " << len << "\n" << pr_str() << "\n";
+  while (_e->incr_pc() < len) {
+    auto line= AST(vlines[_e->pc()]);
+    //std::cout << line->pr_str() << "\n";
+    last= line->eval(e);
+  }
+  return (_e->finz_counters(), last);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Program::visit(d::IAnalyzer* a) {
+  for (auto& i : vlines) {
+    i->visit(a);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr Program::pr_str() const {
+  stdstr buf;
+  for (auto& i : vlines) {
+    auto c= s__cast(Compound,i.ptr());
+    buf += std::to_string(c->line());
+    buf += " ";
+    buf += AST(i)->pr_str();
+    buf += "\n";
+  }
+  return buf;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Compound::Compound(llong ln, const d::AstVec& vs) {
+  _line=ln;
+  s__ccat(stmts,vs);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Compound::eval(d::IEvaluator* e) {
+  d::DslValue last;
+  for (auto& i : stmts) {
+    last= i->eval(e);
+  }
+  return last;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Compound::visit(d::IAnalyzer* a) {
+  for (auto& i : stmts) {
+    i->visit(a);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr Compound::pr_str() const {
+  stdstr buf;
+  for (auto& i : stmts) {
+    if (!buf.empty()) buf += ":";
+    buf += AST(i)->pr_str();
+  }
+  return buf;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LibFunc::LibFunc(const stdstr& name, Invoker k) : Function(name) {
+  fn=k;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LibFunc::invoke(d::IEvaluator*, d::VSlice) {
+  return NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue LibFunc::invoke(d::IEvaluator*) {
+  return NULL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr LibFunc::pr_str(bool p) const {
+  return "#native@" + _name;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -176,7 +276,8 @@ Goto::Goto(d::DslAst e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Goto::eval(d::IEvaluator*) {
+d::DslValue Goto::eval(d::IEvaluator* e) {
+  expr->eval(e);
   return NULL;
 }
 
@@ -232,8 +333,12 @@ BoolTerm::BoolTerm(const d::AstVec& ts) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue BoolTerm::eval(d::IEvaluator*) {
-  return NULL;
+d::DslValue BoolTerm::eval(d::IEvaluator* e) {
+  d::DslValue res;
+  for (auto & i : terms) {
+    res= i->eval(e);
+  }
+  return res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -274,8 +379,12 @@ stdstr BoolExpr::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue BoolExpr::eval(d::IEvaluator*) {
-  return NULL;
+d::DslValue BoolExpr::eval(d::IEvaluator* e) {
+  d::DslValue res;
+  for (auto& i : terms) {
+    res= i->eval(e);
+  }
+  return res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -302,7 +411,19 @@ stdstr RelationOp::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue RelationOp::eval(d::IEvaluator*) {
+d::DslValue RelationOp::eval(d::IEvaluator* e) {
+  auto x = lhs->eval(e);
+  auto y = rhs->eval(e);
+  switch (token->type()) {
+    case T_NOTEQ:
+    case T_GTEQ:
+    case T_LTEQ:
+    case d::T_LT:
+    case d::T_GT:
+    case d::T_EQ:
+    default:
+    break;
+  }
   return NULL;
 }
 
@@ -323,8 +444,10 @@ stdstr NotFactor::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue NotFactor::eval(d::IEvaluator*) {
-  return NULL;
+d::DslValue NotFactor::eval(d::IEvaluator* e) {
+  auto res= expr->eval(e);
+  auto i= cast_int(res,1);
+  return INT_VAL( i->impl()==0 ? 0 : 1 );
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -339,8 +462,21 @@ BinOp::BinOp(d::DslAst left, d::DslToken op, d::DslAst right) : Ast(op) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue BinOp::eval(d::IEvaluator*) {
-  return NULL;
+d::DslValue BinOp::eval(d::IEvaluator* e) {
+  auto lf= lhs->eval(e);
+  auto rt= rhs->eval(e);
+  auto op = token->type();
+  if (op == T_INT_DIV) {
+    // ensure both should be integers
+    cast_int(lf,1);
+    cast_int(rt,1);
+  }
+  d::ValVec vs {lf, rt};
+  d::NumberVec out;
+  auto res= cast_numeric(d::VSlice(vs), out)
+         ? op_math<double>(out[0],op,out[1])
+         : op_math<llong>(out[0],op,out[1]);
+  return res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -372,8 +508,12 @@ stdstr Num::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Num::eval(d::IEvaluator*) {
-  return NULL;
+d::DslValue Num::eval(d::IEvaluator* e) {
+  if (token->type() == d::T_INTEGER) {
+    return INT_VAL(token->getLiteralAsInt());
+  } else {
+    return FLOAT_VAL(token->getLiteralAsReal());
+  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -384,12 +524,12 @@ String::String(d::DslToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr String::pr_str() const {
-  return TKN(token)->pr_str();
+  return "\"" + TKN(token)->pr_str() + "\"";
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue String::eval(d::IEvaluator*) {
-  return NULL;
+  return STRING_VAL(token->getLiteralAsStr());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -404,8 +544,9 @@ stdstr Var::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Var::eval(d::IEvaluator*) {
-  return NULL;
+d::DslValue Var::eval(d::IEvaluator* e) {
+  auto n= token->getLiteralAsStr();
+  return e->getValue(n);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -425,8 +566,20 @@ stdstr UnaryOp::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue UnaryOp::eval(d::IEvaluator*) {
-  return NULL;
+d::DslValue UnaryOp::eval(d::IEvaluator* e) {
+  auto res = expr->eval(e);
+  auto n = cast_int(res,0);
+  auto f = cast_float(res, 0);
+  if (token->type() == d::T_MINUS) {
+    if (n) {
+      res = INT_VAL(- n->impl());
+    }
+    else
+    if (f) {
+      res = FLOAT_VAL(- f->impl());
+    }
+  }
+  return res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -440,7 +593,29 @@ Print::Print(const d::AstVec& es) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Print::eval(d::IEvaluator*) {
+d::DslValue Print::eval(d::IEvaluator* e) {
+  auto _e = s__cast(Basic,e);
+  auto lastSemi=false;
+  for (auto& i : exprs) {
+    auto t= AST(i)->token->type();
+    lastSemi=false;
+    if (t == d::T_COMMA) {
+      _e->writeString(" ");
+    }
+    else
+    if (t == d::T_SEMI) {
+      lastSemi=true;
+    }
+    else
+    if (auto res= i->eval(e); res.isSome()) {
+      _e->writeString(res->pr_str(1));
+    }
+  }
+
+  if (! lastSemi) {
+    _e->writeln();
+  }
+
   return NULL;
 }
 
@@ -457,7 +632,7 @@ stdstr Print::pr_str() const {
   stdstr b;
 
   for (auto& i : exprs) {
-    if (!b.empty()) b += " , ";
+    if (!b.empty()) b += " ";
     b += AST(i)->pr_str();
   }
 
@@ -467,14 +642,31 @@ stdstr Print::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+PrintSep::PrintSep(d::DslToken t) : Ast(t) {  }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue PrintSep::eval(d::IEvaluator* e) {
+  return INT_VAL(token->type());
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void PrintSep::visit(d::IAnalyzer* a) { }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr PrintSep::pr_str() const {
+  return token->getLiteralAsStr();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Assignment::Assignment(d::DslAst left, d::DslToken op, d::DslAst right) : Ast(op) {
   lhs=left;
   rhs=right;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Assignment::eval(d::IEvaluator*) {
-  return NULL;
+d::DslValue Assignment::eval(d::IEvaluator* e) {
+  auto n= CAST(Var,lhs)->name();
+  return e->setValue(n, rhs->eval(e));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -624,7 +816,6 @@ bool BasicParser::isEof() const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst assignment(BasicParser* bp) {
   auto name= bp->eat(d::T_IDENT);
-  auto var= name->getLiteralAsStr();
   auto t= bp->eat(d::T_EQ);
   auto val= expr(bp);
   return new Assignment(new Var(name),t, val);
@@ -693,12 +884,17 @@ d::DslAst forLoop(BasicParser* bp) {
 d::DslAst print(BasicParser* bp) {
   bp->eat(T_PRINT);
   d::AstVec out;
-  auto e= expr(bp);
-  if (e.isSome()) {
-    s__conj(out,e);
-    while (bp->isCur(d::T_COMMA)) {
-      bp->eat();
-      s__conj(out, expr(bp));
+  while (1) {
+    if (bp->isCur(d::T_COLON) ||
+        bp->isCur(T_EOL) ||
+        bp->isEof()) { break; }
+    if (bp->isCur(d::T_SEMI) ||
+        bp->isCur(d::T_COMMA)) {
+      s__conj(out, new PrintSep(bp->eat()));
+    }
+    else
+    if (auto e= b_expr(bp); e.isSome()) {
+      s__conj(out,e);
     }
   }
   return new Print(out);
@@ -1017,7 +1213,7 @@ d::DslAst statement(BasicParser* bp) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst compound_statements(BasicParser* bp) {
   auto loop=true;
-
+  d::AstVec out;
   while (loop && !bp->isEof()) {
     switch (bp->cur()) {
       case d::T_COLON:
@@ -1030,20 +1226,19 @@ d::DslAst compound_statements(BasicParser* bp) {
       break;
 
       default:
-        auto res= statement(bp);
-        if (res.isSome())
-          std::cout << AST(res)->pr_str() << "\n";
+        s__conj(out, statement(bp));
       break;
     }
   }
 
-  return NULL;
+  return new Compound(bp->line(), out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst parse_line(BasicParser* bp) {
 
   auto t= bp->token();
+  d::DslAst res;
   llong line= -1;
 
   // usually line number, but can be none.
@@ -1053,19 +1248,26 @@ d::DslAst parse_line(BasicParser* bp) {
   }
 
   if (!bp->isEof()) {
-    bp->setLine(line);
-    compound_statements(bp);
+    if (bp->isCur(T_EOL)) { bp->eat(); } else {
+      bp->setLine(line);
+      res= compound_statements(bp);
+    }
   }
 
-  return NULL;
+  return res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst program(BasicParser* bp) {
+  std::map<llong,d::DslAst> lines;
   do {
-    parse_line(bp);
-  } while (!bp->isEof());
-  return NULL;
+    auto res= parse_line(bp);
+    if (res.isSome())
+      lines[bp->line()]= res;
+  }
+  while (!bp->isEof());
+
+  return new Program(lines);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

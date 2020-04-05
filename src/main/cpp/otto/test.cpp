@@ -1,7 +1,7 @@
 #include <iostream>
-#include "kirby.h"
+#include "otto.h"
 
-namespace k = czlab::kirby;
+namespace k = czlab::otto;
 namespace a = czlab::aeon;
 #if 0
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

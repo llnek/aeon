@@ -17,7 +17,7 @@
 #include "parser.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::kirby {
+namespace czlab::otto {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
@@ -197,14 +197,14 @@ void scanAnonFn(LSeqable* seq, const stdstr& gensym, int& high, bool& varArgs) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue readAnonFn(VVec& res) {
+d::DslValue readAnonFn(d::ValVec& res) {
   auto gs = gensym("G__");
   bool varArgs=false;
   int high=0;
   auto form = LIST_VAL(res);
   scanAnonFn(cast_list(form,1), gs, high, varArgs);
-  VVec out { SYMBOL_VAL("fn") };
-  VVec args;
+  d::ValVec out { SYMBOL_VAL("fn") };
+  d::ValVec args;
   for (int i = 1; i <= high; ++i) {
     s__conj(args, SYMBOL_VAL(gs + "_" + std::to_string(i)));
   }
@@ -221,7 +221,7 @@ d::DslValue readAnonFn(VVec& res) {
 d::DslValue readList(SExprParser* p, int ender, stdstr pairs) {
   auto m= p->rdr()->ctx().mark();
   auto found=0;
-  VVec res;
+  d::ValVec res;
   while (!p->isEof()) {
     if (p->isCur(ender)) { found = 1, p->eat(); break; }
     if (auto f= readForm(p); f.isSome()) { s__conj(res, f); }
@@ -266,7 +266,7 @@ d::DslValue readForm(SExprParser* p) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::pair<int,d::DslValue> SExprParser::parse() {
   d::DslValue ret;
-  VVec out;
+  d::ValVec out;
   while (!isEof()) {
     if (auto f= readForm(this); f.isSome()) {
       s__conj(out, f);

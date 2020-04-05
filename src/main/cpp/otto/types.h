@@ -17,7 +17,7 @@
 #include "../dsl/dsl.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::kirby {
+namespace czlab::otto {
 namespace a= czlab::aeon;
 namespace d= czlab::dsl;
 
@@ -26,42 +26,8 @@ namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 typedef bool (*SetCompare) (d::DslValue, d::DslValue);
 typedef std::pair<d::DslValue, d::DslValue> VPair;
-typedef std::vector<d::Number> NumberVec;
-typedef std::vector<d::DslValue> VVec;
-typedef VVec::iterator VIter;
-struct VSlice {
-  VSlice(VVec& v) { begin=v.begin(); end=v.end(); }
-  VSlice(VIter b, VIter e) : begin(b), end(e) {}
-  int size() { return std::distance(begin, end); }
-  VIter begin, end;
-};
 struct Lisper;
-typedef d::DslValue (*Invoker) (Lisper*, VSlice);
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct NoSuchVar : public a::Exception {
-  NoSuchVar(const stdstr& m) : a::Exception (m) {}
-};
-struct BadArg : public a::Exception {
-  BadArg(const stdstr& m) : a::Exception(m) {}
-};
-struct DivByZero : public a::Exception {
-  DivByZero(const stdstr& m) : a::Exception(m) {}
-};
-struct BadArity : public a::Exception {
-  BadArity(int wanted, int got)
-    : a::Exception("Expected " + std::to_string(wanted) + " args, got " + std::to_string(got) + ".\n") {}
-  BadArity(const stdstr& m) : a::Exception(m) {}
-};
-struct BadEval : public a::Exception {
-  BadEval(const stdstr& m) : a::Exception(m) {}
-};
-struct IndexOOB : public a::Exception {
-  IndexOOB(const stdstr& m) : a::Exception(m) {}
-};
-struct Unsupported : public a::Exception {
-  Unsupported(const stdstr& m) : a::Exception(m) {}
-};
+typedef d::DslValue (*Invoker) (Lisper*, d::VSlice);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #define FLOAT_VAL(n) czlab::dsl::DslValue(new LFloat(n))
@@ -337,10 +303,10 @@ struct LSymbol : public LValue {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LSequential : public LValue, public LSeqable {
 
-  void evalEach(Lisper*, d::DslFrame, VVec&) const;
+  void evalEach(Lisper*, d::DslFrame, d::ValVec&) const;
   virtual stdstr pr_str(bool p=0) const;
 
-  virtual d::DslValue conj(VSlice) const = 0;
+  virtual d::DslValue conj(d::VSlice) const = 0;
 
   virtual bool contains(d::DslValue) const;
   virtual d::DslValue nth(int) const;
@@ -357,11 +323,11 @@ struct LSequential : public LValue, public LSeqable {
   virtual ~LSequential() {}
 
   LSequential(const LSequential& rhs, d::DslValue);
-  LSequential(VSlice chunk);
-  LSequential(VVec&);
+  LSequential(d::VSlice chunk);
+  LSequential(d::ValVec&);
   LSequential() {}
 
-  VVec values;
+  d::ValVec values;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -376,11 +342,11 @@ struct LList : public LSequential {
   LList(d::DslValue);
   LList(d::DslValue,d::DslValue);
   LList(d::DslValue,d::DslValue,d::DslValue);
-  LList(VVec&);
-  LList(VSlice);
+  LList(d::ValVec&);
+  LList(d::VSlice);
   LList() {}
 
-  virtual d::DslValue conj(VSlice) const;
+  virtual d::DslValue conj(d::VSlice) const;
   virtual ~LList() {}
 };
 
@@ -396,10 +362,10 @@ struct LVec : public LSequential {
   LVec(d::DslValue);
   LVec(d::DslValue,d::DslValue);
   LVec(d::DslValue,d::DslValue,d::DslValue);
-  LVec(VSlice);
-  LVec(VVec&);
+  LVec(d::VSlice);
+  LVec(d::ValVec&);
   LVec() {}
-  virtual d::DslValue conj(VSlice) const;
+  virtual d::DslValue conj(d::VSlice) const;
   virtual ~LVec() {}
 };
 
@@ -423,12 +389,12 @@ struct LSet : public LValue, public LSeqable {
   LSet(const std::set<d::DslValue,SetCompare>&);
   LSet(const LSet& rhs, d::DslValue);
   LSet(d::DslValue);
-  LSet(VSlice);
-  LSet(VVec&);
+  LSet(d::VSlice);
+  LSet(d::ValVec&);
   LSet();
 
-  d::DslValue conj(VSlice) const;
-  d::DslValue disj(VSlice) const;
+  d::DslValue conj(d::VSlice) const;
+  d::DslValue disj(d::VSlice) const;
 
   virtual ~LSet();
 
@@ -458,12 +424,12 @@ struct LHash : public LValue, public LSeqable {
 
   LHash(const std::map<stdstr, VPair>&);
   LHash(const LHash& rhs, d::DslValue);
-  LHash(VSlice);
-  LHash(VVec&);
+  LHash(d::VSlice);
+  LHash(d::ValVec&);
   LHash();
 
-  d::DslValue dissoc(VSlice) const;
-  d::DslValue assoc(VSlice) const;
+  d::DslValue dissoc(d::VSlice) const;
+  d::DslValue assoc(d::VSlice) const;
 
   d::DslValue keys() const;
   d::DslValue vals() const;
@@ -480,7 +446,7 @@ struct LHash : public LValue, public LSeqable {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LFunction : public LValue {
 
-  virtual d::DslValue invoke(Lisper*, VSlice) = 0;
+  virtual d::DslValue invoke(Lisper*, d::VSlice) = 0;
   virtual d::DslValue invoke(Lisper*) = 0;
 
   stdstr name() const { return _name; }
@@ -501,7 +467,7 @@ struct LLambda : public LFunction {
   virtual stdstr pr_str(bool p=0) const;
   virtual ~LLambda() {}
 
-  virtual d::DslValue invoke(Lisper*, VSlice);
+  virtual d::DslValue invoke(Lisper*, d::VSlice);
   virtual d::DslValue invoke(Lisper*);
 
   LLambda(const stdstr&, const StrVec&, d::DslValue, d::DslFrame);
@@ -509,7 +475,7 @@ struct LLambda : public LFunction {
   LLambda(const LLambda&, d::DslValue);
   LLambda() : LFunction("") {}
 
-  d::DslFrame bindContext(VSlice);
+  d::DslFrame bindContext(d::VSlice);
 
   d::DslValue body;
   StrVec params;
@@ -547,7 +513,7 @@ struct LNative : public LFunction {
   virtual stdstr pr_str(bool p=0) const;
   virtual ~LNative() {}
 
-  virtual d::DslValue invoke(Lisper*, VSlice);
+  virtual d::DslValue invoke(Lisper*, d::VSlice);
   virtual d::DslValue invoke(Lisper*);
 
   LNative(const stdstr& name, Invoker);
@@ -563,21 +529,16 @@ struct LNative : public LFunction {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preEqual(int wanted, int got, const stdstr& fn);
-int preMin(int min, int got, const stdstr& fn);
-int preMax(int max, int got, const stdstr& fn);
-int preNonZero(int c, const stdstr& fn);
-int preEven(int c, const stdstr& fn);
 d::DslValue expected(const stdstr&, d::DslValue);
-void appendAll(VSlice, int, VVec&);
-void appendAll(VSlice, int, int, VVec&);
-void appendAll(LSeqable*, VVec&);
-void appendAll(LSeqable*, int, VVec&);
-void appendAll(LSeqable*, int, int, VVec&);
+void appendAll(d::VSlice, int, d::ValVec&);
+void appendAll(d::VSlice, int, int, d::ValVec&);
+void appendAll(LSeqable*, d::ValVec&);
+void appendAll(LSeqable*, int, d::ValVec&);
+void appendAll(LSeqable*, int, int, d::ValVec&);
 bool truthy(d::DslValue);
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool cast_numeric(VSlice, NumberVec&);
+bool cast_numeric(d::VSlice, d::NumberVec&);
 LAtom* cast_atom(d::DslValue, int panic=0);
 LNil* cast_nil(d::DslValue, int panic=0);
 LHash* cast_map(d::DslValue, int panic=0);

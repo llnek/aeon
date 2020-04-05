@@ -16,7 +16,7 @@
 #include "builtins.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::kirby {
+namespace czlab::otto {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
@@ -49,7 +49,7 @@ d::DslValue Lisper::evalAst(d::DslValue ast, d::DslFrame env) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame lambda_env(LLambda* fn, VSlice args) {
+d::DslFrame lambda_env(LLambda* fn, d::VSlice args) {
   auto fm= new d::Frame("lambda", fn->env);
   auto z=fn->params.size();
   auto len= args.size();
@@ -61,7 +61,7 @@ d::DslFrame lambda_env(LLambda* fn, VSlice args) {
       // var-args, next must be the last one
       // e.g. [a b c & x]
       ASSERT1((i+1 == (z-1)));
-      VVec x;
+      d::ValVec x;
       appendAll(args,j,x);
       fm->set(fn->params[i+1], LIST_VAL(x));
       j=len;
@@ -115,7 +115,7 @@ d::DslValue Lisper::syntaxQuote(d::DslValue ast, d::DslFrame env) {
   }
 
   auto s2 = is_pair(ast0,0);
-  VVec out;
+  d::ValVec out;
   LSymbol* b = NULL;
   if (s2)
     b = cast_symbol(s2->first());
@@ -168,11 +168,11 @@ StrVec cast_params(d::DslValue v) {
 d::DslValue Lisper::macroExpand(d::DslValue ast, d::DslFrame env) {
   for (auto m = maybeMacro(this, ast, env); X_NIL(m);) {
     auto seq= is_pair(ast,1);
-    VVec args;
+    d::ValVec args;
     appendAll(seq,1,args);
     ast = args.empty()
           ? m->invoke(this)
-          : m->invoke(this, VSlice(args));
+          : m->invoke(this, d::VSlice(args));
     m = maybeMacro(this, ast, env);
   }
   return ast;
@@ -186,7 +186,7 @@ d::DslValue wrapAsDo(LList* form, int from) {
     case 0: return NIL_VAL();
     case 1: return form->nth(from);
     default:
-      VVec out { SYMBOL_VAL("do") };
+      d::ValVec out { SYMBOL_VAL("do") };
       for (; from < end; ++from) {
         s__conj(out, form->nth(from));
       }
@@ -195,12 +195,12 @@ d::DslValue wrapAsDo(LList* form, int from) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue wrapAsDo(VVec& v) {
+d::DslValue wrapAsDo(d::ValVec& v) {
   switch (v.size()) {
     case 0: return NIL_VAL();
     case 1: return v[0];
     default:
-      VVec out { SYMBOL_VAL("do") };
+      d::ValVec out { SYMBOL_VAL("do") };
       s__ccat(out,v);
       return LIST_VAL(out);
   }
@@ -235,15 +235,15 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
       auto code = op->impl();
 
       if (code == "def") {
-        preEqual(3, len, "def");
+        d::preEqual(3, len, "def");
         auto var= cast_symbol(list->nth(1),1)->impl();
         return env->set(var, EVAL(list->nth(2), env));
       }
 
       if (code == "let") {
-        preMin(2, len, "let");
+        d::preMin(2, len, "let");
         auto args= cast_vec(list->nth(1),1);
-        auto cnt= preEven(args->count(), "let bindings");
+        auto cnt= d::preEven(args->count(), "let bindings");
         auto f= d::DslFrame(new d::Frame("let", env));
         for (auto i = 0; i < cnt; i += 2) {
           f->set(cast_symbol(args->nth(i),1)->impl(), EVAL(args->nth(i+1), f));
@@ -254,25 +254,25 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
       }
 
       if (code == "quote") {
-        preEqual(2, len, "quote");
+        d::preEqual(2, len, "quote");
         return list->nth(1);
       }
 
       if (code == "syntax-quote") {
-        preEqual(2, len, "syntax-quote");
+        d::preEqual(2, len, "syntax-quote");
         ast = syntaxQuote(list->nth(1), env);
         continue;
       }
 
       if (code == "defmacro") {
-        preEqual(4, len, "defmacro");
+        d::preEqual(4, len, "defmacro");
         auto var = cast_symbol(list->nth(1),1)->impl();
         auto pms= cast_params(list->nth(2));
         return env->set(var, MACRO_VAL(var, pms, list->nth(3), env));
       }
 
       if (code == "macroexpand") {
-        preEqual(2, len, "macroexpand");
+        d::preEqual(2, len, "macroexpand");
         return macroExpand(list->nth(1), env);
       }
 
@@ -281,14 +281,14 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
         d::DslValue error;
         stdstr errorVar;
         d::DslValue cbody;
-        VVec tbody;
+        d::ValVec tbody;
         for (auto j=1; j < len; ++j) {
           auto n= list->nth(j);
           if (auto c= cast_list(n); X_NIL(c) && c->count() > 0) {
             if (auto s= cast_symbol(c->nth(0)); X_NIL(s) && s->impl() == "catch") {
               ASSERT(j==(len-1),
                      "catch must be last form: %s.\n", C_STR(list->pr_str(1)));
-              preMin(2,c->count(), "catch");
+              d::preMin(2,c->count(), "catch");
               errorVar = cast_symbol(c->nth(1),1)->impl();
               cbody=wrapAsDo(c,2);
               break;
@@ -334,14 +334,14 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
       }
 
       if (code == "defn") {
-        preMin(3,len,"defn");
+        d::preMin(3,len,"defn");
         auto var = cast_symbol(list->nth(1),1)->impl();
         auto pms= cast_params(list->nth(2));
         return env->set(var, LAMBDA_VAL(var, pms, wrapAsDo(list,3), env));
       }
 
       if (code == "fn") {
-        preMin(2,len,"fn");
+        d::preMin(2,len,"fn");
         auto pms= cast_params(list->nth(1));
         auto var= "anon-fn#"+std::to_string(++seed);
         return LAMBDA_VAL(var, pms, wrapAsDo(list,2), env);
@@ -355,17 +355,17 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
       return NIL_VAL();
     }
     d::DslValue op= vs->nth(0);
-    VVec args;
+    d::ValVec args;
     appendAll(vs,1,args);
 //    auto func= cast_function(op,1);
 //    DEBUG("casted function = %s.\n", C_STR(func->name()));
     if (auto lambda= cast_lambda(op); X_NIL(lambda)) {
       ast = lambda->body;
-      env = lambda->bindContext(VSlice(args));
+      env = lambda->bindContext(d::VSlice(args));
       continue;
     }
     if (auto native= cast_native(op); X_NIL(native)) {
-      return native->invoke(this, VSlice(args));
+      return native->invoke(this, d::VSlice(args));
     }
   }
 }

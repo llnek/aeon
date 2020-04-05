@@ -12,16 +12,36 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include <iostream>
-#include "interpreter.h"
+#include "builtins.h"
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#define TO_FLOAT(x) x.isInt() ? (double) x.getInt() : x.getFloat()
+#define TO_INT(x) x.isInt() ? x.getInt() : (llong) x.getFloat()
+#define CHKSZ(x, e) ((x) >= 0 && (x) < (e))
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::basic {
+namespace a = czlab::aeon;
 namespace d = czlab::dsl;
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_sin(d::IEvaluator* e, d::VSlice args) {
+  // sin(x)
+  d::preEqual(1, args.size(), "sin");
+  return FLOAT_VAL(999.999);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslFrame init_natives(d::DslFrame env) {
+  env->set("SIN", FN_VAL("SIN",&native_sin));
+  return env;
+}
+
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
+
 

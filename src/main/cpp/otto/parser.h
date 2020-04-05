@@ -13,13 +13,37 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "parser.h"
+#include "reader.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::basic {
-namespace d= czlab::dsl;
+namespace czlab::otto {
+namespace d = czlab::dsl;
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr gensym(const stdstr& prefix);
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct SExprParser : public d::IParser {
+  // S-Expression parser.
+  std::pair<int,d::DslValue> parse();
+  SExprParser(const Tchar* src);
+  virtual ~SExprParser();
+  int cur() const;
+  Tchar peek() const;
+  bool isCur(int) const;
+  bool isEof() const;
+
+  d::DslToken token() const;
+  d::DslToken eat();
+  d::DslToken eat(int wanted);
+
+  Reader* rdr() { return lexer; }
+
+  private:
+
+  SExprParser() { lexer=nullptr;}
+  Reader* lexer;
+};
 
 
 

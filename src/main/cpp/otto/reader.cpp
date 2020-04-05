@@ -15,7 +15,7 @@
 #include "reader.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::kirby {
+namespace czlab::otto {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
@@ -143,7 +143,7 @@ Reader::Reader(const char* src) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool Reader::isKeyword(const stdstr& k) const {
-  throw Unsupported("not allowed!");
+  throw d::Unsupported("not allowed!");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

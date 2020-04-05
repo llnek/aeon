@@ -15,7 +15,7 @@
 #include "types.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::kirby {
+namespace czlab::otto {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a= czlab::aeon;
 namespace d= czlab::dsl;
@@ -47,62 +47,22 @@ LSymbol A_SYMB { "" };
 bool truthy(d::DslValue v) { return TO_VAL(v)->truthy(); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preEqual(int wanted, int got, const stdstr& fn) {
-  if (wanted != got)
-    RAISE(BadArity,
-          "%s requires %d args, got %d.\n", C_STR(fn), wanted, got);
-  return got;
-}
+void appendAll(LSeqable* s, d::ValVec& out) { appendAll(s, 0, out); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preMax(int max, int got, const stdstr& fn) {
-  if (got > max)
-    RAISE(BadArity,
-          "%s requires at most %d args, got %d.\n", C_STR(fn), max, got);
-  return got;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preMin(int min, int got, const stdstr& fn) {
-  if (got < min)
-    RAISE(BadArity,
-          "%s requires at least %d args, got %d.\n", C_STR(fn), min, got);
-  return got;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preNonZero(int c, const stdstr& fn) {
-  if (c == 0)
-    RAISE(BadArity,
-          "%s requires some args, got %d.\n", C_STR(fn), c);
-  return c;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preEven(int c, const stdstr& fn) {
-  if (!a::is_even(c))
-    RAISE(BadArity,
-          "%s requires even args, got %d.\n", C_STR(fn), c);
-  return c;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void appendAll(LSeqable* s, VVec& out) { appendAll(s, 0, out); }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void appendAll(LSeqable* s, int from, int to, VVec& out) {
+void appendAll(LSeqable* s, int from, int to, d::ValVec& out) {
   for (; from < to; ++from) {
     s__conj(out,s->nth(from));
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void appendAll(LSeqable* s, int from, VVec& out) {
+void appendAll(LSeqable* s, int from, d::ValVec& out) {
   appendAll(s, from, s->count(), out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void appendAll(VSlice args, int from, int to, VVec& out) {
+void appendAll(d::VSlice args, int from, int to, d::ValVec& out) {
   for (auto i= from; (args.begin+i) != args.end; ++i) {
     if (i < to)
       s__conj(out, *(args.begin+i));
@@ -110,7 +70,7 @@ void appendAll(VSlice args, int from, int to, VVec& out) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void appendAll(VSlice args, int from, VVec& out) {
+void appendAll(d::VSlice args, int from, d::ValVec& out) {
   for (auto i= from; (args.begin+i) != args.end; ++i) {
     s__conj(out, *(args.begin+i));
   }
@@ -118,7 +78,7 @@ void appendAll(VSlice args, int from, VVec& out) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue expected(const stdstr& m, d::DslValue v) {
-  RAISE(BadArg,
+  RAISE(d::BadArg,
         "Expected `%s`, got %s.\n", C_STR(m), C_STR(v->pr_str()));
 }
 
@@ -243,7 +203,7 @@ LFunction* cast_function(d::DslValue v, int panic) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool cast_numeric(VSlice vs, NumberVec& out) {
+bool cast_numeric(d::VSlice vs, d::NumberVec& out) {
   auto r=false;
   for (auto i= 0; (vs.begin+i) != vs.end; ++i) {
     auto x= *(vs.begin+i);
@@ -299,7 +259,7 @@ stdstr escape(const stdstr& src) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LValue::withMeta(d::DslValue m) const {
-  RAISE(Unsupported, "%s: not supported here.", "with-meta");
+  RAISE(d::Unsupported, "%s: not supported here.", "with-meta");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -596,7 +556,7 @@ bool LString::contains(d::DslValue key) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LString::seq() const {
-  VVec out;
+  d::ValVec out;
   for (auto i=value.begin(), e=value.end(); i != e; ++i) {
     s__conj(out, CHAR_VAL(*i));
   }
@@ -606,7 +566,7 @@ d::DslValue LString::seq() const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LString::nth(int pos) const {
   if (pos < 0 || pos >= value.size()) {
-    RAISE(IndexOOB, "Index out of range: %d.\n", pos);
+    RAISE(d::IndexOOB, "Index out of range: %d.\n", pos);
   }
   return CHAR_VAL(value[pos]);
 }
@@ -672,7 +632,7 @@ d::DslValue LSymbol::eval(Lisper*, d::DslFrame e) {
   if (auto r= e->get(value); r.isSome()) {
     return r;
   }
-  RAISE(NoSuchVar, "No such symbol %s.\n", C_STR(value));
+  RAISE(d::NoSuchVar, "No such symbol %s.\n", C_STR(value));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -702,12 +662,12 @@ LSequential::LSequential(const LSequential& rhs, d::DslValue m) : LValue(m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSequential::LSequential(VSlice chunk) {
+LSequential::LSequential(d::VSlice chunk) {
   appendAll(chunk,0,values);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSequential::LSequential(VVec& chunk) {
+LSequential::LSequential(d::ValVec& chunk) {
   s__ccat(values,chunk);
 }
 
@@ -722,12 +682,12 @@ stdstr LSequential::pr_str(bool pretty) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void LSequential::evalEach(Lisper* e, d::DslFrame env, VVec& out) const {
+void LSequential::evalEach(Lisper* e, d::DslFrame env, d::ValVec& out) const {
   for (auto& i : values) {
     if (auto r= e->EVAL(i, env); r.isSome()) {
       s__conj(out, r);
     } else {
-      RAISE(BadEval, "%s.\n", C_STR(i->pr_str(1)));
+      RAISE(d::BadEval, "%s.\n", C_STR(i->pr_str(1)));
     }
   }
 }
@@ -788,7 +748,7 @@ d::DslValue LSequential::first() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSequential::rest() const {
-  VVec out;
+  d::ValVec out;
   if (count() > 0)
     for (auto b=values.cbegin()+1,e=values.cend(); b != e; ++b) {
       s__conj(out, *b);
@@ -813,10 +773,10 @@ LList::LList(const LList& rhs, d::DslValue m) : LSequential(rhs, m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LList::LList(VSlice v) : LSequential(v) {}
+LList::LList(d::VSlice v) : LSequential(v) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LList::LList(VVec& v) : LSequential(v) {}
+LList::LList(d::ValVec& v) : LSequential(v) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LList::LList(d::DslValue v) { s__conj(values,v); }
@@ -843,14 +803,14 @@ stdstr LList::pr_str(bool pretty) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LList::eval(Lisper* e, d::DslFrame env) {
   if (values.size() == 0) { return d::DslValue(this); }
-  VVec out;
+  d::ValVec out;
   evalEach(e, env, out);
   return LIST_VAL(out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LList::conj(VSlice args) const {
-  VVec out;
+d::DslValue LList::conj(d::VSlice args) const {
+  d::ValVec out;
   if (args.size() > 0) {
     for (auto i= 1; (args.begin != args.end-i); ++i) {
       s__conj(out, *(args.end-i));
@@ -871,10 +831,10 @@ LVec::LVec(const LVec& rhs, d::DslValue m) : LSequential(rhs, m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LVec::LVec(VSlice v) : LSequential(v) {}
+LVec::LVec(d::VSlice v) : LSequential(v) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LVec::LVec(VVec& v) : LSequential(v) {}
+LVec::LVec(d::ValVec& v) : LSequential(v) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LVec::LVec(d::DslValue v) { s__conj(values,v); }
@@ -894,7 +854,7 @@ LVec::LVec(d::DslValue v1,d::DslValue v2, d::DslValue v3) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LVec::eval(Lisper* e, d::DslFrame env) {
-  VVec out;
+  d::ValVec out;
   evalEach(e,env, out);
   return VEC_VAL(out);
 }
@@ -905,8 +865,8 @@ stdstr LVec::pr_str(bool pretty) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LVec::conj(VSlice more) const {
-  VVec out;
+d::DslValue LVec::conj(d::VSlice more) const {
+  d::ValVec out;
   s__ccat(out,values);
   if (more.size() > 0) {
     for (auto i=0; more.begin+i != more.end; ++i) {
@@ -922,7 +882,7 @@ d::DslValue LVec::withMeta(d::DslValue m) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LHash::LHash(VSlice more) {
+LHash::LHash(d::VSlice more) {
   int c = more.size();
   ASSERT(a::is_even(more.size()),
          "Expected even n# of args, got %d", c);
@@ -932,7 +892,7 @@ LHash::LHash(VSlice more) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LHash::LHash(VVec& v) : LHash(VSlice(v)) {}
+LHash::LHash(d::ValVec& v) : LHash(d::VSlice(v)) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LHash::LHash() {}
@@ -952,7 +912,7 @@ LHash::LHash(const LHash& rhs, d::DslValue m) : LValue(m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LHash::assoc(VSlice more) const {
+d::DslValue LHash::assoc(d::VSlice more) const {
   int c = more.size();
   ASSERT(a::is_even(c),
          "Expected even n# of args, got %d", c);
@@ -964,7 +924,7 @@ d::DslValue LHash::assoc(VSlice more) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LHash::dissoc(VSlice more) const {
+d::DslValue LHash::dissoc(d::VSlice more) const {
   std::map<stdstr,VPair> m(values);
   for (auto i= more.begin; i != more.end; ++i) {
     m.erase(hash_key(*i));
@@ -991,7 +951,7 @@ d::DslValue LHash::nth(int pos) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::seq() const {
-  VVec out;
+  d::ValVec out;
   for (auto x=values.begin(), e=values.end(); x != e; ++x) {
     auto p= x->second;
     s__conj(out, VEC_VAL2(p.first, p.second));
@@ -1008,7 +968,7 @@ d::DslValue LHash::first() const {
 d::DslValue LHash::rest() const {
   auto s = s__cast(LList,seq().ptr());
   if (auto z= s->count(); z > 1) {
-    VVec out;
+    d::ValVec out;
     for (auto i=1; i < z; ++i) {
       s__conj(out, s->nth(i));
     }
@@ -1041,7 +1001,7 @@ d::DslValue LHash::eval(Lisper* p, d::DslFrame e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::keys() const {
-  VVec keys;
+  d::ValVec keys;
   for (auto& x : values) {
     s__conj(keys, x.second.first);
   }
@@ -1050,7 +1010,7 @@ d::DslValue LHash::keys() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::vals() const {
-  VVec out;
+  d::ValVec out;
   for (auto& x : values) {
     s__conj(out,x.second.second);
   }
@@ -1146,14 +1106,14 @@ d::DslValue LNative::withMeta(d::DslValue m) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LNative::invoke(Lisper* p, VSlice args) {
+d::DslValue LNative::invoke(Lisper* p, d::VSlice args) {
   return fn(p, args);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LNative::invoke(Lisper* p) {
-  VVec v;
-  return invoke(p, VSlice(v));
+  d::ValVec v;
+  return invoke(p, d::VSlice(v));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1169,7 +1129,7 @@ stdstr LLambda::pr_str(bool pretty) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame LLambda::bindContext(VSlice args) {
+d::DslFrame LLambda::bindContext(d::VSlice args) {
   auto fm= new d::Frame(pr_str(1), env);
   auto z=params.size();
   auto len= args.size();
@@ -1181,7 +1141,7 @@ d::DslFrame LLambda::bindContext(VSlice args) {
       // var-args, next must be the last one
       // e.g. [a b c & x]
       ASSERT1((i+1 == (z-1)));
-      VVec x;
+      d::ValVec x;
       appendAll(args,j,x);
       fm->set(params[i+1], LIST_VAL(x));
       j=len;
@@ -1189,7 +1149,7 @@ d::DslFrame LLambda::bindContext(VSlice args) {
       break;
     }
     if (!(j < len))
-      throw BadArity(z,len);
+      throw d::BadArity(z,len);
     fm->set(k, *(args.begin + j));
     ++j;
   }
@@ -1199,14 +1159,14 @@ d::DslFrame LLambda::bindContext(VSlice args) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LLambda::invoke(Lisper* p, VSlice args) {
+d::DslValue LLambda::invoke(Lisper* p, d::VSlice args) {
   return p->EVAL(body, bindContext(args));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LLambda::invoke(Lisper* p) {
-  VVec out;
-  return invoke(p, VSlice(out));
+  d::ValVec out;
+  return invoke(p, d::VSlice(out));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1287,14 +1247,14 @@ bool lessThan(d::DslValue a, d::DslValue b) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSet::LSet(VSlice more) : LSet() {
+LSet::LSet(d::VSlice more) : LSet() {
   for (auto i = more.begin; i != more.end; ++i) {
     values->insert(*i);
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSet::LSet(VVec& v) : LSet(VSlice(v)) {}
+LSet::LSet(d::ValVec& v) : LSet(d::VSlice(v)) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSet::LSet(d::DslValue m) : LValue(m) {
@@ -1326,7 +1286,7 @@ LSet::LSet(const LSet& rhs, d::DslValue m) : LSet(m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LSet::conj(VSlice more) const {
+d::DslValue LSet::conj(d::VSlice more) const {
   std::set<d::DslValue,SetCompare> m(*values);
   for (auto i = more.begin; i != more.end; ++i) {
     m.insert(*i);
@@ -1335,7 +1295,7 @@ d::DslValue LSet::conj(VSlice more) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LSet::disj(VSlice more) const {
+d::DslValue LSet::disj(d::VSlice more) const {
   std::set<d::DslValue,SetCompare> m(*values);
   for (auto i= more.begin; i != more.end; ++i) {
     m.erase(*i);
@@ -1362,7 +1322,7 @@ d::DslValue LSet::nth(int pos) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSet::seq() const {
-  VVec out;
+  d::ValVec out;
   for (auto& x : *values) {
     s__conj(out, x);
   }
@@ -1378,7 +1338,7 @@ d::DslValue LSet::first() const {
 d::DslValue LSet::rest() const {
   auto s = s__cast(LList,seq().ptr());
   if (auto z= s->count(); z > 1) {
-    VVec out;
+    d::ValVec out;
     for (auto i=1; i < z; ++i) {
       s__conj(out, s->nth(i));
     }

@@ -13,7 +13,7 @@
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
 #include <iostream>
-#include "interpreter.h"
+#include "types.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::basic {
@@ -27,12 +27,12 @@ using namespace czlab::aeon;
 #if 1
 int main(int argc, char* argv[]) {
   using namespace czlab::basic;
+  namespace a=czlab::aeon;
   try {
-    BasicParser p("100 print 1,(4+3),b,c\n300 END\n200 rem poo\nRUN");
-        //"100 goto sin(3+4*5^2+4^3*8)\n200 gosub 777\n300 return");
-    //100 let a=2*3^4*5\nREM poo poo\r\n200 b=5\n500 DIM xx$(3,4):a=7");
-    p.parse();
-    std::cout << "result = " << "yo"  << "\n";
+    auto f= a::read_file("/Users/kenl/Desktop/poo.bas");
+    Basic p(f.c_str());
+    p.interpret();
+    std::cout << "result = \n" << "yo" << "\n";
   } catch (const d::SyntaxError& e) {
     std::cout << e.what() << "\n";
   }

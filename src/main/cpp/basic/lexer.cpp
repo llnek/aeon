@@ -38,6 +38,8 @@ std::map<int, stdstr> TOKENS {
   {T_GOSUB, "GOSUB"},
   {T_RETURN, "RETURN"},
   {T_INT_DIV, "DIV"},
+  {d::T_COMMA, ","},
+  {d::T_SEMI, ";"},
   {T_MOD, "MOD"},
   {T_AND, "AND"},
   {T_OR, "OR"},
@@ -49,6 +51,8 @@ std::map<int, stdstr> TOKENS {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<stdstr,int> KEYWORDS {
   {map__val(TOKENS,T_INT_DIV), T_INT_DIV},
+  {map__val(TOKENS,d::T_SEMI), d::T_SEMI},
+  {map__val(TOKENS,d::T_COMMA), d::T_COMMA},
   {map__val(TOKENS,T_INPUT), T_INPUT},
   {map__val(TOKENS,T_PRINT), T_PRINT},
   {map__val(TOKENS,T_REM), T_REM},

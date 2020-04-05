@@ -1,3 +1,4 @@
+#pragma once
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -21,7 +22,34 @@ namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 typedef bool (*IdPredicate)(Tchar, bool); // for tokenizeing an identifier
 typedef std::pair<int,int> SrcInfo; // line & col info
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct NoSuchVar : public a::Exception {
+  NoSuchVar(const stdstr& m) : a::Exception (m) {}
+};
+struct BadArg : public a::Exception {
+  BadArg(const stdstr& m) : a::Exception(m) {}
+};
+struct DivByZero : public a::Exception {
+  DivByZero(const stdstr& m) : a::Exception(m) {}
+};
+struct BadArity : public a::Exception {
+  BadArity(int wanted, int got)
+    : a::Exception("Expected " + std::to_string(wanted) + " args, got " + std::to_string(got) + ".\n") {}
+  BadArity(const stdstr& m) : a::Exception(m) {}
+};
+struct BadEval : public a::Exception {
+  BadEval(const stdstr& m) : a::Exception(m) {}
+};
+struct IndexOOB : public a::Exception {
+  IndexOOB(const stdstr& m) : a::Exception(m) {}
+};
+struct Unsupported : public a::Exception {
+  Unsupported(const stdstr& m) : a::Exception(m) {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Number;
 struct Table;
 struct Symbol;
 struct Node;
@@ -36,13 +64,29 @@ typedef a::RefPtr<Table> DslTable;
 typedef a::RefPtr<AbstractToken> DslToken;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+typedef std::vector<Number> NumberVec;
 
 typedef std::vector<DslToken> TokenVec;
 typedef std::vector<DslAst> AstVec;
+typedef std::vector<DslValue> ValVec;
 
-typedef std::vector<DslToken>::iterator TokenVIter;
-typedef std::vector<DslAst>::iterator AstVIter;
+typedef TokenVec::iterator TokenIter;
+typedef AstVec::iterator AstIter;
+typedef ValVec::iterator ValIter;
 
+struct VSlice {
+  VSlice(ValVec& v) { begin=v.begin(); end=v.end(); }
+  VSlice(ValIter b, ValIter e) : begin(b), end(e) {}
+  int size() { return std::distance(begin, end); }
+  ValIter begin, end;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int preEqual(int wanted, int got, const stdstr& fn);
+int preMin(int min, int got, const stdstr& fn);
+int preMax(int max, int got, const stdstr& fn);
+int preNonZero(int c, const stdstr& fn);
+int preEven(int c, const stdstr& fn);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {

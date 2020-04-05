@@ -140,6 +140,10 @@ bool fuzzy_equals(double d1, double d2) {
   return ::fabs(d) < 0.000000000001;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool fuzzy_zero(double d1) {
+  return fuzzy_equals(0.0,d1);
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr read_file(const char* fpath) {
   auto fp = ::fopen(fpath, "rb");
 

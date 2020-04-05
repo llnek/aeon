@@ -14,15 +14,14 @@
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
 #include "lexer.h"
+#include "types.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::basic {
 namespace d = czlab::dsl;
+namespace a=czlab::aeon;
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define CAST(t,x) s__cast(t,x.ptr())
-#define AST(x) CAST(Ast,x)
-#define TKN(x) CAST(Token,x)
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Ast : public d::Node {
 
@@ -155,6 +154,7 @@ struct String : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Var : public Ast {
+  stdstr name() const { return token->getLiteralAsStr(); }
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr pr_str() const;
@@ -237,6 +237,15 @@ struct ForLoop : public Ast {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct PrintSep : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  PrintSep(d::DslToken);
+  virtual stdstr pr_str() const;
+  virtual ~PrintSep() {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Print : public Ast {
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
@@ -257,6 +266,31 @@ struct IfThen : public Ast {
   private:
   d::DslAst cond;
   d::DslAst then;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Program : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  virtual stdstr pr_str() const;
+  virtual ~Program() {}
+  Program(const std::map<llong,d::DslAst>&);
+  private:
+  d::AstVec vlines;
+  std::map<llong,llong> mlines;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Compound : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  virtual stdstr pr_str() const;
+  virtual ~Compound() {}
+  llong line() const { return _line; }
+  Compound(llong line, const d::AstVec&);
+  private:
+  llong _line;
+  d::AstVec stmts;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -300,12 +334,13 @@ struct ArrayDecl : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BasicParser : public d::IParser {
-  BasicParser(const Tchar* src);
-  virtual ~BasicParser();
 
   virtual d::DslToken eat(int wantedToken);
   virtual d::DslToken eat();
   virtual bool isEof() const;
+
+  BasicParser(const Tchar* src);
+  virtual ~BasicParser();
 
   d::DslAst parse();
   int cur();

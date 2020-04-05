@@ -61,6 +61,46 @@ SemanticError::SemanticError(const std::string& x) : a::Exception(x) {}
 SyntaxError::SyntaxError(const std::string& x) : a::Exception(x) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int preEqual(int wanted, int got, const stdstr& fn) {
+  if (wanted != got)
+    RAISE(BadArity,
+          "%s requires %d args, got %d.\n", C_STR(fn), wanted, got);
+  return got;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int preMax(int max, int got, const stdstr& fn) {
+  if (got > max)
+    RAISE(BadArity,
+          "%s requires at most %d args, got %d.\n", C_STR(fn), max, got);
+  return got;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int preMin(int min, int got, const stdstr& fn) {
+  if (got < min)
+    RAISE(BadArity,
+          "%s requires at least %d args, got %d.\n", C_STR(fn), min, got);
+  return got;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int preNonZero(int c, const stdstr& fn) {
+  if (c == 0)
+    RAISE(BadArity,
+          "%s requires some args, got %d.\n", C_STR(fn), c);
+  return c;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int preEven(int c, const stdstr& fn) {
+  if (!a::is_even(c))
+    RAISE(BadArity,
+          "%s requires even args, got %d.\n", C_STR(fn), c);
+  return c;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Tchar peek(Context& ctx) {
   // return the current char.
   return ctx.src[ctx.pos];

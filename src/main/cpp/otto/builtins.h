@@ -1,4 +1,3 @@
-#pragma once
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,44 +12,14 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "reader.h"
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::kirby {
-namespace d = czlab::dsl;
-
+namespace czlab::otto {
+namespace d=czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr gensym(const stdstr& prefix);
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SExprParser : public d::IParser {
-  // S-Expression parser.
-  std::pair<int,d::DslValue> parse();
-  SExprParser(const Tchar* src);
-  virtual ~SExprParser();
-  int cur() const;
-  Tchar peek() const;
-  bool isCur(int) const;
-  bool isEof() const;
-
-  d::DslToken token() const;
-  d::DslToken eat();
-  d::DslToken eat(int wanted);
-
-  Reader* rdr() { return lexer; }
-
-  private:
-
-  SExprParser() { lexer=nullptr;}
-  Reader* lexer;
-};
-
-
-
-
-
+d::Frame* init_natives(d::Frame*);
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
+
 

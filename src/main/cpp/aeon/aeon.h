@@ -72,6 +72,7 @@ stdstr escape_char(Tchar c);
 stdstr to_upper(const stdstr&);
 stdstr to_lower(const stdstr&);
 bool fuzzy_equals(double d1, double d2);
+bool fuzzy_zero(double d2);
 int modulo(int, int);
 template <typename T> bool is_even(T x) {
   return (x % 2) == 0;
