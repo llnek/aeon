@@ -37,6 +37,12 @@ d::DslValue expected(const stdstr& m, d::DslValue v) {
 BReal A_FLOAT { 0.0 };
 BInt A_INT { 0 };
 BStr A_STR { "" };
+LibFunc A_FUNC;
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LibFunc* cast_native(d::DslValue v, int panic) {
+  CASTXXX(LibFunc,v,panic,A_FUNC,"native");
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BReal* cast_float(d::DslValue v, int panic) {

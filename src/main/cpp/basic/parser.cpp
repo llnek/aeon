@@ -48,9 +48,10 @@ d::DslValue Program::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto len=vlines.size();
   d::DslValue last;
-  _e->init_counters();
+  _e->init_counters(mlines);
   //std::cout << "len = " << len << "\n" << pr_str() << "\n";
-  while (_e->incr_pc() < len) {
+  while (_e->isOn() &&
+            _e->incr_pc() < len) {
     auto line= AST(vlines[_e->pc()]);
     //std::cout << line->pr_str() << "\n";
     last= line->eval(e);
@@ -116,18 +117,27 @@ LibFunc::LibFunc(const stdstr& name, Invoker k) : Function(name) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LibFunc::invoke(d::IEvaluator*, d::VSlice) {
-  return NULL;
+d::DslValue LibFunc::invoke(d::IEvaluator* e, d::VSlice args) {
+  return fn(e, args);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LibFunc::invoke(d::IEvaluator*) {
-  return NULL;
+d::DslValue LibFunc::invoke(d::IEvaluator* e) {
+  d::ValVec vs;
+  return invoke(e, d::VSlice(vs));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LibFunc::pr_str(bool p) const {
   return "#native@" + _name;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ForLoop::ForLoop(d::DslAst var, d::DslAst init, d::DslAst term, d::DslAst step) {
+  this->var=var;
+  this->init= init;
+  this->term= term;
+  this->step=step;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -138,7 +148,14 @@ ForLoop::ForLoop(d::DslAst var, d::DslAst init, d::DslAst term) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue ForLoop::eval(d::IEvaluator*) {
+d::DslValue ForLoop::eval(d::IEvaluator* e) {
+  auto vn= CAST(Var,var)->name();
+  auto i= init->eval(e);
+  auto t= term->eval(e);
+  auto offset= 1;
+  if (step.isSome()) {
+    step->eval(e);
+  }
   return NULL;
 }
 
@@ -147,6 +164,7 @@ void ForLoop::visit(d::IAnalyzer* a) {
   var->visit(a);
   init->visit(a);
   term->visit(a);
+  if (step.isSome()) step->visit(a);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -160,7 +178,19 @@ stdstr ForLoop::pr_str() const {
   buf += " TO ";
   buf += AST(term)->pr_str();
 
+  if (step.isSome()) {
+    buf += " STEP ";
+    buf += AST(step)->pr_str();
+  }
+
   return buf;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+IfThen::IfThen(d::DslAst c, d::DslAst t, d::DslAst z) {
+  cond=c;
+  then=t;
+  elze=z;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -170,14 +200,33 @@ IfThen::IfThen(d::DslAst c, d::DslAst t) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue IfThen::eval(d::IEvaluator*) {
-  return NULL;
+d::DslValue IfThen::eval(d::IEvaluator* e) {
+  auto c= cond->eval(e);
+  auto n= cast_int(c,0);
+  auto f= cast_float(c,0);
+  auto neg=true;
+  if (n)
+    neg = (n->impl() == 0);
+  else
+  if (f)
+    neg = a::fuzzy_zero(f->impl());
+  else
+    RAISE(d::BadArg, "Expected numeric, got %s\n", C_STR(c->pr_str(1)));
+
+  d::DslValue res;
+  if (!neg)
+    res= then->eval(e);
+  else
+  if (elze.isSome())
+    res = elze->eval(e);
+  return res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void IfThen::visit(d::IAnalyzer* a) {
   cond->visit(a);
   then->visit(a);
+  if (elze.isSome()) elze->visit(a);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -186,13 +235,17 @@ stdstr IfThen::pr_str() const {
 
   buf += " ";
   buf += AST(cond)->pr_str();
-  buf += " ";
+  buf += " THEN ";
   buf += AST(then)->pr_str();
+  if (elze.isSome()) {
+    buf += " ELSE ";
+    buf += AST(elze)->pr_str();
+  }
   return buf;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Run::Run() {
+Run::Run(d::DslToken t) : Ast(t) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -206,33 +259,36 @@ void Run::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Run::pr_str() const {
-  return "RUN";
+  return token->getLiteralAsStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-End::End() {
+End::End(d::DslToken t) : Ast(t) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue End::eval(d::IEvaluator*) {
+d::DslValue End::eval(d::IEvaluator* e) {
+  auto _e = s__cast(Basic,e);
+  _e->halt();
   return NULL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void End::visit(d::IAnalyzer* a) {
-}
+void End::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr End::pr_str() const {
-  return "END";
+  return token->getLiteralAsStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-GoSubReturn::GoSubReturn() {
+GoSubReturn::GoSubReturn(d::DslToken t) : Ast(t) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue GoSubReturn::eval(d::IEvaluator*) {
+d::DslValue GoSubReturn::eval(d::IEvaluator* e) {
+  auto _e = s__cast(Basic,e);
+  _e->retSub();
   return NULL;
 }
 
@@ -242,7 +298,7 @@ void GoSubReturn::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr GoSubReturn::pr_str() const {
-  return "RETURN";
+  return token->getLiteralAsStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -251,7 +307,21 @@ GoSub::GoSub(d::DslAst e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue GoSub::eval(d::IEvaluator*) {
+d::DslValue GoSub::eval(d::IEvaluator* e) {
+  auto _e = s__cast(Basic,e);
+  auto res= expr->eval(e);
+  auto n= cast_int(res,0);
+  auto r= cast_float(res, 0);
+  llong line;
+  if (n)
+    line = n->impl();
+  else
+  if (r)
+    line = r->impl();
+  else
+    RAISE(d::BadArg, "Expected numeric, got %s\n", C_STR(res->pr_str(1)));
+  //std::cout << "Jumping to subroutine@line: " << line << "\n";
+  _e->jumpSub(line);
   return NULL;
 }
 
@@ -277,7 +347,20 @@ Goto::Goto(d::DslAst e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Goto::eval(d::IEvaluator* e) {
-  expr->eval(e);
+  auto _e = s__cast(Basic,e);
+  auto res= expr->eval(e);
+  auto n= cast_int(res,0);
+  auto r= cast_float(res, 0);
+  llong line;
+  if (n)
+    line = n->impl();
+  else
+  if (r)
+    line = r->impl();
+  else
+    RAISE(d::BadArg, "Expected numeric, got %s\n", C_STR(res->pr_str(1)));
+  //std::cout << "Jumping to line: " << line << "\n";
+  _e->jump(line);
   return NULL;
 }
 
@@ -299,10 +382,17 @@ FuncCall::FuncCall(d::DslAst t, const d::AstVec& pms) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue FuncCall::eval(d::IEvaluator* e) {
-  auto f= e->getValue(AST(fn)->token->getLiteralAsStr());
-  if (f.isSome()) {
+  auto n= AST(fn)->token->getLiteralAsStr();
+  auto f= e->getValue(n);
+  if (f.isNull())
+    RAISE(d::NoSuchVar, "Unknown function: %s", n.c_str());
+  auto fv = cast_native(f,1);
+  d::ValVec pms;
+  for (auto& a : args) {
+    s__conj(pms, a->eval(e));
   }
-  return NULL;
+
+  return pms.empty() ? fv->invoke(e) : fv->invoke(e,d::VSlice(pms));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -407,24 +497,43 @@ stdstr RelationOp::pr_str() const {
   buf += TKN(token)->pr_str();
   buf += " ";
   buf += AST(rhs)->pr_str();
-  return buf;
+  return "(" + buf + ")";
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue RelationOp::eval(d::IEvaluator* e) {
   auto x = lhs->eval(e);
   auto y = rhs->eval(e);
-  switch (token->type()) {
-    case T_NOTEQ:
-    case T_GTEQ:
-    case T_LTEQ:
-    case d::T_LT:
-    case d::T_GT:
-    case d::T_EQ:
-    default:
-    break;
+  auto t = token->type();
+  if (t == T_NOTEQ) {
+    return INT_VAL(x->equals(y.ptr()) ? 0 : 1);
   }
-  return NULL;
+  if (t == d::T_EQ) {
+    return INT_VAL(x->equals(y.ptr()) ? 1 : 0);
+  }
+
+  d::ValVec vs {x, y};
+  d::NumberVec out;
+  auto b=false;
+  auto r= cast_numeric(vs, out);
+  if (r) {
+    switch (t) {
+      case T_GTEQ: b = out[0].getFloat() >= out[1].getFloat(); break;
+      case T_LTEQ: b = out[0].getFloat() <= out[1].getFloat(); break;
+      case d::T_GT: b = out[0].getFloat() > out[1].getFloat(); break;
+      case d::T_LT: b = out[0].getFloat() < out[1].getFloat(); break;
+      default: break;
+    }
+  } else {
+    switch (t) {
+      case T_GTEQ: b = out[0].getInt() >= out[1].getInt(); break;
+      case T_LTEQ: b = out[0].getInt() <= out[1].getInt(); break;
+      case d::T_GT: b = out[0].getInt() > out[1].getInt(); break;
+      case d::T_LT: b = out[0].getInt() < out[1].getInt(); break;
+      default: break;
+    }
+  }
+  return INT_VAL(b ? 1 : 0);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -863,21 +972,27 @@ d::DslAst input(BasicParser* bp) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst ifThen(BasicParser* bp) {
-  bp->eat(T_IF);
-  auto c= b_expr(bp);
-  bp->eat(T_THEN);
-  return new IfThen(c, statement(bp));
+  auto c= (bp->eat(T_IF), b_expr(bp));
+  auto t= (bp->eat(T_THEN), statement(bp));
+  if (!bp->isCur(T_ELSE)) {
+    return new IfThen(c,t);
+  } else {
+    bp->eat();
+    return new IfThen(c,t, statement(bp));
+  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst forLoop(BasicParser* bp) {
-  bp->eat(T_FOR);
-  auto v= bp->eat(d::T_IDENT);
-  bp->eat(d::T_EQ);
-  auto b=expr(bp);
-  bp->eat(T_TO);
-  auto e= expr(bp);
-  return new ForLoop(new Var(v), b, e);
+  auto v= (bp->eat(T_FOR),bp->eat(d::T_IDENT));
+  auto b= (bp->eat(d::T_EQ), expr(bp));
+  auto e= (bp->eat(T_TO), expr(bp));
+  if (!bp->isCur(T_STEP)) {
+    return new ForLoop(new Var(v), b, e);
+  } else {
+    bp->eat();
+    return new ForLoop(new Var(v), b, e, expr(bp));
+  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -914,20 +1029,17 @@ d::DslAst gosub(BasicParser* bp) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst returnSub(BasicParser* bp) {
-  bp->eat(T_RETURN);
-  return new GoSubReturn();
+  return new GoSubReturn(bp->eat(T_RETURN));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst runProg(BasicParser* bp) {
-  bp->eat(T_RUN);
-  return new Run();
+  return new Run(bp->eat(T_RUN));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst endProg(BasicParser* bp) {
-  bp->eat(T_END);
-  return new End();
+  return new End( bp->eat(T_END));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

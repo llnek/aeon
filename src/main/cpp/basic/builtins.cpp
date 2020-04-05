@@ -12,6 +12,8 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
+#include <iostream>
+#include <cmath>
 #include "builtins.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -23,17 +25,50 @@
 namespace czlab::basic {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static double PI= 3.141592653589793;
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static double deg_rad(double deg) {
+  return (deg * 2 * PI) / 360;
+}
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+double rad_deg(double rad) {
+  return (360 * rad) / (2 * PI);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static double to_dbl(d::DslValue arg) {
+  if (auto f = cast_float(arg,0); f) {
+    return f->impl();
+  }
+  if (auto n = cast_int(arg,0); n) {
+    return n->impl();
+  }
+  RAISE(d::BadArg, "Expected numeric, got %s", C_STR(arg->pr_str(1)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DslValue native_cos(d::IEvaluator* e, d::VSlice args) {
+  // cos(x)
+  d::preEqual(1, args.size(), "cos");
+  auto deg = to_dbl(*args.begin);
+  auto r= deg_rad(deg);
+  return FLOAT_VAL(::cos(r));
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DslValue native_sin(d::IEvaluator* e, d::VSlice args) {
   // sin(x)
   d::preEqual(1, args.size(), "sin");
-  return FLOAT_VAL(999.999);
+  auto deg = to_dbl(*args.begin);
+  auto r= deg_rad(deg);
+  return FLOAT_VAL(::sin(r));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame init_natives(d::DslFrame env) {
   env->set("SIN", FN_VAL("SIN",&native_sin));
+  env->set("COS", FN_VAL("COS",&native_cos));
   return env;
 }
 

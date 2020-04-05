@@ -178,7 +178,7 @@ struct UnaryOp : public Ast {
 struct Run : public Ast {
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  Run();
+  Run(d::DslToken);
   virtual stdstr pr_str() const;
   virtual ~Run() {}
 };
@@ -187,7 +187,7 @@ struct Run : public Ast {
 struct End : public Ast {
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  End();
+  End(d::DslToken);
   virtual stdstr pr_str() const;
   virtual ~End() {}
 };
@@ -196,7 +196,7 @@ struct End : public Ast {
 struct GoSubReturn : public Ast {
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  GoSubReturn();
+  GoSubReturn(d::DslToken);
   virtual stdstr pr_str() const;
   virtual ~GoSubReturn() {}
 };
@@ -225,6 +225,7 @@ struct Goto : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ForLoop : public Ast {
+  ForLoop(d::DslAst var, d::DslAst init, d::DslAst term, d::DslAst step);
   ForLoop(d::DslAst var, d::DslAst init, d::DslAst term);
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
@@ -234,6 +235,7 @@ struct ForLoop : public Ast {
   d::DslAst init;
   d::DslAst var;
   d::DslAst term;
+  d::DslAst step;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -258,14 +260,16 @@ struct Print : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IfThen : public Ast {
+  IfThen(d::DslAst c, d::DslAst t, d::DslAst z);
+  IfThen(d::DslAst c, d::DslAst t);
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  IfThen(d::DslAst c, d::DslAst t);
   virtual stdstr pr_str() const;
   virtual ~IfThen() {}
   private:
   d::DslAst cond;
   d::DslAst then;
+  d::DslAst elze;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

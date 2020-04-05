@@ -75,6 +75,7 @@ struct LibFunc : public Function {
   virtual ~LibFunc() {}
 
   LibFunc(const stdstr& name, Invoker);
+  LibFunc() {fn=NULL;}
 
   protected:
 
@@ -190,17 +191,26 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   virtual d::DslTable popScope();
   virtual d::DslSymbol define(d::DslSymbol);
 
-  llong move_pc(llong pos) { return (progCounter += pos);}
+  void init_counters(const std::map<llong,llong>&);
+  void finz_counters();
+  void halt() { running =false; }
+  bool isOn() const { return running; }
+  llong jumpSub(llong line);
+  llong retSub();
+  llong jump(llong line);
   llong pc() const { return progCounter; };
   llong incr_pc() { return ++progCounter; }
-  void init_counters() { progCounter= -1; }
-  void finz_counters() { progCounter = -1; }
 
   Basic(const char* src);
   d::DslValue interpret();
   virtual ~Basic() {}
 
   private:
+
+  std::stack<llong> gosubReturns;
+  std::map<llong,llong> lines;
+
+  bool running;
   const char* source;
   llong progCounter;
   d::DslFrame stack;

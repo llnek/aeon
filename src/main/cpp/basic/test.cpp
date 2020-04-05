@@ -32,7 +32,7 @@ int main(int argc, char* argv[]) {
     auto f= a::read_file("/Users/kenl/Desktop/poo.bas");
     Basic p(f.c_str());
     p.interpret();
-    std::cout << "result = \n" << "yo" << "\n";
+    std::cout << "done." << "\n";
   } catch (const d::SyntaxError& e) {
     std::cout << e.what() << "\n";
   }

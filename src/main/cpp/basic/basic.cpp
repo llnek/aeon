@@ -23,6 +23,7 @@ namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Basic::Basic(const char* src) {
   source = src;
+  running=false;
   progCounter=0;
 }
 
@@ -172,6 +173,49 @@ void Basic::writeln() {
   ::printf("%s", "\n");
 }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::init_counters(const std::map<llong,llong>& m) {
+  while (!gosubReturns.empty()) gosubReturns.pop();
+  for (auto& x : m) { lines[x.first]=x.second; }
+  running=true;
+  progCounter= -1;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::finz_counters() {
+  running=false;
+  lines.clear();
+  while (!gosubReturns.empty()) gosubReturns.pop();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+llong Basic::retSub() {
+  if (gosubReturns.empty())
+    RAISE(d::BadArg, "Bad gosub-return: %s\n", "no sub called");
+  auto r= gosubReturns.top();
+  gosubReturns.pop();
+  return (progCounter = r);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+llong Basic::jumpSub(llong line) {
+  auto it= lines.find(line);
+  if (it == lines.end())
+    RAISE(d::BadArg, "Bad gosub: %d\n", (int)line);
+  auto pos = it->second;
+  // save the current pc
+  gosubReturns.push(progCounter);
+  return (progCounter = pos-1);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+llong Basic::jump(llong line) {
+  auto it= lines.find(line);
+  if (it == lines.end())
+    RAISE(d::BadArg, "Bad goto: %d\n", (int)line);
+  auto pos = it->second ;
+  return (progCounter = pos-1);
+}
 
 
 
