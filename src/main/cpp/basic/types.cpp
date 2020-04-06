@@ -34,8 +34,7 @@ d::DslValue expected(const stdstr& m, d::DslValue v) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BReal A_FLOAT { 0.0 };
-BInt A_INT { 0 };
+BNumber A_NUM { 0 };
 BStr A_STR { "" };
 LibFunc A_FUNC;
 
@@ -45,13 +44,8 @@ LibFunc* cast_native(d::DslValue v, int panic) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BReal* cast_float(d::DslValue v, int panic) {
-  CASTXXX(BReal,v,panic,A_FLOAT,"float");
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BInt* cast_int(d::DslValue v, int panic) {
-  CASTXXX(BInt,v,panic,A_INT,"int");
+BNumber* cast_number(d::DslValue v, int panic) {
+  CASTXXX(BNumber,v,panic,A_NUM,"number");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -60,30 +54,59 @@ BStr* cast_string(d::DslValue v, int panic) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BReal* op_num(double n) { return new BReal(n); }
-BInt* op_num(llong n) { return new BInt(n); }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool cast_numeric(d::VSlice vs, d::NumberVec& out) {
-  auto r=false;
-  for (auto i= 0; (vs.begin+i) != vs.end; ++i) {
-    auto x= *(vs.begin+i);
-    auto f= cast_float(x,0);
-    auto n= cast_int(x,0);
-    if (E_NIL(n) && E_NIL(f)) {
-      expected("numeric", x);
-    }
-    if (n) {
-      s__conj(out, d::Number(n->impl()));
-    }
-    else
-    if (f) {
-      r= true;
-      s__conj(out, d::Number(f->impl()));
-    }
+d::DslValue op_math(BNumber* lhs, int op, BNumber* rhs) {
+  bool ints = lhs->isInt() && rhs->isInt();
+  llong L;
+  double R;
+  switch (op) {
+    case T_INT_DIV:
+      ASSERT1(ints);
+      ASSERT1(!rhs->isZero());
+      L = (lhs->getInt() / rhs->getInt());
+    break;
+    case d::T_PLUS:
+      if (ints)
+        L = lhs->getInt() + rhs->getInt();
+      else
+        R = lhs->getFloat() + rhs->getFloat();
+    break;
+    case d::T_MINUS:
+      if (ints)
+        L = lhs->getInt() - rhs->getInt();
+      else
+        R = lhs->getFloat() - rhs->getFloat();
+    break;
+    case d::T_MULT:
+      if (ints)
+        L = lhs->getInt() * rhs->getInt();
+      else
+        R = lhs->getFloat() * rhs->getFloat();
+    break;
+    case d::T_DIV:
+      ASSERT1(!rhs->isZero());
+      if (ints)
+        L = lhs->getInt() / rhs->getInt();
+      else
+        R = lhs->getFloat() / rhs->getFloat();
+    break;
+    case T_MOD:
+      if (ints) {
+        L = (lhs->getInt() % rhs->getInt());
+      } else {
+        R = ::fmod(lhs->getFloat(),rhs->getFloat());
+      }
+    break;
+    case T_POWER:
+      if (ints) {
+        L = ::pow(lhs->getInt(), rhs->getInt());
+      } else {
+        R = ::pow(lhs->getFloat(),rhs->getFloat());
+      }
+    break;
   }
-  return r;
+  return ints ? NUMBER_VAL(L) : NUMBER_VAL(R);
 }
+
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }

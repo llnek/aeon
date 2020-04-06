@@ -31,10 +31,17 @@ struct Ast : public d::Node {
 
   virtual ~Ast() {}
 
-  Ast(d::DslToken t) : token(t) {}
+  Ast(d::DslToken t) : _token(t) { _line =0; }
   Ast();
 
-  d::DslToken token;
+  d::DslToken token() const { return _token; }
+  llong line() const { return _line; }
+  void line(llong n) { _line=n;}
+
+  protected:
+
+  d::DslToken _token;
+  llong _line;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -154,7 +161,7 @@ struct String : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Var : public Ast {
-  stdstr name() const { return token->getLiteralAsStr(); }
+  stdstr name() const { return token()->getLiteralAsStr(); }
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr pr_str() const;
@@ -224,9 +231,19 @@ struct Goto : public Ast {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct ForNext : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  virtual stdstr pr_str() const;
+  ForNext(d::DslAst var);
+  virtual ~ForNext() {}
+  private:
+  d::DslAst var;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ForLoop : public Ast {
   ForLoop(d::DslAst var, d::DslAst init, d::DslAst term, d::DslAst step);
-  ForLoop(d::DslAst var, d::DslAst init, d::DslAst term);
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr pr_str() const;
@@ -290,10 +307,8 @@ struct Compound : public Ast {
   virtual void visit(d::IAnalyzer*);
   virtual stdstr pr_str() const;
   virtual ~Compound() {}
-  llong line() const { return _line; }
   Compound(llong line, const d::AstVec&);
   private:
-  llong _line;
   d::AstVec stmts;
 };
 

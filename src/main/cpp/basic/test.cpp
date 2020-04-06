@@ -33,7 +33,7 @@ int main(int argc, char* argv[]) {
     Basic p(f.c_str());
     p.interpret();
     std::cout << "done." << "\n";
-  } catch (const d::SyntaxError& e) {
+  } catch (const a::Exception& e) {
     std::cout << e.what() << "\n";
   }
   return 0;

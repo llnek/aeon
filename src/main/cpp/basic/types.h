@@ -21,8 +21,7 @@ namespace czlab::basic {
 namespace a= czlab::aeon;
 namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define FLOAT_VAL(n) czlab::dsl::DslValue(new BReal(n))
-#define INT_VAL(n) czlab::dsl::DslValue(new BInt(n))
+#define NUMBER_VAL(n) czlab::dsl::DslValue(new BNumber(n))
 #define STRING_VAL(s) czlab::dsl::DslValue(new BStr(s))
 #define FN_VAL(n, f) czlab::dsl::DslValue(new LibFunc(n, f))
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -96,48 +95,53 @@ struct LibFunc : public Function {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BInt : public BValue {
-  virtual stdstr pr_str(bool p) const { return std::to_string(value); }
-  BInt(llong n) { value=n; }
-  llong impl() const { return value; }
-  protected:
-  llong value;
-  virtual bool eq(const d::Data* rhs) const {
-    return typeid(*this) == typeid(*rhs) &&
-           value == s__cast(const BInt,rhs)->value;
-  }
-  virtual int cmp(const d::Data* rhs) const {
-    if (typeid(*this) == typeid(*rhs)) {
-      auto v2= s__cast(const BInt,rhs)->value;
-      return value==v2 ? 0 : (value > v2 ? 1 : -1);
-    } else {
-      return pr_str(0).compare(rhs->pr_str(0));
-    }
-  }
-};
+struct BNumber : public BValue {
+  explicit BNumber(double d) : type(d::T_REAL) { u.r=d; }
+  BNumber(llong n) : type(d::T_INTEGER) { u.n=n; }
+  BNumber(int n) : type(d::T_INTEGER) { u.n=n; }
+  BNumber() : type(d::T_INTEGER) { u.n=0; }
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BReal : public BValue {
-  virtual stdstr pr_str(bool p=0) const { return std::to_string(value); }
-  BReal(double d)  { value=d; }
+  double getFloat() const { return isInt() ? (double)u.n : u.r; }
+  llong getInt() const { return isInt() ? u.n : (llong) u.r; }
 
-  double impl() const { return value; }
+  void setFloat(double d) { u.r=d; }
+  void setInt(llong n) { u.n=n; }
+
+  bool isInt() const { return type== d::T_INTEGER;}
+  bool isZero() const { return type==d::T_INTEGER ? u.n==0 : u.r==0.0; }
+  bool isNeg() const { return type==d::T_INTEGER ? u.n < 0 : u.r < 0.0; }
+  bool isPos() const { return type==d::T_INTEGER ? u.n > 0 : u.r > 0.0; }
+
+
+  virtual stdstr pr_str(bool p=0) const {
+    return isInt() ? std::to_string(u.n) : std::to_string(u.r);
+  }
 
   protected:
-  double value;
-  virtual bool eq(const Data* rhs) const {
-    return X_NIL(rhs) &&
-           typeid(*this) == typeid(*rhs) &&
-           a::fuzzy_equals(value, s__cast(const BReal,rhs)->value);
+
+  bool match(const BNumber* rhs) const {
+    return (isInt() && rhs->isInt())
+             ? getInt() == rhs->getInt()
+             : a::fuzzy_equals(getFloat(), rhs->getFloat());
   }
-  virtual int cmp(const d::Data* rhs) const {
-    if (typeid(*this) == typeid(*rhs)) {
-      auto v2= s__cast(const BReal,rhs)->value;
-      return value==v2 ? 0 : (value > v2 ? 1 : -1);
+
+  virtual bool eq(const d::Data* other) const {
+    return typeid(*this) == typeid(*other)
+           ? match(s__cast(const BNumber,other)) : false;
+  }
+
+  virtual int cmp(const d::Data* other) const {
+    auto ok= typeid(*this) == typeid(*other);
+    if (ok) {
+      auto rhs= s__cast(const BNumber,other);
+      return match(rhs) ? 0 : (getFloat() > rhs->getFloat() ? 1 : -1);
     } else {
-      return pr_str(0).compare(rhs->pr_str(0));
+      return pr_str(0).compare(other->pr_str(0));
     }
   }
+
+  int type;
+  union { llong n; double r; } u;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -166,6 +170,20 @@ struct BStr : public BValue {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct ForLoopInfo;
+typedef a::RefPtr<ForLoopInfo> DslForLoop;
+struct ForLoopInfo : public a::Counted {
+  ForLoopInfo(const stdstr& v, llong n) {
+    var=v; begin=n; end=0;
+  }
+  llong begin, end;
+  d::DslValue init;
+  d::DslValue step;
+  stdstr var;
+  DslForLoop outer;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Basic : public d::IEvaluator, public d::IAnalyzer {
 
   //evaluator
@@ -191,15 +209,29 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   virtual d::DslTable popScope();
   virtual d::DslSymbol define(d::DslSymbol);
 
-  void init_counters(const std::map<llong,llong>&);
+  void installProgram(const std::map<llong,llong>&);
+  void uninstall();
+
+  void init_counters();
   void finz_counters();
+
   void halt() { running =false; }
   bool isOn() const { return running; }
+
   llong jumpSub(llong line);
   llong retSub();
+  llong jumpFor(DslForLoop);
+  llong endFor(DslForLoop);
   llong jump(llong line);
   llong pc() const { return progCounter; };
   llong incr_pc() { return ++progCounter; }
+
+  DslForLoop getCurForLoop() const { return forLoop; }
+  DslForLoop getForLoop(llong c) const;
+
+  // used during analysis
+  void xrefForNext(const stdstr&, llong n);
+  void addForLoop(DslForLoop f);
 
   Basic(const char* src);
   d::DslValue interpret();
@@ -207,9 +239,12 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
 
   private:
 
+  std::map<llong,DslForLoop> forBegins;
+  std::map<llong,DslForLoop> forEnds;
+
   std::stack<llong> gosubReturns;
   std::map<llong,llong> lines;
-
+  DslForLoop forLoop;
   bool running;
   const char* source;
   llong progCounter;
@@ -223,54 +258,11 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue expected(const stdstr&, d::DslValue);
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool cast_numeric(d::VSlice, d::NumberVec&);
-BReal* cast_float(d::DslValue, int panic=0);
-BInt* cast_int(d::DslValue, int panic=0);
+BNumber* cast_number(d::DslValue, int panic=0);
 BStr* cast_string(d::DslValue, int panic=0);
 LibFunc* cast_native(d::DslValue, int panic=0);
-BReal* op_num(double);
-BInt* op_num(llong);
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-template<typename T>
-d::DslValue op_math(d::Number lhs, int op, d::Number rhs) {
-  T x = lhs.isInt() ? lhs.getInt() : lhs.getFloat();
-  T y = rhs.isInt() ? rhs.getInt() : rhs.getFloat();
-  T res;
-  switch (op) {
-    case T_INT_DIV:
-      ASSERT1(lhs.isInt() && rhs.isInt());
-      ASSERT1(rhs.getInt() != 0);
-      res = (lhs.getInt() / rhs.getInt());
-    break;
-    case d::T_PLUS:
-      res = x + y;
-    break;
-    case d::T_MINUS:
-      res = x - y;
-    break;
-    case d::T_MULT:
-      res = x * y;
-    break;
-    case d::T_DIV:
-      if (rhs.isInt()) { ASSERT1(rhs.getInt() != 0); }
-      else { ASSERT1(!a::fuzzy_zero(rhs.getFloat())); }
-      res = x / y;
-    break;
-    case T_MOD:
-      if (lhs.isInt() && rhs.isInt()) {
-        res = (lhs.getInt() % rhs.getInt());
-      } else {
-        res = ::fmod(x,y);
-      }
-    break;
-    case T_POWER:
-      res = ::pow(x,y);
-    break;
-  }
-  return op_num(res);
-}
-
+d::DslValue op_math(BNumber* lhs, int op, BNumber* rhs);
 
 
 

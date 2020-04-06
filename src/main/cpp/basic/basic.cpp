@@ -174,9 +174,18 @@ void Basic::writeln() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::init_counters(const std::map<llong,llong>& m) {
+void Basic::installProgram(const std::map<llong,llong>& m) {
+  for (auto& x : m) { lines[x.first] = x.second; }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::uninstall() {
+  lines.clear();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::init_counters() {
   while (!gosubReturns.empty()) gosubReturns.pop();
-  for (auto& x : m) { lines[x.first]=x.second; }
   running=true;
   progCounter= -1;
 }
@@ -184,7 +193,6 @@ void Basic::init_counters(const std::map<llong,llong>& m) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::finz_counters() {
   running=false;
-  lines.clear();
   while (!gosubReturns.empty()) gosubReturns.pop();
 }
 
@@ -217,6 +225,69 @@ llong Basic::jump(llong line) {
   return (progCounter = pos-1);
 }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+llong Basic::jumpFor(DslForLoop f) {
+  auto it= lines.find(f->begin);
+  if (it == lines.end())
+    RAISE(d::BadArg, "Bad for-loop: %d\n", (int) f->begin);
+  auto pos = it->second ;
+  return (progCounter = pos-1);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+llong Basic::endFor(DslForLoop f) {
+  auto it= lines.find(f->end);
+  if (it == lines.end())
+    RAISE(d::BadArg, "Bad end-for: %d\n", (int)f->end);
+  f->init=NULL;
+  return (progCounter = it->second);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::addForLoop(DslForLoop f) {
+  auto x= this->forLoop; // current outer for loop
+  auto vn= f->var;
+  auto bad=false;
+  while (x.isSome()) {
+    bad = (x->var == vn);
+    x=x->outer;
+  }
+  if (bad)
+    RAISE(d::SemanticError, "For counter-var %s reused.\n", C_STR(vn));
+  f->outer= forLoop;
+  forLoop=f;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::xrefForNext(const stdstr& v, llong n) {
+  // make sure the next statement matches the current for loop.
+  auto c = this->forLoop;
+  ASSERT1(c.isSome());
+  ASSERT1(c->var == v);
+  c->end= n;
+  // find the corresponding counters
+  auto b= this->lines[c->begin];
+  auto e= this->lines[c->end];
+
+  this->forBegins[b] = c;
+  this->forEnds[e] = c;
+
+  // pop it
+  forLoop=forLoop->outer;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DslForLoop Basic::getForLoop(llong c) const {
+  if (auto i = forBegins.find(c); i != forBegins.end()) {
+    return i->second;
+  }
+
+  if (auto i = forEnds.find(c); i != forEnds.end()) {
+    return i->second;
+  }
+
+  RAISE(d::SemanticError, "Unknown for-loop: %d.\n", (int) c);
+}
 
 
 

@@ -31,7 +31,8 @@ d::DslAst statement(BasicParser*);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Ast::Ast() {
-  token=new Token(d::T_ETHEREAL,"?", s__pair(int,int,0,0));
+  _line =0;
+  _token=new Token(d::T_ETHEREAL,"?", s__pair(int,int,0,0));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -48,10 +49,10 @@ d::DslValue Program::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto len=vlines.size();
   d::DslValue last;
-  _e->init_counters(mlines);
+  _e->init_counters();
   //std::cout << "len = " << len << "\n" << pr_str() << "\n";
   while (_e->isOn() &&
-            _e->incr_pc() < len) {
+         _e->incr_pc() < len) {
     auto line= AST(vlines[_e->pc()]);
     //std::cout << line->pr_str() << "\n";
     last= line->eval(e);
@@ -61,9 +62,15 @@ d::DslValue Program::eval(d::IEvaluator* e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Program::visit(d::IAnalyzer* a) {
+  auto _e = s__cast(Basic,a);
+  _e->installProgram(mlines);
   for (auto& i : vlines) {
     i->visit(a);
   }
+  auto f= _e->getCurForLoop();
+  if (f.isSome())
+    RAISE(d::SemanticError,
+          "Unmatched for-loop near line %d.\n", (int) f->begin);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -81,8 +88,11 @@ stdstr Program::pr_str() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Compound::Compound(llong ln, const d::AstVec& vs) {
-  _line=ln;
   s__ccat(stmts,vs);
+  line(ln);
+  for (auto& s : stmts) {
+    AST(s)->line(ln);
+  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -133,6 +143,31 @@ stdstr LibFunc::pr_str(bool p) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+ForNext::ForNext(d::DslAst var) {
+  this->var=var;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue ForNext::eval(d::IEvaluator* e) {
+  auto _e = s__cast(Basic,e);
+  auto f= _e->getForLoop(_e->pc());
+  return NUMBER_VAL(_e->jumpFor(f));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void ForNext::visit(d::IAnalyzer* a) {
+  auto n= AST(var)->token()->getLiteralAsStr();
+  auto _e = s__cast(Basic,a);
+  var->visit(a);
+  _e->xrefForNext(n, line());
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr ForNext::pr_str() const {
+  return AST(var)->pr_str();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ForLoop::ForLoop(d::DslAst var, d::DslAst init, d::DslAst term, d::DslAst step) {
   this->var=var;
   this->init= init;
@@ -141,30 +176,69 @@ ForLoop::ForLoop(d::DslAst var, d::DslAst init, d::DslAst term, d::DslAst step) 
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ForLoop::ForLoop(d::DslAst var, d::DslAst init, d::DslAst term) {
-  this->var=var;
-  this->init= init;
-  this->term= term;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue ForLoop::eval(d::IEvaluator* e) {
-  auto vn= CAST(Var,var)->name();
-  auto i= init->eval(e);
-  auto t= term->eval(e);
-  auto offset= 1;
-  if (step.isSome()) {
-    step->eval(e);
+  auto _e = s__cast(Basic,e);
+  auto P= _e->pc();
+  auto f= _e->getForLoop(P);
+  if (f->init.isNull()) {
+    // first invoke
+    f->init = this->init->eval(e);
+    cast_number(f->init,1);
+    e->setValue(f->var, f->init);
+    f->step = this->step->eval(e);
+    auto i= cast_number(f->init,1);
+    auto s= cast_number(f->step,1);
+    auto t= cast_number(term->eval(e),1);
+    auto quit=true;
+    if (s->isPos()) {
+      quit = (i->getFloat() > t->getFloat());
+    } else if (s->isNeg()) {
+      quit = (i->getFloat() < t->getFloat());
+    } else {
+      RAISE(d::SemanticError, "Bad for-loop step.%s", "\n");
+    }
+    if (quit) {
+      _e->endFor(f);
+    } else {
+      // into for loop
+    }
+  } else {
+    auto v= cast_number(e->getValue(f->var),1);
+    auto s= cast_number(f->step,1);
+    auto t= cast_number(term->eval(e),1);
+    auto quit=true;
+    auto z = 0.0;
+    if (s->isPos()) {
+      z = v->getFloat() + s->getFloat();
+      quit = z > t->getFloat();
+    } else if (s->isNeg()) {
+      z = v->getFloat() - s->getFloat();
+      quit = z < t->getFloat();
+    }
+    if (quit) {
+      _e->endFor(f);
+    } else {
+      if (v->isInt()) {
+        e->setValue(f->var, NUMBER_VAL((llong)z));
+      } else {
+        e->setValue(f->var, NUMBER_VAL(z));
+      }
+    }
   }
+
   return NULL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ForLoop::visit(d::IAnalyzer* a) {
+  auto vn= AST(var)->token()->getLiteralAsStr();
+  auto info = DslForLoop(new ForLoopInfo(vn, line()));
+  auto _e = s__cast(Basic,a);
   var->visit(a);
   init->visit(a);
   term->visit(a);
-  if (step.isSome()) step->visit(a);
+  step->visit(a);
+  _e->addForLoop(info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -177,11 +251,8 @@ stdstr ForLoop::pr_str() const {
   buf += AST(init)->pr_str();
   buf += " TO ";
   buf += AST(term)->pr_str();
-
-  if (step.isSome()) {
-    buf += " STEP ";
-    buf += AST(step)->pr_str();
-  }
+  buf += " STEP ";
+  buf += AST(step)->pr_str();
 
   return buf;
 }
@@ -202,24 +273,9 @@ IfThen::IfThen(d::DslAst c, d::DslAst t) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue IfThen::eval(d::IEvaluator* e) {
   auto c= cond->eval(e);
-  auto n= cast_int(c,0);
-  auto f= cast_float(c,0);
-  auto neg=true;
-  if (n)
-    neg = (n->impl() == 0);
-  else
-  if (f)
-    neg = a::fuzzy_zero(f->impl());
-  else
-    RAISE(d::BadArg, "Expected numeric, got %s\n", C_STR(c->pr_str(1)));
-
-  d::DslValue res;
-  if (!neg)
-    res= then->eval(e);
-  else
-  if (elze.isSome())
-    res = elze->eval(e);
-  return res;
+  auto n= cast_number(c,1);
+  return !n->isZero()
+      ? then->eval(e) : (elze.isSome() ? elze->eval(e) : NULL);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -259,7 +315,7 @@ void Run::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Run::pr_str() const {
-  return token->getLiteralAsStr();
+  return token()->getLiteralAsStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -278,7 +334,7 @@ void End::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr End::pr_str() const {
-  return token->getLiteralAsStr();
+  return token()->getLiteralAsStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -298,7 +354,7 @@ void GoSubReturn::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr GoSubReturn::pr_str() const {
-  return token->getLiteralAsStr();
+  return token()->getLiteralAsStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -310,19 +366,9 @@ GoSub::GoSub(d::DslAst e) {
 d::DslValue GoSub::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto res= expr->eval(e);
-  auto n= cast_int(res,0);
-  auto r= cast_float(res, 0);
-  llong line;
-  if (n)
-    line = n->impl();
-  else
-  if (r)
-    line = r->impl();
-  else
-    RAISE(d::BadArg, "Expected numeric, got %s\n", C_STR(res->pr_str(1)));
+  auto line= cast_number(res,1)->getInt();
   //std::cout << "Jumping to subroutine@line: " << line << "\n";
-  _e->jumpSub(line);
-  return NULL;
+  return NUMBER_VAL(_e->jumpSub(line));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -332,7 +378,7 @@ void GoSub::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr GoSub::pr_str() const {
-  stdstr buf { "GOSUB"};
+  stdstr buf { token()->getLiteralAsStr() };
 
   buf += " ";
   buf += AST(expr)->pr_str();
@@ -349,19 +395,9 @@ Goto::Goto(d::DslAst e) {
 d::DslValue Goto::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto res= expr->eval(e);
-  auto n= cast_int(res,0);
-  auto r= cast_float(res, 0);
-  llong line;
-  if (n)
-    line = n->impl();
-  else
-  if (r)
-    line = r->impl();
-  else
-    RAISE(d::BadArg, "Expected numeric, got %s\n", C_STR(res->pr_str(1)));
+  auto line= cast_number(res,1)->getInt();
   //std::cout << "Jumping to line: " << line << "\n";
-  _e->jump(line);
-  return NULL;
+  return NUMBER_VAL(_e->jump(line));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -371,7 +407,7 @@ void Goto::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Goto::pr_str() const {
-  return stdstr("GOTO ") + AST(expr)->pr_str();
+  return token()->getLiteralAsStr() + " " + AST(expr)->pr_str();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -382,7 +418,7 @@ FuncCall::FuncCall(d::DslAst t, const d::AstVec& pms) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue FuncCall::eval(d::IEvaluator* e) {
-  auto n= AST(fn)->token->getLiteralAsStr();
+  auto n= AST(fn)->token()->getLiteralAsStr();
   auto f= e->getValue(n);
   if (f.isNull())
     RAISE(d::NoSuchVar, "Unknown function: %s", n.c_str());
@@ -494,7 +530,7 @@ RelationOp::RelationOp(d::DslAst left, d::DslToken op, d::DslAst right) : Ast(op
 stdstr RelationOp::pr_str() const {
   stdstr buf { AST(lhs)->pr_str() };
   buf += " ";
-  buf += TKN(token)->pr_str();
+  buf += TKN(token())->pr_str();
   buf += " ";
   buf += AST(rhs)->pr_str();
   return "(" + buf + ")";
@@ -502,38 +538,40 @@ stdstr RelationOp::pr_str() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue RelationOp::eval(d::IEvaluator* e) {
-  auto x = lhs->eval(e);
-  auto y = rhs->eval(e);
-  auto t = token->type();
-  if (t == T_NOTEQ) {
-    return INT_VAL(x->equals(y.ptr()) ? 0 : 1);
-  }
-  if (t == d::T_EQ) {
-    return INT_VAL(x->equals(y.ptr()) ? 1 : 0);
-  }
-
-  d::ValVec vs {x, y};
-  d::NumberVec out;
+  auto x = cast_number(lhs->eval(e),1);
+  auto y = cast_number(rhs->eval(e),1);
+  auto ints = x->isInt() && y->isInt();
   auto b=false;
-  auto r= cast_numeric(vs, out);
-  if (r) {
-    switch (t) {
-      case T_GTEQ: b = out[0].getFloat() >= out[1].getFloat(); break;
-      case T_LTEQ: b = out[0].getFloat() <= out[1].getFloat(); break;
-      case d::T_GT: b = out[0].getFloat() > out[1].getFloat(); break;
-      case d::T_LT: b = out[0].getFloat() < out[1].getFloat(); break;
-      default: break;
-    }
-  } else {
-    switch (t) {
-      case T_GTEQ: b = out[0].getInt() >= out[1].getInt(); break;
-      case T_LTEQ: b = out[0].getInt() <= out[1].getInt(); break;
-      case d::T_GT: b = out[0].getInt() > out[1].getInt(); break;
-      case d::T_LT: b = out[0].getInt() < out[1].getInt(); break;
-      default: break;
-    }
+
+  switch (token()->type()) {
+    case T_NOTEQ:
+      b= x->equals(y) ? 0 : 1;
+    break;
+    case d::T_EQ:
+      b= x->equals(y) ? 1 : 0;
+    break;
+    case T_GTEQ:
+      b= ints
+           ? x->getInt() >= y->getInt()
+           : x->getFloat() >= y->getFloat();
+    break;
+    case T_LTEQ:
+      b= ints
+           ? x->getInt() <= y->getInt()
+           : x->getFloat() <= y->getFloat();
+    break;
+    case d::T_GT:
+      b= ints
+           ? x->getInt() > y->getInt()
+           : x->getFloat() > y->getFloat();
+    break;
+    case d::T_LT:
+    b= ints
+         ? x->getInt() < y->getInt()
+         : x->getFloat() < y->getFloat();
+    break;
   }
-  return INT_VAL(b ? 1 : 0);
+  return NUMBER_VAL(b ? 1 : 0);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -555,8 +593,8 @@ stdstr NotFactor::pr_str() const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue NotFactor::eval(d::IEvaluator* e) {
   auto res= expr->eval(e);
-  auto i= cast_int(res,1);
-  return INT_VAL( i->impl()==0 ? 0 : 1 );
+  auto i= cast_number(res,1);
+  return NUMBER_VAL( i->isZero() ? 0 : 1 );
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -572,20 +610,9 @@ BinOp::BinOp(d::DslAst left, d::DslToken op, d::DslAst right) : Ast(op) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue BinOp::eval(d::IEvaluator* e) {
-  auto lf= lhs->eval(e);
-  auto rt= rhs->eval(e);
-  auto op = token->type();
-  if (op == T_INT_DIV) {
-    // ensure both should be integers
-    cast_int(lf,1);
-    cast_int(rt,1);
-  }
-  d::ValVec vs {lf, rt};
-  d::NumberVec out;
-  auto res= cast_numeric(d::VSlice(vs), out)
-         ? op_math<double>(out[0],op,out[1])
-         : op_math<llong>(out[0],op,out[1]);
-  return res;
+  auto lf= cast_number(lhs->eval(e));
+  auto rt= cast_number(rhs->eval(e));
+  return op_math(lf, token()->type(), rt);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -594,7 +621,7 @@ stdstr BinOp::pr_str() const {
   buf += "( ";
   buf += AST(lhs)->pr_str();
   buf += " ";
-  buf += TKN(token)->pr_str();
+  buf += TKN(token())->pr_str();
   buf += " ";
   buf += AST(rhs)->pr_str();
   buf += " )";
@@ -613,15 +640,15 @@ Num::Num(d::DslToken t) : Ast(t) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Num::pr_str() const {
-  return TKN(token)->pr_str();
+  return TKN(token())->pr_str();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Num::eval(d::IEvaluator* e) {
-  if (token->type() == d::T_INTEGER) {
-    return INT_VAL(token->getLiteralAsInt());
+  if (token()->type() == d::T_INTEGER) {
+    return NUMBER_VAL(token()->getLiteralAsInt());
   } else {
-    return FLOAT_VAL(token->getLiteralAsReal());
+    return NUMBER_VAL(token()->getLiteralAsReal());
   }
 }
 
@@ -633,12 +660,12 @@ String::String(d::DslToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr String::pr_str() const {
-  return "\"" + TKN(token)->pr_str() + "\"";
+  return "\"" + TKN(token())->pr_str() + "\"";
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue String::eval(d::IEvaluator*) {
-  return STRING_VAL(token->getLiteralAsStr());
+  return STRING_VAL(token()->getLiteralAsStr());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -649,12 +676,12 @@ Var::Var(d::DslToken t) : Ast(t) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Var::pr_str() const {
-  return TKN(token)->pr_str();
+  return TKN(token())->pr_str();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Var::eval(d::IEvaluator* e) {
-  auto n= token->getLiteralAsStr();
+  auto n= token()->getLiteralAsStr();
   return e->getValue(n);
 }
 
@@ -669,7 +696,7 @@ UnaryOp::UnaryOp(d::DslToken t, d::DslAst e) : Ast(t) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr UnaryOp::pr_str() const {
   stdstr buf;
-  buf += TKN(token)->pr_str();
+  buf += TKN(token())->pr_str();
   buf += AST(expr)->pr_str();
   return buf;
 }
@@ -677,15 +704,12 @@ stdstr UnaryOp::pr_str() const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue UnaryOp::eval(d::IEvaluator* e) {
   auto res = expr->eval(e);
-  auto n = cast_int(res,0);
-  auto f = cast_float(res, 0);
-  if (token->type() == d::T_MINUS) {
-    if (n) {
-      res = INT_VAL(- n->impl());
-    }
-    else
-    if (f) {
-      res = FLOAT_VAL(- f->impl());
+  auto n = cast_number(res,1);
+  if (token()->type() == d::T_MINUS) {
+    if (n->isInt()) {
+      res = NUMBER_VAL(- n->getInt());
+    } else {
+      res = NUMBER_VAL(- n->getFloat());
     }
   }
   return res;
@@ -706,7 +730,7 @@ d::DslValue Print::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto lastSemi=false;
   for (auto& i : exprs) {
-    auto t= AST(i)->token->type();
+    auto t= AST(i)->token()->type();
     lastSemi=false;
     if (t == d::T_COMMA) {
       _e->writeString(" ");
@@ -755,7 +779,7 @@ PrintSep::PrintSep(d::DslToken t) : Ast(t) {  }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue PrintSep::eval(d::IEvaluator* e) {
-  return INT_VAL(token->type());
+  return NUMBER_VAL(token()->type());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -763,7 +787,7 @@ void PrintSep::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr PrintSep::pr_str() const {
-  return token->getLiteralAsStr();
+  return token()->getLiteralAsStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -795,7 +819,7 @@ void Assignment::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ArrayDecl::ArrayDecl(d::DslAst v, const std::vector<llong>& sizes) {
-  auto n= CAST(Var,v)->token->getLiteralAsStr();
+  auto n= CAST(Var,v)->token()->getLiteralAsStr();
   if (n[n.length()-1] == '$') {
     stringType=true;
   } else {
@@ -983,16 +1007,24 @@ d::DslAst ifThen(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst forNext(BasicParser* bp) {
+  auto v = (bp->eat(T_NEXT),bp->eat(d::T_IDENT));
+  return new ForNext(new Var(v));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst forLoop(BasicParser* bp) {
   auto v= (bp->eat(T_FOR),bp->eat(d::T_IDENT));
   auto b= (bp->eat(d::T_EQ), expr(bp));
   auto e= (bp->eat(T_TO), expr(bp));
-  if (!bp->isCur(T_STEP)) {
-    return new ForLoop(new Var(v), b, e);
-  } else {
-    bp->eat();
-    return new ForLoop(new Var(v), b, e, expr(bp));
+  // force a step = 1 as default
+  auto t= new Token(d::T_INTEGER, "1", s__pair(llong,llong,0,0));
+  t->impl().num.setInt(1);
+  auto s= d::DslAst(new Num(t));
+  if (bp->isCur(T_STEP)) {
+    s = (bp->eat(), expr(bp));
   }
+  return new ForLoop(new Var(v), b, e, s);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1280,6 +1312,10 @@ d::DslAst statement(BasicParser* bp) {
 
     case T_FOR:
       res= forLoop(bp);
+    break;
+
+    case T_NEXT:
+      res= forNext(bp);
     break;
 
     case T_PRINT:

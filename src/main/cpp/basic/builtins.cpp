@@ -38,13 +38,7 @@ double rad_deg(double rad) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static double to_dbl(d::DslValue arg) {
-  if (auto f = cast_float(arg,0); f) {
-    return f->impl();
-  }
-  if (auto n = cast_int(arg,0); n) {
-    return n->impl();
-  }
-  RAISE(d::BadArg, "Expected numeric, got %s", C_STR(arg->pr_str(1)));
+  return cast_number(arg,1)->getFloat();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -53,7 +47,7 @@ static d::DslValue native_cos(d::IEvaluator* e, d::VSlice args) {
   d::preEqual(1, args.size(), "cos");
   auto deg = to_dbl(*args.begin);
   auto r= deg_rad(deg);
-  return FLOAT_VAL(::cos(r));
+  return NUMBER_VAL(::cos(r));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -62,7 +56,7 @@ static d::DslValue native_sin(d::IEvaluator* e, d::VSlice args) {
   d::preEqual(1, args.size(), "sin");
   auto deg = to_dbl(*args.begin);
   auto r= deg_rad(deg);
-  return FLOAT_VAL(::sin(r));
+  return NUMBER_VAL(::sin(r));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
