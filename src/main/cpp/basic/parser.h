@@ -31,16 +31,20 @@ struct Ast : public d::Node {
 
   virtual ~Ast() {}
 
-  Ast(d::DslToken t) : _token(t) { _line =0; }
+  Ast(d::DslToken t) : _token(t) { _line =0; _offset=0; }
   Ast();
 
   d::DslToken token() const { return _token; }
   llong line() const { return _line; }
   void line(llong n) { _line=n;}
 
+  llong offset() const { return _offset; }
+  void offset(llong n) { _offset=n;}
+
   protected:
 
   d::DslToken _token;
+  llong _offset;
   llong _line;
 };
 

@@ -24,6 +24,7 @@ namespace d = czlab::dsl;
 Basic::Basic(const char* src) {
   source = src;
   running=false;
+  progOffset=0;
   progCounter=0;
 }
 
@@ -187,11 +188,14 @@ void Basic::uninstall() {
 void Basic::init_counters() {
   while (!gosubReturns.empty()) gosubReturns.pop();
   running=true;
+  progOffset=0;
   progCounter= -1;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::finz_counters() {
+  progOffset=0;
+  progCounter= -1;
   running=false;
   while (!gosubReturns.empty()) gosubReturns.pop();
 }
@@ -202,18 +206,22 @@ llong Basic::retSub() {
     RAISE(d::BadArg, "Bad gosub-return: %s\n", "no sub called");
   auto r= gosubReturns.top();
   gosubReturns.pop();
-  return (progCounter = r);
+  progOffset = r.second+1;
+  return (progCounter = r.first - 1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Basic::jumpSub(llong line) {
-  auto it= lines.find(line);
+llong Basic::jumpSub(llong target, llong from, llong off) {
+
+  auto it= lines.find(target);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad gosub: %d\n", (int)line);
-  auto pos = it->second;
-  // save the current pc
-  gosubReturns.push(progCounter);
-  return (progCounter = pos-1);
+    RAISE(d::BadArg, "Bad gosub: %d\n", (int)target);
+
+  ASSERT1(progCounter == lines[from]);
+  gosubReturns.push(s__pair(llong,llong,progCounter,off));
+  auto pc = it->second;
+  progOffset=0;
+  return (progCounter = pc-1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -222,6 +230,7 @@ llong Basic::jump(llong line) {
   if (it == lines.end())
     RAISE(d::BadArg, "Bad goto: %d\n", (int)line);
   auto pos = it->second ;
+  progOffset=0;
   return (progCounter = pos-1);
 }
 
@@ -230,8 +239,8 @@ llong Basic::jumpFor(DslForLoop f) {
   auto it= lines.find(f->begin);
   if (it == lines.end())
     RAISE(d::BadArg, "Bad for-loop: %d\n", (int) f->begin);
-  auto pos = it->second ;
-  return (progCounter = pos-1);
+  progOffset=f->beginOffset;
+  return (progCounter = it->second -1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -240,7 +249,8 @@ llong Basic::endFor(DslForLoop f) {
   if (it == lines.end())
     RAISE(d::BadArg, "Bad end-for: %d\n", (int)f->end);
   f->init=NULL;
-  return (progCounter = it->second);
+  progOffset=f->endOffset+1;
+  return (progCounter = it->second-1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -259,11 +269,15 @@ void Basic::addForLoop(DslForLoop f) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::xrefForNext(const stdstr& v, llong n) {
+void Basic::xrefForNext(const stdstr& v, llong n, llong pos) {
   // make sure the next statement matches the current for loop.
   auto c = this->forLoop;
   ASSERT1(c.isSome());
-  ASSERT1(c->var == v);
+  if (!(c->var == v))
+    RAISE(d::SemanticError,
+          "Expecting  for-counter: %s, got %s.\n",
+          c->var.c_str(), v.c_str());
+  c->endOffset=pos;
   c->end= n;
   // find the corresponding counters
   auto b= this->lines[c->begin];

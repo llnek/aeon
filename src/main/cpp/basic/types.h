@@ -48,7 +48,7 @@ struct BValue : public d::Data {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 typedef d::DslValue (*Invoker) (d::IEvaluator*, d::VSlice);
-
+typedef std::pair<llong,llong> CheckPt;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Function : public BValue {
 
@@ -173,9 +173,12 @@ struct BStr : public BValue {
 struct ForLoopInfo;
 typedef a::RefPtr<ForLoopInfo> DslForLoop;
 struct ForLoopInfo : public a::Counted {
-  ForLoopInfo(const stdstr& v, llong n) {
+  ForLoopInfo(const stdstr& v, llong n, llong p) {
     var=v; begin=n; end=0;
+    beginOffset=p;
+    endOffset=0;
   }
+  llong beginOffset, endOffset;
   llong begin, end;
   d::DslValue init;
   d::DslValue step;
@@ -218,11 +221,13 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   void halt() { running =false; }
   bool isOn() const { return running; }
 
-  llong jumpSub(llong line);
+  llong jumpSub(llong target, llong from, llong pos);
   llong retSub();
   llong jumpFor(DslForLoop);
   llong endFor(DslForLoop);
   llong jump(llong line);
+
+  llong poffset() { auto p= progOffset; progOffset=0; return p;}
   llong pc() const { return progCounter; };
   llong incr_pc() { return ++progCounter; }
 
@@ -230,7 +235,7 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   DslForLoop getForLoop(llong c) const;
 
   // used during analysis
-  void xrefForNext(const stdstr&, llong n);
+  void xrefForNext(const stdstr&, llong n, llong pos);
   void addForLoop(DslForLoop f);
 
   Basic(const char* src);
@@ -242,12 +247,16 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   std::map<llong,DslForLoop> forBegins;
   std::map<llong,DslForLoop> forEnds;
 
-  std::stack<llong> gosubReturns;
+  std::stack<CheckPt> gosubReturns;
   std::map<llong,llong> lines;
+
   DslForLoop forLoop;
   bool running;
   const char* source;
+
   llong progCounter;
+  llong progOffset;
+
   d::DslFrame stack;
   d::DslTable symbols;
   void check(d::DslAst);

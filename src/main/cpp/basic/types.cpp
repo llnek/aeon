@@ -23,7 +23,7 @@ namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #define CASTXXX(T,v,panic,object,msg) do { \
-  if (auto p= v.ptr(); typeid(object)==typeid(*p)) { return s__cast(T,p); } \
+  if (auto p= v.ptr(); p && typeid(object)==typeid(*p)) { return s__cast(T,p); } \
   if (panic) expected(msg, v); \
   return NULL; } while (0)
 

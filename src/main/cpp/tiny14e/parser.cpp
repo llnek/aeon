@@ -745,6 +745,7 @@ d::DslAst not_factor(CrenshawParser* ps) {
 d::DslAst b_term(CrenshawParser* ps) {
   AstVec res {not_factor(ps)};
   while (ps->isCur(T_AND)) {
+    ps->eat();
     s__conj(res, not_factor(ps));
   }
   return new BoolTerm(ps->getEthereal(), res);
