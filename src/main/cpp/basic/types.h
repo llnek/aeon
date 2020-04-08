@@ -13,7 +13,6 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include <cmath>
 #include "lexer.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -21,13 +20,16 @@ namespace czlab::basic {
 namespace a= czlab::aeon;
 namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#define FN_VAL(n, f) czlab::dsl::DslValue(new LibFunc(n, f))
 #define NUMBER_VAL(n) czlab::dsl::DslValue(new BNumber(n))
 #define STRING_VAL(s) czlab::dsl::DslValue(new BStr(s))
-#define FN_VAL(n, f) czlab::dsl::DslValue(new LibFunc(n, f))
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #define CAST(t,x) s__cast(t,x.ptr())
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BValue : public d::Data {
+
   // Abstract class to store data value in parsers.
   virtual bool equals(const d::Data* rhs) const {
     return X_NIL(rhs) && eq(rhs);
@@ -49,6 +51,7 @@ struct BValue : public d::Data {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 typedef d::DslValue (*Invoker) (d::IEvaluator*, d::VSlice);
 typedef std::pair<llong,llong> CheckPt;
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Function : public BValue {
 
@@ -82,6 +85,7 @@ struct LibFunc : public Function {
     return typeid(*this) == typeid(*rhs) &&
            fn == s__cast(const LibFunc,rhs)->fn;
   }
+
   virtual int cmp(const d::Data* rhs) const {
     if (typeid(*this) == typeid(*rhs)) {
       auto v2= s__cast(const LibFunc,rhs)->fn;
@@ -93,28 +97,47 @@ struct LibFunc : public Function {
 
   Invoker fn;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BNumber : public BValue {
-  explicit BNumber(double d) : type(d::T_REAL) { u.r=d; }
-  BNumber(llong n) : type(d::T_INTEGER) { u.n=n; }
-  BNumber(int n) : type(d::T_INTEGER) { u.n=n; }
-  BNumber() : type(d::T_INTEGER) { u.n=0; }
 
-  double getFloat() const { return isInt() ? (double)u.n : u.r; }
-  llong getInt() const { return isInt() ? u.n : (llong) u.r; }
+  explicit BNumber(double d) : type(d::T_REAL) {
+    num=0;
+    real=d;
+  }
+  explicit BNumber(int n) : type(d::T_INTEGER) {
+    num=n;
+    real=0;
+  }
 
-  void setFloat(double d) { u.r=d; }
-  void setInt(llong n) { u.n=n; }
+  BNumber(llong n) : type(d::T_INTEGER) {
+    num=n;
+    real=0;
+  }
+
+  BNumber() : type(d::T_INTEGER) {
+    num=0;
+    real=0;
+  }
+
+  double getFloat() const { return isInt() ? (double)num : real; }
+  llong getInt() const { return isInt() ? num : (llong) real; }
+
+  void setFloat(double d) { real=d; }
+  void setInt(llong n) { num=n; }
 
   bool isInt() const { return type== d::T_INTEGER;}
-  bool isZero() const { return type==d::T_INTEGER ? u.n==0 : u.r==0.0; }
-  bool isNeg() const { return type==d::T_INTEGER ? u.n < 0 : u.r < 0.0; }
-  bool isPos() const { return type==d::T_INTEGER ? u.n > 0 : u.r > 0.0; }
 
+  bool isZero() const {
+    return type==d::T_INTEGER ? num==0 : a::fuzzy_zero(real); }
+
+  bool isNeg() const {
+    return type==d::T_INTEGER ? num < 0 : real < 0.0; }
+
+  bool isPos() const {
+    return type==d::T_INTEGER ? num > 0 : real > 0.0; }
 
   virtual stdstr pr_str(bool p=0) const {
-    return isInt() ? std::to_string(u.n) : std::to_string(u.r);
+    return isInt() ? std::to_string(num) : std::to_string(real);
   }
 
   protected:
@@ -141,17 +164,22 @@ struct BNumber : public BValue {
   }
 
   int type;
-  union { llong n; double r; } u;
+  llong num;
+  double real;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BStr : public BValue {
+
   virtual stdstr pr_str(bool p=0) const { return value; }
+
   BStr(const stdstr& s) : value(s) {}
   BStr(const char* s) : value(s) {}
 
   stdstr impl() const { return value; }
+
   protected:
+
   stdstr value;
 
   virtual bool eq(const Data* rhs) const {
@@ -159,6 +187,7 @@ struct BStr : public BValue {
            typeid(*this) == typeid(*rhs) &&
            value == s__cast(const BStr,rhs)->value;
   }
+
   virtual int cmp(const d::Data* rhs) const {
     if (typeid(*this) == typeid(*rhs)) {
       auto v2= s__cast(const BStr,rhs)->value;
@@ -180,9 +209,9 @@ struct ForLoopInfo : public a::Counted {
   }
   llong beginOffset, endOffset;
   llong begin, end;
+  stdstr var;
   d::DslValue init;
   d::DslValue step;
-  stdstr var;
   DslForLoop outer;
 };
 
@@ -197,13 +226,13 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   virtual d::DslFrame popFrame();
   virtual d::DslFrame peekFrame() const;
 
-  stdstr readString();
-  double readFloat();
-  llong readInt();
   void writeString(const stdstr&);
   void writeFloat(double);
   void writeInt(llong);
   void writeln();
+  stdstr readString();
+  double readFloat();
+  llong readInt();
 
   //analyzer
   virtual d::DslSymbol search(const stdstr&) const;
@@ -266,12 +295,14 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue expected(const stdstr&, d::DslValue);
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BNumber* cast_number(d::DslValue, int panic=0);
 BStr* cast_string(d::DslValue, int panic=0);
 LibFunc* cast_native(d::DslValue, int panic=0);
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue op_math(BNumber* lhs, int op, BNumber* rhs);
+d::DslValue op_math(d::DslValue, int op, d::DslValue);
 
 
 

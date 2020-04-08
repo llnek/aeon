@@ -22,6 +22,7 @@ namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<int, stdstr> TOKENS {
   {T_REM, "REM"},
+  {T_EOL, "<CR>"},
   {T_INPUT, "INPUT"},
   {T_PRINT, "PRINT"},
   {T_END, "END"},
@@ -60,6 +61,7 @@ std::map<stdstr,int> KEYWORDS {
   {map__val(TOKENS,T_STEP), T_STEP},
   {map__val(TOKENS,T_REM), T_REM},
   {map__val(TOKENS,T_END), T_END},
+  {map__val(TOKENS,T_EOL), T_EOL},
   {map__val(TOKENS,T_TO), T_TO},
   {map__val(TOKENS,T_RUN), T_RUN},
   {map__val(TOKENS,T_LET), T_LET},
@@ -126,7 +128,10 @@ stdstr Token::getLiteralAsStr() const {
       type() == d::T_STRING) { return _impl.txt; }
 
   if (! s__contains(TOKENS, type())) {
-    error("ID,String,Keyword", this);
+    //std::cout <<  "token is not ID,String,Keyword!!!!" << "\n";
+    //error("ID,String,Keyword", this);
+    //std::cout << "<<<" << pr_str() << ">>>";
+    return pr_str();
   }
 
   return TOKENS.at(type());
@@ -216,6 +221,17 @@ bool filter(Tchar ch, bool first) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void skip_wspace(d::Context& ctx) {
+  while (!ctx.eof) {
+    auto c= peek(ctx);
+    if (c != '\n' && ::isspace(c))
+      d::advance(ctx);
+    else
+      break;
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken Lexer::id() {
   auto m= _ctx.mark();
   auto s= d::identifier(_ctx, &filter);
@@ -227,6 +243,12 @@ d::DslToken Lexer::id() {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken Lexer::getNextToken() {
+  auto t = _getNextToken();
+  return t;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslToken Lexer::_getNextToken() {
   Tchar ch;
   while (!_ctx.eof) {
     ch= d::peek(_ctx);
@@ -234,17 +256,17 @@ d::DslToken Lexer::getNextToken() {
         d::peekNext(_ctx) == '\n') {
       auto m= _ctx.mark();
       d::advance(_ctx,2);
-      return token(T_EOL, "\r\n", m);
+      return token(T_EOL, "<EOL>", m);
     }
     else
     if (ch == '\n') {
       auto m= _ctx.mark();
       d::advance(_ctx);
-      return token(T_EOL, ch, m);
+      return token(T_EOL, "<EOL>", m);
     }
     else
     if (::isspace(ch)) {
-      d::skipWhitespace(_ctx);
+      skip_wspace(_ctx);
     }
     else
     if (::isdigit(ch)) {

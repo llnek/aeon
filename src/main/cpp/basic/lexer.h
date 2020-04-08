@@ -81,6 +81,8 @@ struct Lexer : public d::IScanner {
 
   virtual bool isKeyword(const stdstr&) const;
   virtual d::DslToken getNextToken();
+  d::DslToken _getNextToken();
+
   virtual d::DslToken number();
   virtual d::DslToken id();
   virtual d::DslToken string();

@@ -12,7 +12,6 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include <iostream>
 #include "parser.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -33,6 +32,7 @@ d::DslAst statement(BasicParser*);
 Ast::Ast() {
   _offset=0;
   _line =0;
+  //ASSERT1(false);
   _token=new Token(d::T_ETHEREAL,"?", s__pair(int,int,0,0));
 }
 
@@ -63,6 +63,7 @@ d::DslValue Program::eval(d::IEvaluator* e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Program::visit(d::IAnalyzer* a) {
+  //std::cout << "Program starting visit\n";
   auto _e = s__cast(Basic,a);
   _e->installProgram(mlines);
   for (auto& i : vlines) {
@@ -72,6 +73,8 @@ void Program::visit(d::IAnalyzer* a) {
   if (f.isSome())
     RAISE(d::SemanticError,
           "Unmatched for-loop near line %d.\n", (int) f->begin);
+
+  //std::cout << "Program ended visit\n";
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -103,7 +106,9 @@ d::DslValue Compound::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto len= stmts.size();
   auto pos= _e->poffset();
+  //std::cout << "line = " << line() << "\n";
   for (; pos < len; ++pos) {
+    //std::cout << "offset = " << pos << "\n";
     auto last= stmts[pos]->eval(e);
     auto n= cast_number(last,0);
     if (n && n->isZero()) {
@@ -198,7 +203,8 @@ d::DslValue ForLoop::eval(d::IEvaluator* e) {
     f->step = this->step->eval(e);
     auto i= cast_number(f->init,1);
     auto s= cast_number(f->step,1);
-    auto t= cast_number(term->eval(e),1);
+    auto _t = term->eval(e);
+    auto t= cast_number(_t,1);
     if (s->isPos()) {
       quit = (i->getFloat() > t->getFloat());
     } else if (s->isNeg()) {
@@ -212,9 +218,11 @@ d::DslValue ForLoop::eval(d::IEvaluator* e) {
       // into for loop
     }
   } else {
-    auto v= cast_number(e->getValue(f->var),1);
+    auto _v= e->getValue(f->var);
+    auto v= cast_number(_v,1);
     auto s= cast_number(f->step,1);
-    auto t= cast_number(term->eval(e),1);
+    auto _t= term->eval(e);
+    auto t= cast_number(_t,1);
     auto z = 0.0;
     if (s->isPos()) {
       z = v->getFloat() + s->getFloat();
@@ -266,14 +274,14 @@ stdstr ForLoop::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-IfThen::IfThen(d::DslAst c, d::DslAst t, d::DslAst z) {
+IfThen::IfThen(d::DslToken _t, d::DslAst c, d::DslAst t, d::DslAst z) : Ast(_t) {
   cond=c;
   then=t;
   elze=z;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-IfThen::IfThen(d::DslAst c, d::DslAst t) {
+IfThen::IfThen(d::DslToken _t, d::DslAst c, d::DslAst t) : Ast(_t) {
   cond=c;
   then=t;
 }
@@ -366,12 +374,13 @@ stdstr GoSubReturn::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-GoSub::GoSub(d::DslAst e) {
+GoSub::GoSub(d::DslToken t, d::DslAst e) : Ast(t) {
   expr=e;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue GoSub::eval(d::IEvaluator* e) {
+  //std::cout << "Jumping to subroutine: " << "\n";
   auto _e = s__cast(Basic,e);
   auto res= expr->eval(e);
   auto target= cast_number(res,1)->getInt();
@@ -396,7 +405,7 @@ stdstr GoSub::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Goto::Goto(d::DslAst e) {
+Goto::Goto(d::DslToken t, d::DslAst e) : Ast(t) {
   expr=e;
 }
 
@@ -484,7 +493,8 @@ d::DslValue BoolTerm::eval(d::IEvaluator* e) {
   }
   ++i;
   while (i < z) {
-    auto rhs = !cast_number(terms[i]->eval(e),1)->isZero();
+    auto _t = terms[i]->eval(e);
+    auto rhs = !cast_number(_t,1)->isZero();
     res= (res && rhs);
     if (res) return NUMBER_VAL(1);
     ++i;
@@ -545,7 +555,8 @@ d::DslValue BoolExpr::eval(d::IEvaluator* e) {
     if (t->type() == T_OR && res) {
       return NUMBER_VAL(1);
     }
-    auto rhs= !cast_number(terms[i+1]->eval(e),1)->isZero();
+    auto _r= terms[i+1]->eval(e);
+    auto rhs= !cast_number(_r,1)->isZero();
     if (t->type() == T_XOR) {
       if (res != rhs) {
         res=true;
@@ -585,8 +596,10 @@ stdstr RelationOp::pr_str() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue RelationOp::eval(d::IEvaluator* e) {
-  auto x = cast_number(lhs->eval(e),1);
-  auto y = cast_number(rhs->eval(e),1);
+  auto _x = lhs->eval(e);
+  auto _y = rhs->eval(e);
+  auto x = cast_number(_x,1);
+  auto y = cast_number(_y,1);
   auto ints = x->isInt() && y->isInt();
   auto b=false;
 
@@ -657,8 +670,8 @@ BinOp::BinOp(d::DslAst left, d::DslToken op, d::DslAst right) : Ast(op) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue BinOp::eval(d::IEvaluator* e) {
-  auto lf= cast_number(lhs->eval(e));
-  auto rt= cast_number(rhs->eval(e));
+  auto lf= lhs->eval(e);
+  auto rt= rhs->eval(e);
   return op_math(lf, token()->type(), rt);
 }
 
@@ -1043,13 +1056,14 @@ d::DslAst input(BasicParser* bp) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst ifThen(BasicParser* bp) {
-  auto c= (bp->eat(T_IF), b_expr(bp));
+  auto _t= bp->eat(T_IF);
+  auto c= b_expr(bp);
   auto t= (bp->eat(T_THEN), statement(bp));
   if (!bp->isCur(T_ELSE)) {
-    return new IfThen(c,t);
+    return new IfThen(_t, c,t);
   } else {
     bp->eat();
-    return new IfThen(c,t, statement(bp));
+    return new IfThen(_t, c,t, statement(bp));
   }
 }
 
@@ -1096,14 +1110,12 @@ d::DslAst print(BasicParser* bp) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst gotoLine(BasicParser* bp) {
-  bp->eat(T_GOTO);
-  return new Goto(expr(bp));
+  return new Goto(bp->eat(T_GOTO), expr(bp));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst gosub(BasicParser* bp) {
-  bp->eat(T_GOSUB);
-  return new GoSub(expr(bp));
+  return new GoSub(bp->eat(T_GOSUB), expr(bp));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1333,6 +1345,7 @@ d::DslAst compound_statements(BasicParser* bp) {
       break;
 
       case T_EOL:
+        //std::cout << "just ate a EOL\n";
         loop=false;
         bp->eat();
       break;
@@ -1360,25 +1373,34 @@ d::DslAst parse_line(BasicParser* bp) {
   }
 
   if (!bp->isEof()) {
-    if (bp->isCur(T_EOL)) { bp->eat(); } else {
+    if (bp->isCur(T_EOL)) {
+      bp->eat();
+    } else {
       bp->setLine(line);
       res= compound_statements(bp);
     }
   }
 
+  //std::cout << "parsed line = " << line << "\n";
   return res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst program(BasicParser* bp) {
   std::map<llong,d::DslAst> lines;
+  std::vector<d::DslAst> raws;
   do {
-    auto res= parse_line(bp);
-    if (res.isSome())
-      lines[bp->line()]= res;
+    if (auto res= parse_line(bp); res.isSome()) {
+      auto n = bp->line();
+      if (n < 0)
+        s__conj(raws,res);
+      else
+        lines[n]= res;
+    }
   }
   while (!bp->isEof());
 
+  //std::cout << "parsed ALL lines, total count = " << lines.size() << "\n";
   return new Program(lines);
 }
 

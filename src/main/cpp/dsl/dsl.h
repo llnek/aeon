@@ -100,7 +100,7 @@ enum TokenType {
   T_RPAREN,
   T_LBRACE,
   T_RBRACE,
-  T_EQ,
+  T_EQ, //10
   T_MINUS,
   T_PLUS,
   T_MULT,
@@ -110,7 +110,7 @@ enum TokenType {
   T_SEMI,
   T_DOT,
   T_TILDA,
-  T_BACKTICK,
+  T_BACKTICK, //20
   T_QUOTE,
   T_DQUOTE,
   T_BANG,
@@ -120,7 +120,7 @@ enum TokenType {
   T_QMARK,
   T_HAT,
   T_LBRACKET,
-  T_RBRACKET,
+  T_RBRACKET, //30
 
   T_COMMENT,
   T_EOF,

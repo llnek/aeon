@@ -12,7 +12,6 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include <iostream>
 #include "lexer.h"
 #include "types.h"
 
@@ -54,7 +53,9 @@ BStr* cast_string(d::DslValue v, int panic) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue op_math(BNumber* lhs, int op, BNumber* rhs) {
+d::DslValue op_math(d::DslValue left, int op, d::DslValue right) {
+  auto lhs = cast_number(left,1);
+  auto rhs = cast_number(right,1);
   bool ints = lhs->isInt() && rhs->isInt();
   llong L;
   double R;

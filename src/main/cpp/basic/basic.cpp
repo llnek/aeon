@@ -38,6 +38,7 @@ d::DslValue Basic::interpret() {
   BasicParser p(source);
   root_env();
   auto tree= p.parse();
+  //std::cout << s__cast(Ast,tree.ptr())->pr_str() << "\n";
   return check(tree), eval(tree);
 }
 

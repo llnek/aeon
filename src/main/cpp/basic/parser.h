@@ -216,7 +216,7 @@ struct GoSubReturn : public Ast {
 struct GoSub : public Ast {
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  GoSub(d::DslAst);
+  GoSub(d::DslToken, d::DslAst);
   virtual stdstr pr_str() const;
   virtual ~GoSub() {}
   private:
@@ -227,7 +227,7 @@ struct GoSub : public Ast {
 struct Goto : public Ast {
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  Goto(d::DslAst);
+  Goto(d::DslToken, d::DslAst);
   virtual stdstr pr_str() const;
   virtual ~Goto() {}
   private:
@@ -281,8 +281,8 @@ struct Print : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IfThen : public Ast {
-  IfThen(d::DslAst c, d::DslAst t, d::DslAst z);
-  IfThen(d::DslAst c, d::DslAst t);
+  IfThen(d::DslToken, d::DslAst c, d::DslAst t, d::DslAst z);
+  IfThen(d::DslToken, d::DslAst c, d::DslAst t);
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr pr_str() const;

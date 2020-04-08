@@ -24,9 +24,11 @@
 #include <set>
 #include <stack>
 #include <string>
+#include <cmath>
 #include <cassert>
 #include <cstdio>
 #include <cstdlib>
+#include <iostream>
 #include "macros.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
