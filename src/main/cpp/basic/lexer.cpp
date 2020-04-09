@@ -21,6 +21,7 @@ namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<int, stdstr> TOKENS {
+  {T_ARRAYINDEX, "[]"},
   {T_REM, "REM"},
   {T_EOL, "<CR>"},
   {T_INPUT, "INPUT"},
@@ -53,6 +54,7 @@ std::map<int, stdstr> TOKENS {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<stdstr,int> KEYWORDS {
+  {map__val(TOKENS,T_ARRAYINDEX), T_ARRAYINDEX},
   {map__val(TOKENS,T_INT_DIV), T_INT_DIV},
   {map__val(TOKENS,d::T_SEMI), d::T_SEMI},
   {map__val(TOKENS,d::T_COMMA), d::T_COMMA},

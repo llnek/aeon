@@ -441,14 +441,21 @@ d::DslValue FuncCall::eval(d::IEvaluator* e) {
   auto n= AST(fn)->token()->getLiteralAsStr();
   auto f= e->getValue(n);
   if (f.isNull())
-    RAISE(d::NoSuchVar, "Unknown function: %s", n.c_str());
-  auto fv = cast_native(f,1);
+    RAISE(d::NoSuchVar, "Unknown function/array: %s", n.c_str());
+  auto fa = cast_array(f,0);
+  auto fv = cast_native(f,0);
+  if (E_NIL(fa) && E_NIL(fv)) {
+    expected("Array var or function", f);
+  }
   d::ValVec pms;
   for (auto& a : args) {
     s__conj(pms, a->eval(e));
   }
-
-  return pms.empty() ? fv->invoke(e) : fv->invoke(e,d::VSlice(pms));
+  d::VSlice _args(pms);
+  if (fa)
+    return fa->get(_args);
+  else
+    return pms.empty() ? fv->invoke(e) : fv->invoke(e,_args);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -858,8 +865,26 @@ Assignment::Assignment(d::DslAst left, d::DslToken op, d::DslAst right) : Ast(op
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Assignment::eval(d::IEvaluator* e) {
-  auto n= CAST(Var,lhs)->name();
-  return e->setValue(n, rhs->eval(e));
+  auto t= token()->type();
+  auto v= lhs;
+  auto res= rhs->eval(e);
+  if (t == T_ARRAYINDEX) {
+    auto fc = CAST(FuncCall,lhs);
+    auto fn = fc->funcName();
+    auto args= fc->funcArgs();
+    d::ValVec out;
+    for (auto& x : args) {
+      s__conj(out, x->eval(e));
+    }
+    auto vn= CAST(Var,fn)->name();
+    auto vv= e->getValue(vn);
+    auto arr= cast_array(vv,1);
+    arr->set(d::VSlice(out), res);
+  } else {
+    auto vn= CAST(Var,lhs)->name();
+    e->setValue(vn, res);
+  }
+  return res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -873,12 +898,27 @@ stdstr Assignment::pr_str() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Assignment::visit(d::IAnalyzer* a) {
+  auto t= token()->type();
+  auto v= lhs;
+  if (t == T_ARRAYINDEX) {
+    v= CAST(FuncCall,lhs)->funcName();
+  }
+  auto vn= CAST(Var,v)->name();
+  if (t == T_ARRAYINDEX) {
+    // array must have been defined.
+    ASSERT1(a->find(vn).isSome());
+  }
   lhs->visit(a);
   rhs->visit(a);
+  if (t != T_ARRAYINDEX) {
+    a->define(new d::Symbol(vn));
+  }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ArrayDecl::ArrayDecl(d::DslAst v, const std::vector<llong>& sizes) {
+ArrayDecl::ArrayDecl(d::DslToken t,
+    d::DslAst v,
+    const std::vector<llong>& sizes) : Ast(t) {
   auto n= CAST(Var,v)->token()->getLiteralAsStr();
   if (n[n.length()-1] == '$') {
     stringType=true;
@@ -886,7 +926,7 @@ ArrayDecl::ArrayDecl(d::DslAst v, const std::vector<llong>& sizes) {
     stringType=false;
   }
   var=v;
-  s__ccat(dims,sizes);
+  s__ccat(ranges,sizes);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -895,7 +935,7 @@ stdstr ArrayDecl::pr_str() const {
   stdstr b;
   buf += AST(var)->pr_str();
   buf += "(";
-  for (auto& x : dims) {
+  for (auto& x : ranges) {
     if (!b.empty()) b += ",";
     b += std::to_string(x);
   }
@@ -905,12 +945,19 @@ stdstr ArrayDecl::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue ArrayDecl::eval(d::IEvaluator*) {
-  return NULL;
+d::DslValue ArrayDecl::eval(d::IEvaluator* e) {
+  auto n= CAST(Var,var)->token()->getLiteralAsStr();
+  return e->setValue(n, new BArray(ranges));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ArrayDecl::visit(d::IAnalyzer* a) {
+  auto n= CAST(Var,var)->token()->getLiteralAsStr();
+  if (auto c= a->find(n); c.isSome()) {
+    RAISE(d::SemanticError,
+          "Array var %s defined already.\n", n.c_str());
+  }
+  a->define(new d::Symbol(n, new d::Symbol("ARRAY")));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1007,8 +1054,15 @@ bool BasicParser::isEof() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst assignment(BasicParser* bp) {
-  auto name= bp->eat(d::T_IDENT);
+d::DslAst assignment(BasicParser* bp, d::DslAst lhs) {
+  auto t= bp->eat(d::T_EQ);
+  auto n= T_ARRAYINDEX;
+  auto val= expr(bp);
+  return new Assignment(lhs, token(n, "[]", TKN(t)->srcInfo()), val);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst assignment(BasicParser* bp, d::DslToken name) {
   auto t= bp->eat(d::T_EQ);
   auto val= expr(bp);
   return new Assignment(new Var(name),t, val);
@@ -1210,7 +1264,7 @@ d::DslAst factor(BasicParser* bp) {
     case d::T_IDENT:
       bp->eat();
       if (bp->isCur(d::T_LPAREN)) {
-        // a func call
+        // a func call, or array access
         res = funcall(bp,t);
       } else {
         res= new Var(t);
@@ -1256,7 +1310,8 @@ d::DslAst expr(BasicParser* bp) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst declArray(BasicParser* bp) {
-  auto t= (bp->eat(T_DIM),bp->eat(d::T_IDENT));
+  auto _t = bp->eat(T_DIM);
+  auto t= bp->eat(d::T_IDENT);
   std::vector<llong> sizes;
   bp->eat(d::T_LPAREN);
   while (! bp->isEof()) {
@@ -1267,7 +1322,7 @@ d::DslAst declArray(BasicParser* bp) {
     bp->eat(d::T_COMMA);
   }
   bp->eat(d::T_RPAREN);
-  return new ArrayDecl(new Var(t),sizes);
+  return new ArrayDecl(_t, new Var(t),sizes);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1323,11 +1378,28 @@ d::DslAst statement(BasicParser* bp) {
     break;
 
     case T_LET:
-      res=(bp->eat(),assignment(bp));
+      res=(bp->eat(),assignment(bp, bp->eat(d::T_IDENT)));
     break;
 
     case d::T_IDENT:
-      res=assignment(bp);
+      auto n= bp->eat();
+      if (bp->isCur(d::T_EQ)) {
+        res=assignment(bp,n);
+      }
+      else {
+        if (bp->isCur(d::T_LPAREN)) {
+          auto fc= funcall(bp, n);
+          if (!bp->isCur(d::T_EQ)) {
+            res=fc;
+          } else {
+            // assignment
+            res = assignment(bp, fc);
+          }
+        } else {
+          RAISE(d::SyntaxError,
+                "Unexpected identifier %s.\n", C_STR(TKN(n)->pr_str()));
+        }
+      }
     break;
   }
 

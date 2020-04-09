@@ -21,7 +21,8 @@ namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
-  T_REM = 1000,
+  T_ARRAYINDEX = 1000,
+  T_REM,
   T_INPUT,
   T_PRINT,
   T_LET,
@@ -101,7 +102,11 @@ struct Lexer : public d::IScanner {
 
 
 
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslToken token(int type, Tchar, d::SrcInfo);
+d::DslToken token(int type, const stdstr&, d::SrcInfo);
+d::DslToken token(int type, const stdstr&, d::SrcInfo, llong n);
+d::DslToken token(int type, const stdstr&, d::SrcInfo, double d);
 
 
 

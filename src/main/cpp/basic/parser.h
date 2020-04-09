@@ -56,6 +56,9 @@ struct FuncCall : public Ast {
   virtual stdstr pr_str() const;
   virtual ~FuncCall() {}
 
+  d::DslAst funcName() const { return fn; }
+  d::AstVec& funcArgs()  { return args; }
+
   private:
 
   d::DslAst fn;
@@ -342,7 +345,7 @@ struct Comment : public Ast {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ArrayDecl : public Ast {
-  ArrayDecl(d::DslAst t, const std::vector<llong>&);
+  ArrayDecl(d::DslToken, d::DslAst t, const std::vector<llong>&);
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr pr_str() const;
@@ -351,7 +354,7 @@ struct ArrayDecl : public Ast {
   private:
   bool stringType;
   d::DslAst var;
-  std::vector<llong> dims;
+  std::vector<llong> ranges;
 };
 
 

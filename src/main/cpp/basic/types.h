@@ -97,6 +97,26 @@ struct LibFunc : public Function {
 
   Invoker fn;
 };
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct BArray : public BValue {
+  virtual stdstr pr_str(bool p=0) const;
+  BArray(const std::vector<llong>&);
+  BArray() { value=NULL;}
+  virtual ~BArray();
+
+  d::DslValue set(d::VSlice, d::DslValue);
+  d::DslValue get(d::VSlice);
+
+  protected:
+
+  std::vector<llong> ranges;
+  d::ValVec* value;
+  llong index(d::VSlice);
+  virtual bool eq(const Data* rhs) const;
+  virtual int cmp(const d::Data* rhs) const;
+};
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BNumber : public BValue {
 
@@ -299,6 +319,7 @@ d::DslValue expected(const stdstr&, d::DslValue);
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BNumber* cast_number(d::DslValue, int panic=0);
 BStr* cast_string(d::DslValue, int panic=0);
+BArray* cast_array(d::DslValue, int panic=0);
 LibFunc* cast_native(d::DslValue, int panic=0);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -29,7 +29,7 @@ int main(int argc, char* argv[]) {
   using namespace czlab::basic;
   namespace a=czlab::aeon;
   try {
-    auto f= a::read_file("/Users/kenl/Desktop/poo.bas");
+    auto f= a::read_file("/tmp/test.bas");
     Basic p(f.c_str());
     p.interpret();
     std::cout << "done." << "\n";
