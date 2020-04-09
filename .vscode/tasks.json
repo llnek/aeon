@@ -4,33 +4,18 @@
     {
       "label": "Build with Clang",
       "type": "shell",
-      "command": "clang++",
+      "command": "/usr/bin/clang++",
       "args": [
         "-std=c++17",
         "-stdlib=libc++",
-        "test.cpp",
+        "-g",
+        "${workspaceFolder}/src/main/cpp/**/*.cpp",
         "-o",
         "test.out",
         "--debug"
       ],
-      "group": {
-        "kind": "build",
-        "isDefault": true
-      }
-    },
-    {
-      "type": "shell",
-      "label": "cpp build active file",
-      "command": "/usr/bin/cpp",
-      "args": [
-        "-g",
-        "${file}",
-        "-o",
-        "${fileDirname}/${fileBasenameNoExtension}"
-      ],
-      "options": {
-        "cwd": "/usr/bin"
-      }
+      "group": "build",
+      "problemMatcher": []
     }
   ]
 }

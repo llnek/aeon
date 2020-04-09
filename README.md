@@ -1,2 +1,2 @@
 # rygel
-c++ entity component system
+A collection of c++ libraries.
