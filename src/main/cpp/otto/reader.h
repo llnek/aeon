@@ -38,8 +38,13 @@ struct Token : public d::AbstractToken {
 
   static stdstr typeToString(int);
 
-  Token(int type, const stdstr&, d::SrcInfo);
-  Token(int type, Tchar, d::SrcInfo);
+  static d::DslToken make(int t, const stdstr& s, d::SrcInfo i) {
+    return d::DslToken(new Token(t, s, i));
+  }
+
+  static d::DslToken make(int t, Tchar c, d::SrcInfo i) {
+    return d::DslToken(new Token(t, c, i));
+  }
 
   virtual stdstr getLiteralAsStr() const;
   virtual double getLiteralAsReal() const;
@@ -50,9 +55,12 @@ struct Token : public d::AbstractToken {
 
   virtual ~Token() {}
 
-  private:
+  protected:
 
+  Token(int type, const stdstr&, d::SrcInfo);
+  Token(int type, Tchar, d::SrcInfo);
   Token();
+
   d::Lexeme _impl;
 };
 

@@ -30,29 +30,28 @@ struct Lisper;
 typedef d::DslValue (*Invoker) (Lisper*, d::VSlice);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define FLOAT_VAL(n) czlab::dsl::DslValue(new LFloat(n))
-#define INT_VAL(n) czlab::dsl::DslValue(new LInt(n))
-#define EMPTY_LIST() czlab::dsl::DslValue(new LList())
-#define CHAR_VAL(c) czlab::dsl::DslValue(new LChar(c))
-#define ATOM_VAL(a) czlab::dsl::DslValue(new LAtom(a))
-#define FALSE_VAL() czlab::dsl::DslValue(new LFalse())
-#define TRUE_VAL() czlab::dsl::DslValue(new LTrue())
-#define NIL_VAL() czlab::dsl::DslValue(new LNil())
-#define VEC_VAL(v) czlab::dsl::DslValue(new LVec(v))
-#define VEC_VAL2(p1,p2) czlab::dsl::DslValue(new LVec(p1,p2))
+#define NUMBER_VAL(n) LNumber::make(n)
+#define EMPTY_LIST() LList::make()
+#define CHAR_VAL(c) LChar::make(c)
+#define ATOM_VAL(a) LAtom::make(a)
+#define FALSE_VAL() LFalse::make()
+#define TRUE_VAL() LTrue::make()
+#define NIL_VAL() LNil::make()
+#define VEC_VAL(v) LVec::make(v)
+#define VEC_VAL2(p1,p2) LVec::make(p1,p2)
 
-#define LIST_VAL(v) czlab::dsl::DslValue(new LList(v))
-#define LIST_VAL2(p1,p2) czlab::dsl::DslValue(new LList(p1,p2))
-#define LIST_VAL3(p1,p2,p3) czlab::dsl::DslValue(new LList(p1,p2,p3))
-#define MAP_VAL(v) czlab::dsl::DslValue(new LHash(v))
-#define SET_VAL(v) czlab::dsl::DslValue(new LSet(v))
-#define KEYWORD_VAL(s) czlab::dsl::DslValue(new LKeyword(s))
-#define STRING_VAL(s) czlab::dsl::DslValue(new LString(s))
-#define SYMBOL_VAL(s) czlab::dsl::DslValue(new LSymbol(s))
+#define LIST_VAL(v) LList::make(v)
+#define LIST_VAL2(p1,p2) LList::make(p1,p2)
+#define LIST_VAL3(p1,p2,p3) LList::make(p1,p2,p3)
+#define MAP_VAL(v) LHash::make(v)
+#define SET_VAL(v) LSet::make(v)
+#define KEYWORD_VAL(s) LKeyword::make(s)
+#define STRING_VAL(s) LString::make(s)
+#define SYMBOL_VAL(s) LSymbol::make(s)
+#define FN_VAL(n, f) LNative::make(n, f)
+#define MACRO_VAL(n,p,b,e) LMacro::make(n,p,b,e)
+#define LAMBDA_VAL(n,p,b,e) LLambda::make(n,p,b,e)
 #define BOOL_VAL(b) ((b) ? TRUE_VAL() : FALSE_VAL())
-#define FN_VAL(n, f) czlab::dsl::DslValue(new LNative(n, f))
-#define MACRO_VAL(n,p,b,e) czlab::dsl::DslValue(new LMacro(n,p,b,e))
-#define LAMBDA_VAL(n,p,b,e) czlab::dsl::DslValue(new LLambda(n,p,b,e))
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lisper {
@@ -73,24 +72,23 @@ struct Lisper {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LValue : public d::Data {
 
+  virtual d::DslValue eval(Lisper*, d::DslFrame) = 0;
   virtual d::DslValue withMeta(d::DslValue) const;
-  virtual bool equals(const d::Data*) const;
-  virtual int compare(const d::Data*) const;
-  d::DslValue meta() const;
+  virtual bool equals(d::DslValue) const;
+  virtual int compare(d::DslValue) const;
 
-  // most things are true.
   virtual bool truthy() const { return true; }
-
-  // eval this s-expression, or form.
-  virtual d::DslValue eval(Lisper*, d::DslFrame);
+  d::DslValue meta() const { return metaObj; }
   virtual ~LValue() {}
-  LValue() {}
 
   protected:
 
-  virtual bool eq(const d::Data*) const = 0;
-  virtual int cmp(const d::Data*) const = 0;
+  virtual bool eq(d::DslValue) const = 0;
+  virtual int cmp(d::DslValue) const = 0;
+
   LValue(d::DslValue m) : metaObj(m) {}
+  LValue() {}
+
   d::DslValue metaObj;
 
 };
@@ -115,49 +113,72 @@ struct LSeqable {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LFalse : public LValue {
 
+  static d::DslValue make() { return d::DslValue(new LFalse()); }
+
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual stdstr pr_str(bool p=0) const;
   virtual bool truthy() const { return false; }
 
-  LFalse(const LFalse&, d::DslValue);
-  LFalse() {}
+  virtual d::DslValue eval(Lisper*, d::DslFrame) {
+    return d::DslValue(new LFalse());
+  }
+
   virtual ~LFalse() {}
+  LFalse() {}
 
   protected:
 
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+  LFalse(const LFalse&, d::DslValue);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
+
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LTrue : public LValue {
 
+  static d::DslValue make() { return d::DslValue(new LTrue()); }
+
+  virtual d::DslValue eval(Lisper*, d::DslFrame) {
+    return d::DslValue(new LTrue());
+  }
+
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual stdstr pr_str(bool p=0) const;
-  LTrue(const LTrue&, d::DslValue);
-  LTrue() {}
   virtual ~LTrue() {}
+  LTrue() {}
 
   protected:
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+
+  LTrue(const LTrue&, d::DslValue);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LNil : public LValue {
 
+  static d::DslValue make() { return d::DslValue(new LNil()); }
+
+  virtual d::DslValue eval(Lisper*, d::DslFrame) {
+    return d::DslValue(new LNil());
+  }
+
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual stdstr pr_str(bool p=0) const;
   virtual bool truthy() const { return false; }
 
-  LNil(const LNil&, d::DslValue);
-  LNil() {}
   virtual ~LNil() {}
+  LNil() {}
 
   protected:
 
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+  LNil(const LNil&, d::DslValue);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -166,73 +187,103 @@ struct LChar : public LValue {
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual stdstr pr_str(bool p=0) const;
 
-  LChar(const LChar&, d::DslValue);
-  LChar(Tchar c) { value = c; }
+  virtual d::DslValue eval(Lisper*, d::DslFrame) {
+    return d::DslValue(new LChar(value));
+  }
+
+  static d::DslValue make(Tchar c) {
+    return d::DslValue(new LChar(c));
+  }
+
   Tchar impl() { return value; }
   virtual ~LChar() {}
 
+  LChar() { value=0;}
+
   protected:
 
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+  LChar(const LChar&, d::DslValue);
+  LChar(Tchar c) { value = c; }
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
+
   Tchar value;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LAtom : public LValue {
 
+  d::DslValue reset(d::DslValue x) { return (value = x); }
+  d::DslValue deref() const { return value; }
+
+  static d::DslValue make(d::DslValue v) {
+    return d::DslValue(new LAtom(v));
+  }
+
+  static d::DslValue make() {
+    return d::DslValue(new LAtom());
+  }
+
+  virtual d::DslValue eval(Lisper*, d::DslFrame) {
+    return d::DslValue(new LAtom(value));
+  }
+
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual stdstr pr_str(bool p=0) const;
 
-  LAtom(const LAtom&, d::DslValue);
   LAtom() { value= NIL_VAL();}
-  LAtom(d::DslValue);
   virtual ~LAtom() {}
 
-  d::DslValue deref() const { return value; }
-  d::DslValue reset(d::DslValue x) { return (value = x); }
-
   protected:
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+
+  LAtom(const LAtom&, d::DslValue);
+  LAtom(d::DslValue);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
+
   d::DslValue value;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct LFloat : public LValue {
+struct LNumber : public LValue {
+
+  double getFloat() const { return isInt() ? (double)num.n : num.r; }
+  llong getInt() const { return isInt() ? num.n : (llong)num.r; }
+  bool isInt() const { return _type == d::T_INTEGER; }
+
+  static d::DslValue make(double d) {
+    return d::DslValue(new LNumber(d));
+  }
+
+  static d::DslValue make(llong n) {
+    return d::DslValue(new LNumber(n));
+  }
+
+  static d::DslValue make(int n) {
+    return d::DslValue(new LNumber(n));
+  }
 
   virtual d::DslValue withMeta(d::DslValue) const;
+  virtual d::DslValue eval(Lisper*, d::DslFrame);
   virtual stdstr pr_str(bool p=0) const;
-  virtual d::Number number() const;
 
-  LFloat(const LFloat& rhs, d::DslValue);
-  LFloat(double d) : value(d) {}
-  double impl() const { return value; };
-  virtual ~LFloat() {}
+  virtual ~LNumber() {}
+  explicit LNumber(int);
 
   protected:
 
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
-  double value;
-};
+  LNumber(const LNumber&, d::DslValue);
+  explicit LNumber(double);
+  LNumber(llong);
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct LInt : public LValue {
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
 
-  virtual d::DslValue withMeta(d::DslValue) const;
-  virtual stdstr pr_str(bool p=0) const;
-  virtual d::Number number() const;
-
-  llong impl() const { return value; };
-  LInt(const LInt& rhs, d::DslValue);
-  LInt(llong n) : value(n) {}
-  virtual ~LInt() {}
-
-  protected:
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
-  llong value;
+  int _type;
+  union {
+    double r; llong n; } num;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -241,8 +292,14 @@ struct LString : public LValue, public LSeqable {
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual stdstr pr_str(bool p=0) const;
 
-  LString(const LString&, d::DslValue);
-  LString(const stdstr&);
+  static d::DslValue make(const stdstr& s) {
+    return d::DslValue(new LString(s));
+  }
+
+  virtual d::DslValue eval(Lisper*, d::DslFrame) {
+    return d::DslValue(new LString(value));
+  }
+
   virtual ~LString() {}
 
   stdstr encoded() const;
@@ -255,10 +312,16 @@ struct LString : public LValue, public LSeqable {
   virtual d::DslValue seq() const;
   virtual bool isEmpty() const;
   virtual int count() const;
+  LString() {}
 
   protected:
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+
+  LString(const LString&, d::DslValue);
+  LString(const stdstr&);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
+
   stdstr value;
 };
 
@@ -268,15 +331,27 @@ struct LKeyword : public LValue {
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual stdstr pr_str(bool p=0) const;
 
+  static d::DslValue make(const stdstr& s) {
+    return d::DslValue(new LKeyword(s));
+  }
+
+  virtual d::DslValue eval(Lisper*, d::DslFrame) {
+    return d::DslValue(new LKeyword(value));
+  }
+
   stdstr impl() const { return value; }
 
-  LKeyword(const LKeyword&, d::DslValue);
-  LKeyword(const stdstr& s);
   virtual ~LKeyword() {}
+  LKeyword() {};
 
   protected:
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+
+  LKeyword(const LKeyword&, d::DslValue);
+  LKeyword(const stdstr&);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
+
   stdstr value;
 };
 
@@ -285,18 +360,27 @@ struct LSymbol : public LValue {
 
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual stdstr pr_str(bool p=0) const;
-  virtual d::DslValue eval(Lisper*, d::DslFrame);
-  stdstr impl() const { return value; }
 
+  static d::DslValue make(const stdstr& s) {
+    return d::DslValue(new LSymbol(s));
+  }
+
+  virtual d::DslValue eval(Lisper*, d::DslFrame);
+
+  stdstr impl() const { return value; }
   void rename(const stdstr&);
 
-  LSymbol(const LSymbol& rhs, d::DslValue);
-  LSymbol(const stdstr& s);
   virtual ~LSymbol() {}
+  LSymbol() {}
 
   protected:
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+
+  LSymbol(const LSymbol& rhs, d::DslValue);
+  LSymbol(const stdstr&);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
+
   stdstr value;
 };
 
@@ -318,8 +402,8 @@ struct LSequential : public LValue, public LSeqable {
 
   protected:
 
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
   virtual ~LSequential() {}
 
   LSequential(const LSequential& rhs, d::DslValue);
@@ -338,16 +422,44 @@ struct LList : public LSequential {
 
   virtual d::DslValue eval(Lisper*, d::DslFrame);
 
+  virtual d::DslValue conj(d::VSlice) const;
+  virtual ~LList() {}
+
+  static d::DslValue make(d::DslValue v) {
+    return d::DslValue(new LList(v));
+  }
+
+  static d::DslValue make(d::DslValue v1, d::DslValue v2) {
+    return d::DslValue(new LList(v1, v2));
+  }
+
+  static d::DslValue make(d::DslValue v1, d::DslValue v2, d::DslValue v3) {
+    return d::DslValue(new LList(v1, v2, v3));
+  }
+
+  static d::DslValue make(d::ValVec& v) {
+    return d::DslValue(new LList(v));
+  }
+
+  static d::DslValue make(d::VSlice s) {
+    return d::DslValue(new LList(s));
+  }
+
+  static d::DslValue make() {
+    return d::DslValue(new LList());
+  }
+
+  LList() {}
+
+  protected:
+
+  LList(d::DslValue,d::DslValue,d::DslValue);
   LList(const LList& rhs, d::DslValue);
   LList(d::DslValue);
   LList(d::DslValue,d::DslValue);
-  LList(d::DslValue,d::DslValue,d::DslValue);
   LList(d::ValVec&);
   LList(d::VSlice);
-  LList() {}
 
-  virtual d::DslValue conj(d::VSlice) const;
-  virtual ~LList() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -357,16 +469,44 @@ struct LVec : public LSequential {
   virtual stdstr pr_str(bool p=0) const;
 
   virtual d::DslValue eval(Lisper*, d::DslFrame);
+  virtual d::DslValue conj(d::VSlice) const;
 
+  static d::DslValue make(d::DslValue v1, d::DslValue v2, d::DslValue v3) {
+    return d::DslValue(new LVec(v1, v2, v3));
+  }
+
+  static d::DslValue make(d::DslValue v1, d::DslValue v2) {
+    return d::DslValue(new LVec(v1, v2));
+  }
+
+  static d::DslValue make(d::DslValue v1) {
+    return d::DslValue(new LVec(v1));
+  }
+
+  static d::DslValue make(d::ValVec& v) {
+    return d::DslValue(new LVec(v));
+  }
+
+  static d::DslValue make(d::VSlice s) {
+    return d::DslValue(new LVec(s));
+  }
+
+  static d::DslValue make() {
+    return d::DslValue(new LVec());
+  }
+
+  virtual ~LVec() {}
+  LVec() {}
+
+  protected:
+
+  LVec(d::DslValue,d::DslValue,d::DslValue);
   LVec(const LVec& rhs, d::DslValue);
   LVec(d::DslValue);
   LVec(d::DslValue,d::DslValue);
-  LVec(d::DslValue,d::DslValue,d::DslValue);
   LVec(d::VSlice);
   LVec(d::ValVec&);
-  LVec() {}
-  virtual d::DslValue conj(d::VSlice) const;
-  virtual ~LVec() {}
+
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -386,22 +526,42 @@ struct LSet : public LValue, public LSeqable {
   virtual bool isEmpty() const;
   virtual int count() const;
 
-  LSet(const std::set<d::DslValue,SetCompare>&);
-  LSet(const LSet& rhs, d::DslValue);
-  LSet(d::DslValue);
-  LSet(d::VSlice);
-  LSet(d::ValVec&);
-  LSet();
+  static d::DslValue make(const std::set<d::DslValue,SetCompare>& s) {
+    return d::DslValue(new LSet(s));
+  }
+
+  static d::DslValue make(d::DslValue v) {
+    return d::DslValue(new LSet(v));
+  }
+
+  static d::DslValue make(d::VSlice s) {
+    return d::DslValue(new LSet(s));
+  }
+
+  static d::DslValue make(d::ValVec& v) {
+    return d::DslValue(new LSet(v));
+  }
+
+  static d::DslValue make() {
+    return d::DslValue(new LSet());
+  }
 
   d::DslValue conj(d::VSlice) const;
   d::DslValue disj(d::VSlice) const;
 
   virtual ~LSet();
+  LSet();
 
   protected:
 
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+  LSet(const std::set<d::DslValue,SetCompare>&);
+  LSet(const LSet& rhs, d::DslValue);
+  LSet(d::DslValue);
+  LSet(d::VSlice);
+  LSet(d::ValVec&);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
   std::set<d::DslValue,SetCompare>* values;
 };
 
@@ -422,11 +582,21 @@ struct LHash : public LValue, public LSeqable {
   virtual bool isEmpty() const;
   virtual int count() const;
 
-  LHash(const std::map<stdstr, VPair>&);
-  LHash(const LHash& rhs, d::DslValue);
-  LHash(d::VSlice);
-  LHash(d::ValVec&);
-  LHash();
+  static d::DslValue make(const std::map<stdstr, VPair>& s) {
+    return d::DslValue(new LHash(s));
+  }
+
+  static d::DslValue make(d::VSlice s) {
+    return d::DslValue(new LHash(s));
+  }
+
+  static d::DslValue make(d::ValVec& v) {
+    return d::DslValue(new LHash(v));
+  }
+
+  static d::DslValue make() {
+    return d::DslValue(new LHash());
+  }
 
   d::DslValue dissoc(d::VSlice) const;
   d::DslValue assoc(d::VSlice) const;
@@ -435,11 +605,17 @@ struct LHash : public LValue, public LSeqable {
   d::DslValue vals() const;
 
   virtual ~LHash() {}
+  LHash();
 
   protected:
 
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+  LHash(const std::map<stdstr, VPair>&);
+  LHash(const LHash& rhs, d::DslValue);
+  LHash(d::VSlice);
+  LHash(d::ValVec&);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
   std::map<stdstr,VPair> values;
 };
 
@@ -470,12 +646,24 @@ struct LLambda : public LFunction {
   virtual d::DslValue invoke(Lisper*, d::VSlice);
   virtual d::DslValue invoke(Lisper*);
 
-  LLambda(const stdstr&, const StrVec&, d::DslValue, d::DslFrame);
-  LLambda(const StrVec&, d::DslValue, d::DslFrame);
-  LLambda(const LLambda&, d::DslValue);
-  LLambda() : LFunction("") {}
+  virtual d::DslValue eval(Lisper*, d::DslFrame) {
+    return d::DslValue(new LLambda(*this, d::DslValue(P_NIL)));
+  }
+
+  static d::DslValue make(const stdstr& n, const StrVec& s, d::DslValue v, d::DslFrame f) {
+    return d::DslValue(new LLambda(n, s, v, f));
+  }
+
+  static d::DslValue make(const StrVec& s, d::DslValue v, d::DslFrame f) {
+    return d::DslValue(new LLambda(s, v, f));
+  }
+
+  static d::DslValue make() {
+    return d::DslValue(new LLambda());
+  }
 
   d::DslFrame bindContext(d::VSlice);
+  LLambda() : LFunction("") {}
 
   d::DslValue body;
   StrVec params;
@@ -483,27 +671,48 @@ struct LLambda : public LFunction {
 
   protected:
 
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+  LLambda(const stdstr&, const StrVec&, d::DslValue, d::DslFrame);
+  LLambda(const StrVec&, d::DslValue, d::DslFrame);
+  LLambda(const LLambda&, d::DslValue);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LMacro : public LLambda {
 
-  LMacro(const stdstr&, const StrVec&, d::DslValue, d::DslFrame);
-  LMacro(const StrVec&, d::DslValue, d::DslFrame);
-  LMacro(const LMacro&, d::DslValue);
-  LMacro() {}
+  static d::DslValue make(const stdstr& n, const StrVec& s, d::DslValue v, d::DslFrame f) {
+    return d::DslValue(new LMacro(n, s, v, f));
+  }
+
+  static d::DslValue make(const StrVec& s, d::DslValue v, d::DslFrame f) {
+    return d::DslValue(new LMacro(s, v, f));
+  }
+
+  static d::DslValue make() {
+    return d::DslValue(new LMacro());
+  }
+
+  virtual d::DslValue eval(Lisper*, d::DslFrame) {
+    return d::DslValue(new LMacro(*this, d::DslValue(P_NIL)));
+  }
+
   virtual ~LMacro() {}
 
   virtual d::DslValue withMeta(d::DslValue) const;
   virtual bool isMacro() const { return true; }
   virtual stdstr pr_str(bool p=0) const;
+  LMacro() {}
 
   protected:
 
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+  LMacro(const stdstr&, const StrVec&, d::DslValue, d::DslFrame);
+  LMacro(const StrVec&, d::DslValue, d::DslFrame);
+  LMacro(const LMacro&, d::DslValue);
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -516,16 +725,29 @@ struct LNative : public LFunction {
   virtual d::DslValue invoke(Lisper*, d::VSlice);
   virtual d::DslValue invoke(Lisper*);
 
-  LNative(const stdstr& name, Invoker);
-  LNative(const LNative&, d::DslValue);
+  static d::DslValue make(const stdstr& name, Invoker f) {
+    return d::DslValue(new LNative(name, f));
+  }
+
+  static d::DslValue make() {
+    return d::DslValue(new LNative());
+  }
+
+  virtual d::DslValue eval(Lisper*, d::DslFrame) {
+    return d::DslValue(new LNative(*this, d::DslValue(P_NIL)));
+  }
+
   LNative() : LFunction("") { S_NIL(fn); }
 
   protected:
 
+  LNative(const stdstr& name, Invoker);
+  LNative(const LNative&, d::DslValue);
+
   Invoker fn;
 
-  virtual bool eq(const d::Data*) const;
-  virtual int cmp(const d::Data*) const;
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -538,18 +760,17 @@ void appendAll(LSeqable*, int, int, d::ValVec&);
 bool truthy(d::DslValue);
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool cast_numeric(d::VSlice, d::NumberVec&);
+bool scan_numbers(d::VSlice);
 LAtom* cast_atom(d::DslValue, int panic=0);
 LNil* cast_nil(d::DslValue, int panic=0);
 LHash* cast_map(d::DslValue, int panic=0);
 LSet* cast_set(d::DslValue, int panic=0);
-LFloat* cast_float(d::DslValue, int panic=0);
-LInt* cast_int(d::DslValue, int panic=0);
+LNumber* cast_number(d::DslValue, int panic=0);
 LChar* cast_char(d::DslValue, int panic=0);
 LSymbol* cast_symbol(d::DslValue, int panic=0);
 LList* cast_list(d::DslValue, int panic=0);
 LVec* cast_vec(d::DslValue, int panic=0);
-LSequential* cast_seq(d::DslValue, int panic=0);
+LSequential* cast_sequential(d::DslValue, int panic=0);
 LSeqable* cast_seqable(d::DslValue, int panic=0);
 LLambda* cast_lambda(d::DslValue, int panic=0);
 LMacro* cast_macro(d::DslValue, int panic=0);

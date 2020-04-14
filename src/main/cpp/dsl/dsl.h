@@ -13,7 +13,7 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "../aeon/smptr.h"
+#include "../aeon/aeon.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::dsl {
@@ -49,6 +49,9 @@ struct Unsupported : public a::Exception {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Number;
 struct Table;
 struct Symbol;
@@ -56,16 +59,17 @@ struct Node;
 struct Data;
 struct Frame;
 struct AbstractToken;
-typedef a::RefPtr<Data> DslValue;
-typedef a::RefPtr<Node> DslAst;
-typedef a::RefPtr<Frame> DslFrame;
-typedef a::RefPtr<Symbol> DslSymbol;
-typedef a::RefPtr<Table> DslTable;
-typedef a::RefPtr<AbstractToken> DslToken;
+typedef std::shared_ptr<Data> DslValue;
+typedef std::shared_ptr<Node> DslAst;
+typedef std::shared_ptr<Frame> DslFrame;
+typedef std::shared_ptr<Symbol> DslSymbol;
+typedef std::shared_ptr<Table> DslTable;
+typedef std::shared_ptr<AbstractToken> DslToken;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 typedef std::vector<Number> NumberVec;
 
+typedef std::vector<DslSymbol> SymbolVec;
 typedef std::vector<DslToken> TokenVec;
 typedef std::vector<DslAst> AstVec;
 typedef std::vector<DslValue> ValVec;
@@ -128,7 +132,7 @@ enum TokenType {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct AbstractToken : public a::Counted {
+struct AbstractToken {
 
   // A chunk of text - a sequence of chars.
   virtual stdstr getLiteralAsStr() const =0;
@@ -220,15 +224,27 @@ Data* nothing();
 stdstr identifier(Context& ctx, IdPredicate pred);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Symbol : public a::Counted {
+struct Symbol {
 
   // int a = 3; a is a symbol, int is a symbol(type), 3 is a value
 
+  static DslSymbol make(const stdstr& n, DslSymbol t) {
+    return DslSymbol(new Symbol(n, t));
+  }
+
+  static DslSymbol make(const stdstr& n) {
+    return DslSymbol(new Symbol(n));
+  }
+
+  DslSymbol type() const { return _type; }
+  stdstr name() const { return _name; }
+
+  ~Symbol() {}
+
+  protected:
+
   Symbol(const stdstr& n, DslSymbol t) : Symbol(n) { _type=t; }
   Symbol(const stdstr& n) : _name(n) { }
-  stdstr name() const { return _name; }
-  DslSymbol type() const { return _type; }
-  ~Symbol() {}
 
   private:
 
@@ -237,9 +253,13 @@ struct Symbol : public a::Counted {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Table : public a::Counted {
-
+typedef std::map<stdstr,DslSymbol> SymbolMap;
+struct Table {
   // A symbol table (with hierarchy)
+
+  static DslTable make(const stdstr&, const SymbolMap&);
+  static DslTable make(const stdstr&, DslTable outer);
+  static DslTable make(const stdstr&);
 
   DslSymbol search(const stdstr&) const;
   DslSymbol find(const stdstr&) const;
@@ -248,41 +268,59 @@ struct Table : public a::Counted {
   stdstr name() const { return _name; }
   void insert(DslSymbol);
 
-  Table(const stdstr&, const std::map<stdstr,DslSymbol>& root);
-  Table(const stdstr&, DslTable outer);
-  Table(const stdstr&);
   ~Table() {}
 
   protected:
 
+  Table(const stdstr&, const SymbolMap&);
+  Table(const stdstr&, DslTable outer);
+  Table(const stdstr&);
+
   DslTable enclosing;
   stdstr _name;
-  std::map<stdstr, DslSymbol> symbols;
+  SymbolMap symbols;
+
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Data : public a::Counted {
+struct Data {
   // Abstract class to store data value in parsers.
-  virtual bool equals(const Data*) const = 0;
-  virtual int compare(const Data*) const = 0;
   virtual stdstr pr_str(bool p = 0) const = 0;
+  virtual bool equals(DslValue) const = 0;
+  virtual int compare(DslValue) const = 0;
   virtual ~Data() {}
+
+  protected:
+
   Data() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Nothing : public Data {
+
+  static DslValue make() { return DslValue(new Nothing()); }
+
   stdstr pr_str(bool b=0) const { return "nothing"; }
-  virtual bool equals(const Data* rhs) const {
-    return X_NIL(rhs) &&
-           typeid(*rhs) == typeid(*this);
+
+  virtual bool equals(DslValue rhs) const {
+    ASSERT1(rhs);
+    auto p= rhs.get();
+    return typeid(*p) == typeid(*this);
   }
-  virtual int compare(const Data* rhs) const {
-    return E_NIL(rhs)
-        ? 1 : (typeid(*rhs) == typeid(*this) ? 0 : pr_str().compare(rhs->pr_str()));
+
+  virtual int compare(DslValue rhs) const {
+    ASSERT1(rhs);
+    auto p= rhs.get();
+    return typeid(*p) == typeid(*this)
+           ? 0 : pr_str().compare(rhs->pr_str());
   }
+
   virtual ~Nothing() {}
+
+  protected:
+
   Nothing() {}
+
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -312,7 +350,7 @@ struct IAnalyzer {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Node : public a::Counted {
+struct Node {
   // Abstract node used in the building of a syntax tree.
   virtual DslValue eval(IEvaluator*)=0;
   virtual void visit(IAnalyzer*)=0;
@@ -322,12 +360,14 @@ struct Node : public a::Counted {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Frame : public a::Counted {
-
+struct Frame {
   // A stack frame used during language evaluation.
 
-  Frame(const stdstr&, DslFrame outer);
-  Frame(const stdstr&);
+  static DslFrame search(const stdstr& sym, DslFrame from);
+  static DslFrame make(const stdstr&, DslFrame outer);
+  static DslFrame make(const stdstr&);
+  static DslFrame getRoot(DslFrame from);
+
   ~Frame() {}
 
   stdstr name() const { return _name; }
@@ -337,13 +377,15 @@ struct Frame : public a::Counted {
   DslValue set(const stdstr& sym, DslValue);
   DslValue get(const stdstr& sym) const;
 
-  DslFrame search(const stdstr& sym) const;
-
   bool contains(const stdstr&) const;
   std::set<stdstr> keys() const;
 
-  DslFrame getOuterRoot() const;
   DslFrame getOuter() const;
+
+  protected:
+
+  Frame(const stdstr&, DslFrame outer);
+  Frame(const stdstr&);
 
   private:
 
@@ -354,32 +396,59 @@ struct Frame : public a::Counted {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct TypeSymbol : public Symbol {
-  TypeSymbol(const stdstr& n) : Symbol(n) {}
+
+  static DslSymbol make(const stdstr& n) {
+    return DslSymbol(new TypeSymbol(n));
+  }
+
   ~TypeSymbol() {}
+
+  protected:
+
+  TypeSymbol(const stdstr& n) : Symbol(n) {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct VarSymbol : public Symbol {
-  VarSymbol(const stdstr& n, DslSymbol t) : Symbol(n,t) {}
+
+  static DslSymbol make(const stdstr& n, DslSymbol t) {
+    return DslSymbol(new VarSymbol(n,t));
+  }
+
   ~VarSymbol() {}
+
+  protected:
+
+  VarSymbol(const stdstr& n, DslSymbol t) : Symbol(n,t) {}
+
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct FnSymbol : public Symbol {
-  FnSymbol(const stdstr& name, DslSymbol t) : FnSymbol(name) { result=t; }
-  FnSymbol(const stdstr& name) : Symbol(name) {}
-  ~FnSymbol() {}
+
+  static DslSymbol make(const stdstr& name, DslSymbol t) {
+    return DslSymbol(new FnSymbol(name, t));
+  }
+
+  static DslSymbol make(const stdstr& name) {
+    return DslSymbol(new FnSymbol(name));
+  }
 
   DslSymbol returnType() const { return result; }
+  SymbolVec& params() { return _params; }
   DslAst body() const { return block; }
-  std::vector<DslSymbol>& params() { return _params; }
   void setBody(DslAst b) { block=b;}
 
-  private:
+  ~FnSymbol() {}
+
+  protected:
+
+  FnSymbol(const stdstr& name, DslSymbol t) : FnSymbol(name) { result=t; }
+  FnSymbol(const stdstr& name) : Symbol(name) {}
 
   DslSymbol result;
   DslAst block;
-  std::vector<DslSymbol> _params;
+  SymbolVec _params;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

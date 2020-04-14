@@ -41,7 +41,7 @@ struct SExprParser : public d::IParser {
 
   private:
 
-  SExprParser() { lexer=nullptr;}
+  SExprParser() { lexer=P_NIL;}
   Reader* lexer;
 };
 

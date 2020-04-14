@@ -111,6 +111,10 @@ typedef int64_t llong;
 #define BOOL_STR_U(b) ((b) ? "TRUE" : "FALSE")
 #define BOOL_STR(b)  ((b) ? "true" : "false")
 #define C_STR(obj) (obj).c_str()
+#define N_STR(x) std::to_string(x)
+#define PRN_STR(fmt, ...) \
+    do { Tchar buf[1024];\
+      ::sprintf(buf, (const char*)fmt, __VA_ARGS__); return stdstr(buf); } while (0);
 
 //////////////////////////////////////////////////////////////////////////////
 // c++ std collection iteration

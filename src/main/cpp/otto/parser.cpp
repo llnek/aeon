@@ -51,7 +51,7 @@ stdstr gensym(const stdstr& prefix) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue macro_func(SExprParser* p, stdstr op) {
-  if (auto f = readForm(p); f.isSome()) {
+  if (auto f = readForm(p); f) {
     return LIST_VAL2(SYMBOL_VAL(op), f);
   }
   RAISE(d::SyntaxError, "Bad form: %s.\n", "macro");
@@ -76,10 +76,10 @@ d::DslValue readAtom(SExprParser* p) {
       return STRING_VAL(p->eat()->getLiteralAsStr());
     break;
     case d::T_REAL:
-      return FLOAT_VAL(p->eat()->getLiteralAsReal());
+      return NUMBER_VAL(p->eat()->getLiteralAsReal());
     break;
     case d::T_INTEGER:
-      return INT_VAL(p->eat()->getLiteralAsInt());
+      return NUMBER_VAL(p->eat()->getLiteralAsInt());
     break;
     case T_KEYWORD:
       return KEYWORD_VAL(p->eat()->getLiteralAsStr());
@@ -116,9 +116,9 @@ d::DslValue readAtom(SExprParser* p) {
       if (p->isCur(d::T_HAT)) {
         auto m = (p->eat(), readForm(p));
         auto v = readForm(p);
-        if (m.isNull())
+        if (!m)
           RAISE(d::SyntaxError, "Bad form: %s.\n", "meta");
-        if (v.isNull())
+        if (!v)
           RAISE(d::SyntaxError, "Bad form: %s.\n", "value");
         return LIST_VAL3(SYMBOL_VAL("with-meta"), v, m);
       }
@@ -224,7 +224,7 @@ d::DslValue readList(SExprParser* p, int ender, stdstr pairs) {
   d::ValVec res;
   while (!p->isEof()) {
     if (p->isCur(ender)) { found = 1, p->eat(); break; }
-    if (auto f= readForm(p); f.isSome()) { s__conj(res, f); }
+    if (auto f= readForm(p); f) { s__conj(res, f); }
   }
   if (!found) {
     RAISE(d::SyntaxError,
@@ -268,7 +268,7 @@ std::pair<int,d::DslValue> SExprParser::parse() {
   d::DslValue ret;
   d::ValVec out;
   while (!isEof()) {
-    if (auto f= readForm(this); f.isSome()) {
+    if (auto f= readForm(this); f) {
       s__conj(out, f);
     }
   }

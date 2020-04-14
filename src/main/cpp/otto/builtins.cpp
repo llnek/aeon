@@ -16,8 +16,8 @@
 #include "parser.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define TO_FLOAT(x) x.isInt() ? (double) x.getInt() : x.getFloat()
-#define TO_INT(x) x.isInt() ? x.getInt() : (llong) x.getFloat()
+//#define TO_FLOAT(x) x.isInt() ? (double) x.getInt() : x.getFloat()
+//#define TO_INT(x) x.isInt() ? x.getInt() : (llong) x.getFloat()
 #define CHKSZ(x, e) ((x) >= 0 && (x) < (e))
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -27,44 +27,42 @@ namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame root_env();
-LFloat* op_num(double n) { return new LFloat(n); }
-LInt* op_num(llong n) { return new LInt(n); }
+d::DslValue op_num(double n) { return LNumber::make(n); }
+d::DslValue op_num(llong n) { return LNumber::make(n); }
 double not_zero(double d) { ASSERT1(d != 0.0); return d; }
 llong not_zero(llong n) { ASSERT1(n != 0); return n; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template<typename T>
-d::DslValue op_math(int op, T res, d::NumberVec& slots) {
-  for (int i= 0, e= slots.size(); i < e; ++i) {
-    auto s= slots[i];
-    auto sn= s.getInt();
-    auto sf= s.getFloat();
+d::DslValue op_math(int op, T res, d::VSlice args) {
+  for (int i= 0, e= args.size(); i < e; ++i) {
+    auto s= cast_number(*(args.begin + i),1);
     switch (op) {
       case d::T_PLUS:
-        if (s.isInt())
-          res += sn; else res += sf;
+        if (s->isInt())
+          res += s->getInt(); else res += s->getFloat();
       break;
       case d::T_MINUS:
         if (i==0 && e > 1) {
-          if (s.isInt())
-            res = sn; else res = sf;
+          if (s->isInt())
+            res = s->getInt(); else res = s->getFloat();
         } else {
-          if (s.isInt())
-            res -= sn; else res -= sf;
+          if (s->isInt())
+            res -= s->getInt(); else res -= s->getFloat();
         }
       break;
       case d::T_MULT:
-        if (s.isInt())
-          res *= sn; else res *= sf;
+        if (s->isInt())
+          res *= s->getInt(); else res *= s->getFloat();
       break;
       case d::T_DIV:
         if (i==0 && e > 1) {
-          if (s.isInt())
-            res = sn; else res = sf;
+          if (s->isInt())
+            res = s->getInt(); else res = s->getFloat();
         } else {
-          if (s.isInt())
-            res /= not_zero(sn);
+          if (s->isInt())
+            res /= not_zero(s->getInt());
           else
-            res /= not_zero(sf);
+            res /= not_zero(s->getFloat());
         }
       break;
     }
@@ -75,39 +73,35 @@ d::DslValue op_math(int op, T res, d::NumberVec& slots) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DslValue native_mul(Lisper* lisp, d::VSlice args) {
   // (* 1 2 3.3 4) (*)
-  d::NumberVec slots;
-  return cast_numeric(args,slots)
-    ? op_math<double>(d::T_MULT, 1.0, slots)
-    : op_math<llong>(d::T_MULT, 1, slots);
+  return scan_numbers(args)
+    ? op_math<double>(d::T_MULT, 1.0, args)
+    : op_math<llong>(d::T_MULT, 1, args);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DslValue native_div(Lisper* lisp, d::VSlice args) {
   // (/ 1 2 3) or (/ 2)
   d::preMin(1, args.size(), "/");
-  d::NumberVec slots;
-  return cast_numeric(args,slots)
-    ? op_math<double>(d::T_DIV, 1.0, slots)
-    : op_math<llong>(d::T_DIV, 1, slots);
+  return scan_numbers(args)
+    ? op_math<double>(d::T_DIV, 1.0, args)
+    : op_math<llong>(d::T_DIV, 1, args);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DslValue native_add(Lisper* lisp, d::VSlice args) {
   // (+ 1 2 3 3) (+)
-  d::NumberVec slots;
-  return cast_numeric(args,slots)
-    ? op_math<double>(d::T_PLUS, 0.0, slots)
-    : op_math<llong>(d::T_PLUS, 0, slots);
+  return scan_numbers(args)
+    ? op_math<double>(d::T_PLUS, 0.0, args)
+    : op_math<llong>(d::T_PLUS, 0, args);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DslValue native_sub(Lisper* lisp, d::VSlice args) {
   // (- 1 2 3 3) (- 1)
   d::preMin(1, args.size(), "-");
-  d::NumberVec slots;
-  return cast_numeric(args,slots)
-    ? op_math<double>(d::T_MINUS, 0.0, slots)
-    : op_math<llong>(d::T_MINUS, 0, slots);
+  return scan_numbers(args)
+    ? op_math<double>(d::T_MINUS, 0.0, args)
+    : op_math<llong>(d::T_MINUS, 0, args);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -115,13 +109,12 @@ static d::DslValue native_lteq(Lisper* lisp, d::VSlice args) {
   //for this, always use real numbers, simpler logic
   // e.g. (<= 1 2 3 4 4 5)
   d::preMin(1, args.size(), "<=");
-  d::NumberVec slots;
-  cast_numeric(args,slots);
-  int i=1,e=slots.size();
-  auto lhs = TO_FLOAT(slots[0]);
+  int i=1,e=args.size();
+  scan_numbers(args);
+  auto lhs = cast_number(*args.begin,1)->getFloat();
   for (; i < e; ++i) {
-    auto a=slots[i];
-    if (auto rhs = TO_FLOAT(a); lhs <= rhs) {
+    auto a=*(args.begin+i);
+    if (auto rhs = cast_number(a,1)->getFloat(); lhs <= rhs) {
       lhs=rhs;
     } else { break; }
   }
@@ -133,13 +126,12 @@ static d::DslValue native_gteq(Lisper* lisp, d::VSlice args) {
   //for this, always use real numbers, simpler logic
   // e.g. (>= 5 5 4 3 2 1)
   d::preMin(1, args.size(), ">=");
-  d::NumberVec slots;
-  cast_numeric(args,slots);
-  int i=1,e=slots.size();
-  auto lhs = TO_FLOAT(slots[0]);
+  int i=1,e=args.size();
+  scan_numbers(args);
+  auto lhs = cast_number(*args.begin,1)->getFloat();
   for (; i < e; ++i) {
-    auto a=slots[i];
-    if (auto rhs = TO_FLOAT(a); lhs >= rhs) {
+    auto a=*(args.begin+i);
+    if (auto rhs = cast_number(a,1)->getFloat(); lhs >= rhs) {
       lhs=rhs;
     } else { break; }
   }
@@ -151,13 +143,12 @@ static d::DslValue native_lt(Lisper* lisp, d::VSlice args) {
   //for this, always use real numbers, simpler logic
   // e.g. (< 1 2 3)
   d::preMin(1, args.size(), "<");
-  d::NumberVec slots;
-  cast_numeric(args,slots);
-  int i=1, e= slots.size();
-  auto lhs = TO_FLOAT(slots[0]);
+  int i=1, e= args.size();
+  scan_numbers(args);
+  auto lhs = cast_number(*args.begin,1)->getFloat();
   for (; i < e; ++i) {
-    auto a=slots[i];
-    if (auto rhs = TO_FLOAT(a); lhs < rhs) {
+    auto a=*(args.begin+i);
+    if (auto rhs = cast_number(a,1)->getFloat(); lhs < rhs) {
       lhs=rhs;
     } else { break; }
   }
@@ -169,13 +160,12 @@ static d::DslValue native_gt(Lisper* lisp, d::VSlice args) {
   //for this, always use real numbers, simpler logic
   // e.g. (> 3 2 1)
   d::preMin(1, args.size(), ">");
-  d::NumberVec slots;
-  cast_numeric(args,slots);
-  int i=1,e=slots.size();
-  auto lhs = TO_FLOAT(slots[0]);
+  int i=1,e=args.size();
+  scan_numbers(args);
+  auto lhs = cast_number(*args.begin,1)->getFloat();
   for (; i < e; ++i) {
-    auto a=slots[i];
-    if (auto rhs = TO_FLOAT(a); lhs > rhs) {
+    auto a=*(args.begin+i);
+    if (auto rhs = cast_number(a,1)->getFloat(); lhs > rhs) {
       lhs=rhs;
     } else { break; }
   }
@@ -187,13 +177,12 @@ static d::DslValue native_eqeq(Lisper* lisp, d::VSlice args) {
   //for this, always use real numbers, simpler logic
   // e.g. (== 3 3.0)
   d::preMin(1, args.size(), "==");
-  d::NumberVec slots;
-  cast_numeric(args,slots);
-  int i=1,e=slots.size();
-  auto lhs = TO_FLOAT(slots[0]);
+  int i=1,e=args.size();
+  scan_numbers(args);
+  auto lhs = cast_number(*args.begin,1)->getFloat();
   for (; i < e; ++i) {
-    auto a= slots[i];
-    if (auto rhs = TO_FLOAT(a); a::fuzzy_equals(lhs, rhs)) {
+    auto a= *(args.begin+i);
+    if (auto rhs = cast_number(a,1)->getFloat(); a::fuzzy_equals(lhs, rhs)) {
       lhs=rhs;
     } else { break; }
   }
@@ -208,7 +197,7 @@ static d::DslValue native_eq(Lisper* lisp, d::VSlice args) {
   auto lhs = *args.begin;
   auto j=1;
   for (; (args.begin+j) != args.end; ++j) {
-    if (auto rhs= *(args.begin+j); lhs->equals(rhs.ptr())) {
+    if (auto rhs= *(args.begin+j); lhs->equals(rhs)) {
       lhs=rhs;
     } else { break; }
   }
@@ -284,7 +273,7 @@ static d::DslValue native_conj(Lisper* lisp, d::VSlice args) {
     return s->conj(d::VSlice(args.begin+1,args.end));
   }
   else
-  return cast_seq(*args.begin, 1)->conj(d::VSlice(args.begin+1,args.end));
+  return cast_sequential(*args.begin, 1)->conj(d::VSlice(args.begin+1,args.end));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -311,8 +300,8 @@ static d::DslValue native_count(Lisper* lisp, d::VSlice args) {
   // (count [2 3])
   d::preEqual(1, args.size(), "count");
   return X_NIL(cast_nil(*args.begin))
-    ? INT_VAL(0)
-    : INT_VAL(cast_seqable(*args.begin,1)->count());
+    ? NUMBER_VAL(0)
+    : NUMBER_VAL(cast_seqable(*args.begin,1)->count());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -384,8 +373,8 @@ static d::DslValue native_get(Lisper* lisp, d::VSlice args) {
 static d::DslValue native_hash_map(Lisper* lisp, d::VSlice args) {
   // (hash-map :a 1 :b 2)
   d::preEven(args.size(), "hash-map");
-  LHash m;
-  return m.assoc(args);
+  auto m = LHash::make();
+  return cast_map(m,1)->assoc(args);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -488,7 +477,7 @@ static d::DslValue native_map(Lisper* lisp, d::VSlice args) {
 static d::DslValue native_meta(Lisper* lisp, d::VSlice args) {
   // (meta x)
   d::preEqual(1, args.size(), "meta");
-  return s__cast(LValue, (*args.begin).ptr())->meta();
+  return s__cast(LValue, (*args.begin).get())->meta();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -496,7 +485,7 @@ static d::DslValue native_nth(Lisper* lisp, d::VSlice args) {
   // (nth x 2)
   auto len= d::preMin(2, args.size(), "nth");
   if (cast_nil(*args.begin)) { return NIL_VAL(); }
-  auto pos= cast_int(*(args.begin+1), 1)->impl();
+  auto pos= cast_number(*(args.begin+1), 1)->getInt();
   auto s= cast_seqable(*args.begin,1);
   return (!CHKSZ(pos,s->count()) && len > 2) ? *(args.begin+2) : s->nth(pos);
 }
@@ -506,7 +495,7 @@ static stdstr print(d::VSlice args, bool pretty, const stdstr& sep) {
   stdstr out;
   for (auto i=0; (args.begin+i) != args.end; ++i) {
     if (!out.empty()) { out += sep; }
-    out += s__cast(LValue, (*(args.begin+i)).ptr())->pr_str(pretty);
+    out += s__cast(LValue, (*(args.begin+i)).get())->pr_str(pretty);
   }
   return out;
 }
@@ -624,7 +613,7 @@ namespace cc= std::chrono;
 static d::DslValue native_time_ms(Lisper* lisp, d::VSlice args) {
   // (time-ms)
   d::preEqual(0, args.size(), "time-ms");
-  return INT_VAL(cc::duration_cast<cc::milliseconds>(
+  return NUMBER_VAL(cc::duration_cast<cc::milliseconds>(
                  cc::system_clock::now().time_since_epoch()).count());
 }
 
@@ -646,11 +635,12 @@ static d::DslValue native_vector(Lisper* lisp, d::VSlice args) {
 static d::DslValue native_with_meta(Lisper* lisp, d::VSlice args) {
   // (with-meta obj m)
   d::preEqual(2, args.size(), "with-meta");
-  return s__cast(LValue, (*args.begin).ptr())->withMeta(*(args.begin+1));
+  return s__cast(LValue, (*args.begin).get())->withMeta(*(args.begin+1));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Frame* init_natives(d::Frame* env) {
+d::DslFrame init_natives() {
+  auto env = d::Frame::make("root");
   env->set("*", FN_VAL("*", &native_mul));
   env->set("+", FN_VAL("+",&native_add));
   env->set("-", FN_VAL("-",&native_sub));

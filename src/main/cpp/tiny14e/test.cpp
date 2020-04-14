@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
-#if 0
+#if 1
 using namespace czlab::aeon;
 using namespace czlab::tiny14e;
 namespace d=czlab::dsl;

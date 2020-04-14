@@ -40,7 +40,7 @@ StrVec CORE_LISP {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define CAST(t,x) s__cast(t,x.ptr())
+#define CAST(t,x) s__cast(t,x.get())
 #define TO_VAL(x) CAST(LValue,x)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -50,7 +50,7 @@ d::DslValue Lisper::evalAst(d::DslValue ast, d::DslFrame env) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame lambda_env(LLambda* fn, d::VSlice args) {
-  auto fm= new d::Frame("lambda", fn->env);
+  auto fm= d::Frame::make("lambda", fn->env);
   auto z=fn->params.size();
   auto len= args.size();
   auto i=0, j=0;
@@ -140,9 +140,9 @@ d::DslValue Lisper::syntaxQuote(d::DslValue ast, d::DslFrame env) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LMacro* maybeMacro(Lisper* p, d::DslValue ast, d::DslFrame env) {
   auto s = is_pair(ast,0);
-  auto sym = s ? cast_symbol(s->first()) : NULL;
-  auto f= sym ? env->search(sym->impl()) : NULL;
-  return f.isSome() ? cast_macro(sym->eval(p, f)) : NULL;
+  auto sym = s ? cast_symbol(s->first()) : P_NIL;
+  auto f= sym ? env->search(sym->impl(),env) : P_NIL;
+  return f ? cast_macro(sym->eval(p, f)) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -244,7 +244,7 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
         d::preMin(2, len, "let");
         auto args= cast_vec(list->nth(1),1);
         auto cnt= d::preEven(args->count(), "let bindings");
-        auto f= d::DslFrame(new d::Frame("let", env));
+        auto f= d::Frame::make("let", env);
         for (auto i = 0; i < cnt; i += 2) {
           f->set(cast_symbol(args->nth(i),1)->impl(), EVAL(args->nth(i+1), f));
         }
@@ -306,8 +306,8 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
         catch(d::DslValue& exp) {
           error = exp;
         }
-        if (cbody.isSome() && error.isSome()) {
-          env = d::DslFrame(new d::Frame("catch", env));
+        if (cbody && error) {
+          env = d::Frame::make("catch", env);
           env->set(errorVar, error);
           ast = EVAL(cbody,env);
         }
@@ -396,7 +396,7 @@ stdstr repl(const stdstr& s, d::DslFrame env) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame root_env() {
-  auto f= init_natives(new d::Frame("root"));
+  auto f= init_natives();
   Lisper ls;
   for (auto& s : CORE_LISP) {
     repl(s, f);

@@ -75,7 +75,7 @@ std::map<stdstr,int> KEYWORDS {
 stdstr Token::typeToString(int type) {
   return s__contains(TOKENS, type)
          ? map__val(TOKENS,type)
-         : stdstr("token-type=") + std::to_string(type);
+         : stdstr("token-type=") + N_STR(type);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -123,39 +123,36 @@ stdstr Token::getLiteralAsStr() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& s, d::SrcInfo info) {
-  return new Token(type, s, info);
+  return Token::make(type, s, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, Tchar c, d::SrcInfo info) {
-  return new Token(type, c, info);
+  return Token::make(type, c, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& x, d::SrcInfo info, const stdstr& s) {
-  return new Token(type, x, info);
+  return Token::make(type, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& s, d::SrcInfo info, llong n) {
-  auto t= new Token(type, s, info);
-  t->impl().num.setInt(n);
+  auto t= Token::make(type, s, info);
+  s__cast(Token,t.get())->impl().num.setInt(n);
   return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& s, d::SrcInfo info, double d) {
-  auto t= new Token(type,s, info);
-  t->impl().num.setFloat(d);
+  auto t= Token::make(type,s, info);
+  s__cast(Token,t.get())->impl().num.setFloat(d);
   return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Token::pr_str() const {
-  Tchar buf[1024];
-  ::sprintf(buf,
-            "Token#{type = %d, text = %s}", type(), C_STR(_impl.txt));
-  return stdstr(buf);
+  PRN_STR("Token#{type = %d, text = %s}", type(), C_STR(_impl.txt));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

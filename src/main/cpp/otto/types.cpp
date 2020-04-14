@@ -21,7 +21,7 @@ namespace a= czlab::aeon;
 namespace d= czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define CAST(t,x) s__cast(t,x.ptr())
+#define CAST(t,x) s__cast(t,x.get())
 #define TO_VAL(x) CAST(LValue,x)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -29,19 +29,23 @@ LNative A_NATIVE;
 LLambda A_LAMBDA;
 LMacro A_MACRO;
 LAtom A_ATOM;
-LKeyword A_KEYWORD { "" };
+LKeyword A_KEYWORD;
 LList A_LIST;
 LVec A_VEC;
 LHash A_MAP;
 LSet A_SET;
-LFloat A_FLOAT { 0.0 };
-LInt A_INT { 0 };
-LChar A_CHAR {'\0'};
+LNumber  A_NUMBER {0};
+LChar A_CHAR;
 LNil A_NIL;
 LTrue A_TRUE;
 LFalse A_FALSE;
-LString A_STR { "" };
-LSymbol A_SYMB { "" };
+LString A_STR;
+LSymbol A_SYMB;
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool is_same(const d::Data* lhs, const d::Data* rhs) {
+  return typeid(*lhs) == typeid(*rhs);
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool truthy(d::DslValue v) { return TO_VAL(v)->truthy(); }
@@ -84,7 +88,7 @@ d::DslValue expected(const stdstr& m, d::DslValue v) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr hash_key(d::DslValue s) {
-  if (s.isNull()) {
+  if (!s) {
     RAISE(a::NPError, "Failed to hash key for map.%s","\n");
   }
   return s->pr_str();
@@ -92,7 +96,7 @@ stdstr hash_key(d::DslValue s) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #define CASTXXX(T,v,panic,object,msg) do { \
-  if (auto p= v.ptr(); typeid(object)==typeid(*p)) { return s__cast(T,p); } \
+  if (auto p= v.get(); typeid(object)==typeid(*p)) { return s__cast(T,p); } \
   if (panic) expected(msg, v); \
   return P_NIL; } while (0)
 
@@ -107,13 +111,8 @@ LChar* cast_char(d::DslValue v, int panic) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LFloat* cast_float(d::DslValue v, int panic) {
-  CASTXXX(LFloat,v,panic,A_FLOAT,"float");
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LInt* cast_int(d::DslValue v, int panic) {
-  CASTXXX(LInt,v,panic,A_INT,"int");
+LNumber* cast_number(d::DslValue v, int panic) {
+  CASTXXX(LNumber,v,panic,A_NUMBER,"number");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -172,7 +171,7 @@ LAtom* cast_atom(d::DslValue v, int panic) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSequential* cast_seq(d::DslValue v, int panic) {
+LSequential* cast_sequential(d::DslValue v, int panic) {
   if (auto r= cast_list(v); r) return s__cast(LSequential,r);
   if (auto r= cast_vec(v); r) return s__cast(LSequential,r);
   if (panic) expected("sequenctial", v);
@@ -203,23 +202,13 @@ LFunction* cast_function(d::DslValue v, int panic) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool cast_numeric(d::VSlice vs, d::NumberVec& out) {
+bool scan_numbers(d::VSlice vs) {
   auto r=false;
   for (auto i= 0; (vs.begin+i) != vs.end; ++i) {
     auto x= *(vs.begin+i);
-    auto f= cast_float(x);
-    auto n= cast_int(x);
-    if (E_NIL(n) && E_NIL(f)) {
-      expected("numeric", x);
-    }
-    if (n) {
-      s__conj(out, d::Number(n->impl()));
-    }
-    else
-    if (f) {
-      r= true;
-      s__conj(out, d::Number(f->impl()));
-    }
+    auto n= cast_number(x,0);
+    if (E_NIL(n)) { expected("number", x); }
+    if (!n->isInt()) { r= true; }
   }
   return r;
 }
@@ -263,31 +252,20 @@ d::DslValue LValue::withMeta(d::DslValue m) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LValue::meta() const {
-  return metaObj.isNull() ? NIL_VAL() : metaObj;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LValue::eval(Lisper*, d::DslFrame e) {
-  // by default, eval to self.
-  return d::DslValue(this);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LValue::compare(const d::Data* rhs) const {
-  ASSERT1(rhs != nullptr);
+int LValue::compare(d::DslValue rhs) const {
+  ASSERT1(rhs);
   return cmp(rhs);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LValue::equals(const d::Data* rhs) const {
-  ASSERT1(rhs != nullptr);
+bool LValue::equals(d::DslValue rhs) const {
+  ASSERT1(rhs);
   return eq(rhs);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LFalse::cmp(const d::Data* rhs) const {
-  return typeid(*this) == typeid(*rhs)
+int LFalse::cmp(d::DslValue rhs) const {
+  return is_same(rhs.get(), this)
          ? 0 : pr_str().compare(rhs->pr_str());
 }
 
@@ -298,128 +276,117 @@ stdstr LFalse::pr_str(bool p) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LFalse::withMeta(d::DslValue m) const {
-  return new LFalse(*this,m);
+  return d::DslValue(new LFalse(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LFalse::eq(const d::Data* rhs) const {
-  return typeid(*this) == typeid(*rhs);
+bool LFalse::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(), this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LFalse::LFalse(const LFalse& rhs, d::DslValue m) : LValue(m) { }
+LFalse::LFalse(const LFalse&, d::DslValue m) : LValue(m) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LTrue::LTrue(const LTrue& rhs, d::DslValue m) : LValue(m) { }
+LTrue::LTrue(const LTrue&, d::DslValue m) : LValue(m) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LTrue::pr_str(bool p) const  { return "true"; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LTrue::withMeta(d::DslValue m) const {
-  return new LTrue(*this,m);
+  return d::DslValue(new LTrue(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LTrue::cmp(const d::Data* rhs) const {
-  return typeid(*this) == typeid(*rhs)
+int LTrue::cmp(d::DslValue rhs) const {
+  return is_same(rhs.get(), this)
          ? 0 : pr_str().compare(rhs->pr_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LTrue::eq(const d::Data* rhs) const {
-  return typeid(*this) == typeid(*rhs);
+bool LTrue::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(),this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LNil::LNil(const LNil& rhs, d::DslValue m) : LValue(m) { }
+LNil::LNil(const LNil&, d::DslValue m) : LValue(m) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LNil::pr_str(bool p) const  { return "nil"; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LNil::withMeta(d::DslValue m) const {
-  return new LNil(*this,m);
+  return d::DslValue(new LNil(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LNil::eq(const d::Data* rhs) const {
-  return typeid(*this) == typeid(*rhs);
+bool LNil::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(), this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LNil::cmp(const d::Data* rhs) const {
-  return typeid(*this) == typeid(*rhs)
+int LNil::cmp(d::DslValue rhs) const {
+  return is_same(rhs.get(), this)
          ? 0 : pr_str().compare(rhs->pr_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LFloat::withMeta(d::DslValue m) const {
-  return new LFloat(*this, m);
+d::DslValue LNumber::withMeta(d::DslValue m) const {
+  return d::DslValue(new LNumber(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Number LFloat::number() const {
-  return d::Number(value);
+d::DslValue LNumber::eval(Lisper*, d::DslFrame) {
+  return d::DslValue(new LNumber(*this, d::DslValue(P_NIL)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LFloat::LFloat(const LFloat& rhs, d::DslValue m) : LValue (m) {
-  value = rhs.value;
+LNumber::LNumber(const LNumber& rhs, d::DslValue m) : LValue (m) {
+  _type= rhs._type;
+  num = rhs.num;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr LFloat::pr_str(bool pretty) const {
-  return std::to_string(value);
+LNumber::LNumber(double d) {
+  _type= d::T_REAL;
+  num.r=d;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LFloat::eq(const d::Data* rhs) const {
-  return typeid(*this)==typeid(*rhs) &&
-         value == s__ccast(LFloat,rhs)->value;
+LNumber::LNumber(llong n) {
+  _type= d::T_INTEGER;
+  num.n=n;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LFloat::cmp(const d::Data* rhs) const {
-  if (typeid(*this)==typeid(*rhs)) {
-    auto v= s__ccast(LFloat,rhs)->value;
-    return value==v ? 0 : value > v ? 1 : -1;
+LNumber::LNumber(int n) {
+  _type= d::T_INTEGER;
+  num.n=n;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr LNumber::pr_str(bool) const {
+  return isInt() ? std::to_string(num.n) : std::to_string(num.r);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool LNumber::eq(d::DslValue rhs) const {
+  if (is_same(rhs.get(), this)) {
+    auto p= cast_number(rhs,1);
+    return isInt() == p->isInt() &&
+         a::fuzzy_equals(getFloat(), p->getFloat());
   } else {
-    return pr_str().compare(rhs->pr_str());
+    return false;
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LInt::withMeta(d::DslValue m) const {
-  return new LInt(*this, m);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::Number LInt::number() const {
-  return d::Number(value);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LInt::LInt(const LInt& rhs, d::DslValue m) : LValue (m) {
-  value = rhs.value;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr LInt::pr_str(bool pretty) const {
-  return std::to_string(value);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LInt::eq(const d::Data* rhs) const {
-  return typeid(*this)==typeid(*rhs) &&
-         value == s__ccast(LInt,rhs)->value;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LInt::cmp(const d::Data* rhs) const {
-  if (typeid(*this)==typeid(*rhs)) {
-    auto v= s__ccast(LInt,rhs)->value;
-    return value==v ? 0 : value > v ? 1 : -1;
+int LNumber::cmp(d::DslValue rhs) const {
+  if (is_same(rhs.get(), this)) {
+    auto f= cast_number(rhs,1)->getFloat();
+    auto f2= getFloat();
+    return a::fuzzy_equals(f, f2) ? 0 : (f2 > f ? 1 : -1);
   } else {
     return pr_str().compare(rhs->pr_str());
   }
@@ -431,9 +398,9 @@ stdstr LChar::pr_str(bool p) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LChar::cmp(const d::Data* rhs) const {
-  if (typeid(*this) == typeid(*rhs)) {
-    auto c = s__ccast(LChar,rhs)->value;
+int LChar::cmp(d::DslValue rhs) const {
+  if (is_same(rhs.get(), this)) {
+    auto c = s__ccast(LChar, rhs.get())->value;
     return value==c ? 0 : value > c ? 1 : -1;
   } else {
     return pr_str().compare(rhs->pr_str());
@@ -446,14 +413,14 @@ LChar::LChar(const LChar& rhs, d::DslValue m) : LValue(m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LChar::eq(const d::Data* rhs) const {
-  return typeid(*this)==typeid(*rhs) &&
-         value == s__ccast(LChar,rhs)->value;
+bool LChar::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(), this) &&
+         value == cast_char(rhs,1)->value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LChar::withMeta(d::DslValue m) const {
-  return new LChar(*this, m);
+  return d::DslValue(new LChar(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -470,22 +437,22 @@ LAtom::LAtom(const LAtom& rhs, d::DslValue m) : LValue(m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LAtom::eq(const d::Data* rhs) const {
-  return typeid(*this)==typeid(*rhs) && value->equals(rhs);
+bool LAtom::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(), this) && value->equals(rhs);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LAtom::cmp(const d::Data* rhs) const {
-  if (typeid(*this)==typeid(*rhs)) {
-    auto a= s__ccast(LAtom,rhs)->value;
-    return value->compare(a.ptr());
+int LAtom::cmp(d::DslValue rhs) const {
+  if (is_same(rhs.get(), this)) {
+    return value->compare(cast_atom(rhs,1)->value);
+  } else {
+    return pr_str().compare(rhs->pr_str());
   }
-  return pr_str().compare(rhs->pr_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LAtom::withMeta(d::DslValue m) const {
-  return new LAtom(*this, m);
+  return d::DslValue(new LAtom(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -507,16 +474,15 @@ stdstr LString::encoded() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LString::eq(const d::Data* rhs) const {
-  return typeid(*this) == typeid(*rhs) &&
-         value == s__ccast(LString,rhs)->value;
+bool LString::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(), this) &&
+         value == cast_string(rhs,1)->value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LString::cmp(const d::Data* rhs) const {
-  if (typeid(*this) == typeid(*rhs)) {
-    auto s = s__ccast(LString,rhs)->value;
-    return value.compare(s);
+int LString::cmp(d::DslValue rhs) const {
+  if (is_same(rhs.get(), this)) {
+    return value.compare(cast_string(rhs,1)->value);
   } else {
     return pr_str().compare(rhs->pr_str());
   }
@@ -524,7 +490,7 @@ int LString::cmp(const d::Data* rhs) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LString::withMeta(d::DslValue m) const {
-  return new LString(*this, m);
+  return d::DslValue(new LString(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -550,7 +516,7 @@ d::DslValue LString::rest() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LString::contains(d::DslValue key) const {
-  auto n= cast_int(key,1)->impl();
+  auto n= cast_number(key,1)->getInt();
   return n >= 0 && n < value.size();
 }
 
@@ -572,15 +538,15 @@ d::DslValue LString::nth(int pos) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LKeyword::LKeyword(const LKeyword& rhs, d::DslValue m) : LValue(m) {
+  value= rhs.value;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LKeyword::LKeyword(const stdstr& s) {
   int del=127;
   char c = (char) del;
   value = stdstr { c } + s;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LKeyword::LKeyword(const LKeyword& rhs, d::DslValue m) : LValue(m) {
-  value= rhs.value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -591,16 +557,15 @@ stdstr LKeyword::pr_str(bool p) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LKeyword::eq(const d::Data* rhs) const {
-  return typeid(*this)==typeid(*rhs) &&
-         value == s__ccast(LKeyword,rhs)->value;
+bool LKeyword::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(), this) &&
+         value == cast_keyword(rhs,1)->value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LKeyword::cmp(const d::Data* rhs) const {
-  if (typeid(*this)==typeid(*rhs)) {
-    auto k= s__ccast(LKeyword,rhs)->value;
-    return value.compare(k);
+int LKeyword::cmp(d::DslValue rhs) const {
+  if (is_same(rhs.get(),this)) {
+    return value.compare(cast_keyword(rhs,1)->value);
   } else {
     return pr_str().compare(rhs->pr_str());
   }
@@ -608,7 +573,7 @@ int LKeyword::cmp(const d::Data* rhs) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LKeyword::withMeta(d::DslValue m) const {
-  return new LKeyword(*this, m);
+  return d::DslValue(new LKeyword(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -629,23 +594,22 @@ void LSymbol::rename(const stdstr& n) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSymbol::eval(Lisper*, d::DslFrame e) {
-  if (auto r= e->get(value); r.isSome()) {
+  if (auto r= e->get(value); r) {
     return r;
   }
   RAISE(d::NoSuchVar, "No such symbol %s.\n", C_STR(value));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LSymbol::eq(const d::Data* rhs) const {
-  return typeid(*this) == typeid(*rhs) &&
-         value == s__ccast(LSymbol,rhs)->value;
+bool LSymbol::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(),this) &&
+         value == cast_symbol(rhs,1)->value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LSymbol::cmp(const d::Data* rhs) const {
-  if (typeid(*this) == typeid(*rhs)) {
-    auto s= s__ccast(LSymbol,rhs)->value;
-    return value.compare(s);
+int LSymbol::cmp(d::DslValue rhs) const {
+  if (is_same(rhs.get(),this)) {
+    return value.compare(cast_symbol(rhs,1)->value);
   } else {
     return pr_str().compare(rhs->pr_str());
   }
@@ -653,22 +617,22 @@ int LSymbol::cmp(const d::Data* rhs) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSymbol::withMeta(d::DslValue m) const {
-  return new LSymbol(*this, m);
+  return d::DslValue(new LSymbol(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSequential::LSequential(const LSequential& rhs, d::DslValue m) : LValue(m) {
-  s__ccat(values,rhs.values);
+  s__ccat(values, rhs.values);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSequential::LSequential(d::VSlice chunk) {
-  appendAll(chunk,0,values);
+  appendAll(chunk, 0, values);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSequential::LSequential(d::ValVec& chunk) {
-  s__ccat(values,chunk);
+  s__ccat(values, chunk);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -684,7 +648,7 @@ stdstr LSequential::pr_str(bool pretty) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void LSequential::evalEach(Lisper* e, d::DslFrame env, d::ValVec& out) const {
   for (auto& i : values) {
-    if (auto r= e->EVAL(i, env); r.isSome()) {
+    if (auto r= e->EVAL(i, env); r) {
       s__conj(out, r);
     } else {
       RAISE(d::BadEval, "%s.\n", C_STR(i->pr_str(1)));
@@ -704,41 +668,43 @@ d::DslValue LSequential::nth(int pos) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LSequential::eq(const d::Data* v) const {
-  const LSequential* rhs = P_NIL;
+bool LSequential::eq(d::DslValue rhs) const {
+  const LSequential* p = P_NIL;
   auto sz= count();
-  if (typeid(A_LIST) == typeid(*v)) {
-    rhs= s__ccast(LSequential,v);
+  if (is_same(&A_LIST, rhs.get())) {
+    p= cast_sequential(rhs,1);
   }
-  else if (typeid(A_VEC) == typeid(*v)) {
-    rhs= s__ccast(LSequential,v);
+  else
+  if (is_same(&A_VEC, rhs.get())) {
+    p= cast_sequential(rhs,1);
   }
-  if (E_NIL(rhs) || sz != rhs->count()) {
+  if (E_NIL(p) || sz != p->count()) {
     return false;
   }
   //ok,let's try
   auto i=0; for (; i < sz; ++i) {
-    if (!(nth(i)->equals(rhs->nth(i).ptr())))
+    if (!(nth(i)->equals(p->nth(i))))
     break;
   }
   return i >= sz;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LSequential::cmp(const d::Data* v) const {
-  const LSequential* rhs = P_NIL;
+int LSequential::cmp(d::DslValue rhs) const {
+  const LSequential* p = P_NIL;
   auto sz= count();
-  if (typeid(A_LIST) == typeid(*v)) {
-    rhs= s__ccast(LSequential,v);
+  if (is_same(&A_LIST, rhs.get())) {
+    p= cast_sequential(rhs,1);
   }
-  else if (typeid(A_VEC) == typeid(*v)) {
-    rhs= s__ccast(LSequential,v);
+  else
+  if (is_same(&A_VEC, rhs.get())) {
+    p= cast_sequential(rhs,1);
   }
-  if (rhs) {
-    auto rc= rhs->count();
+  if (p) {
+    auto rc= p->count();
     if (sz != rc) { return (sz > rc) ? 1 : -1; }
   }
-  return pr_str().compare(v->pr_str());
+  return pr_str().compare(rhs->pr_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -764,13 +730,12 @@ d::DslValue LSequential::seq() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LSequential::contains(d::DslValue key) const {
-  auto n= cast_int(key,1)->impl();
+  auto n= cast_number(key,1)->getInt();
   return n >= 0 && n < count();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LList::LList(const LList& rhs, d::DslValue m) : LSequential(rhs, m) {
-}
+LList::LList(const LList& rhs, d::DslValue m) : LSequential(rhs, m) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LList::LList(d::VSlice v) : LSequential(v) {}
@@ -794,7 +759,6 @@ LList::LList(d::DslValue v1,d::DslValue v2, d::DslValue v3) {
   s__conj(values,v3);
 }
 
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LList::pr_str(bool pretty) const {
   return "(" + LSequential::pr_str(pretty) + ")";
@@ -802,9 +766,9 @@ stdstr LList::pr_str(bool pretty) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LList::eval(Lisper* e, d::DslFrame env) {
-  if (values.size() == 0) { return d::DslValue(this); }
   d::ValVec out;
-  evalEach(e, env, out);
+  if (values.size() > 0)
+    evalEach(e, env, out);
   return LIST_VAL(out);
 }
 
@@ -878,7 +842,7 @@ d::DslValue LVec::conj(d::VSlice more) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LVec::withMeta(d::DslValue m) const {
-  return new LVec(*this, m);
+  return d::DslValue(new LVec(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -966,7 +930,7 @@ d::DslValue LHash::first() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::rest() const {
-  auto s = s__cast(LList,seq().ptr());
+  auto s = s__cast(LList,seq().get());
   if (auto z= s->count(); z > 1) {
     d::ValVec out;
     for (auto i=1; i < z; ++i) {
@@ -980,7 +944,7 @@ d::DslValue LHash::rest() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LHash::contains(d::DslValue key) const {
-  return values.find(hash_key(key)) != values.end();
+  return s__contains(values, hash_key(key));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1032,11 +996,11 @@ stdstr LHash::pr_str(bool pretty) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LHash::eq(const d::Data* rhs) const {
+bool LHash::eq(d::DslValue rhs) const {
 
-  if (!(typeid(*this) == typeid(*rhs))) { return false; }
+  if (!is_same(rhs.get(),this)) { return false; }
 
-  auto const &rvs = s__ccast(LHash,rhs)->values;
+  auto const &rvs = cast_map(rhs,1)->values;
   auto sz = values.size();
 
   if (sz != rvs.size()) { return false; }
@@ -1046,8 +1010,8 @@ bool LHash::eq(const d::Data* rhs) const {
     auto r= rvs.find(p->first);
     if (r != rvs.end()) {
       auto ro= *r;
-      if (p->second.first->equals(ro.second.first.ptr()) &&
-          p->second.second->equals(ro.second.second.ptr()))
+      if (p->second.first->equals(ro.second.first) &&
+          p->second.second->equals(ro.second.second))
         continue;
     }
     break;
@@ -1056,10 +1020,9 @@ bool LHash::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LHash::cmp(const d::Data* rhs) const {
+int LHash::cmp(d::DslValue rhs) const {
 
-  const LHash* rs= (typeid(*this) == typeid(*rhs))
-                   ? s__ccast(LHash,rhs) : nullptr;
+  const LHash* rs= is_same(rhs.get(),this) ? cast_map(rhs,1) : P_NIL;
   auto sz = values.size();
   if (rs) {
     auto rc= rs->count();
@@ -1073,7 +1036,7 @@ int LHash::cmp(const d::Data* rhs) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LHash::withMeta(d::DslValue m) const {
-  return new LHash(*this, m);
+  return d::DslValue(new LHash(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1091,18 +1054,18 @@ stdstr LNative::pr_str(bool pretty) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LNative::eq(const d::Data* rhs) const {
-  return typeid(*this) == typeid(*rhs) ? (this == rhs) : false;
+bool LNative::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(),this) ? (this == rhs.get()) : false;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LNative::cmp(const d::Data* rhs) const {
+int LNative::cmp(d::DslValue rhs) const {
   return pr_str().compare(rhs->pr_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LNative::withMeta(d::DslValue m) const {
-  return new LNative(*this, m);
+  return d::DslValue(new LNative(*this, m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1118,7 +1081,7 @@ d::DslValue LNative::invoke(Lisper* p) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LLambda::withMeta(d::DslValue m) const {
-  return new LLambda(*this,m);
+  return d::DslValue(new LLambda(*this,m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1130,7 +1093,7 @@ stdstr LLambda::pr_str(bool pretty) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame LLambda::bindContext(d::VSlice args) {
-  auto fm= new d::Frame(pr_str(1), env);
+  auto fm= d::Frame::make(pr_str(1), env);
   auto z=params.size();
   auto len= args.size();
   auto i=0, j=0;
@@ -1194,27 +1157,27 @@ LLambda::LLambda(const LLambda& rhs, d::DslValue m) : LFunction(m) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LLambda::eq(const d::Data* rhs) const {
-  if (!(typeid(*this) == typeid(*rhs))) { return false; }
-  auto x= s__ccast(LLambda,rhs);
+bool LLambda::eq(d::DslValue rhs) const {
+  if (!is_same(rhs.get(),this)) { return false; }
+  auto x= cast_lambda(rhs,1);
   return _name == x->_name &&
       a::equals<stdstr>(params, x->params) &&
-         body.ptr() == x->body.ptr();
+         body.get() == x->body.get();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LLambda::cmp(const d::Data* rhs) const {
+int LLambda::cmp(d::DslValue rhs) const {
   return pr_str().compare(rhs->pr_str());
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LMacro::LMacro(const StrVec& args, d::DslValue body, d::DslFrame env)
-  : LLambda(args, body,env) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LMacro::LMacro(const stdstr& n, const StrVec& args, d::DslValue body, d::DslFrame env)
   : LLambda(n, args, body, env) {
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LMacro::LMacro(const StrVec& args, d::DslValue body, d::DslFrame env)
+  : LLambda(args, body,env) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1226,24 +1189,23 @@ stdstr LMacro::pr_str(bool pretty) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LMacro::cmp(const d::Data* rhs) const {
+int LMacro::cmp(d::DslValue rhs) const {
   return pr_str().compare(rhs->pr_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LMacro::eq(const d::Data* rhs) const {
+bool LMacro::eq(d::DslValue rhs) const {
   return LLambda::eq(rhs);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LMacro::withMeta(d::DslValue m) const {
-  return new LMacro(*this,m);
+  return d::DslValue(new LMacro(*this,m));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool lessThan(d::DslValue a, d::DslValue b) {
-  auto p= b.ptr();
-  return a->equals(p) ? false : (a->compare(p) < 0);
+  return a->equals(b) ? false : (a->compare(b) < 0);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1258,12 +1220,12 @@ LSet::LSet(d::ValVec& v) : LSet(d::VSlice(v)) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSet::LSet(d::DslValue m) : LValue(m) {
-  values=new std::set<d::DslValue,SetCompare> { &lessThan};
+  values=new std::set<d::DslValue,SetCompare> { &lessThan };
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSet::LSet() {
-  values=new std::set<d::DslValue,SetCompare> { &lessThan};
+  values=new std::set<d::DslValue,SetCompare> { &lessThan };
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1312,7 +1274,7 @@ int LSet::count() const { return values->size();  }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSet::nth(int pos) const {
   auto q= seq();
-  auto s = cast_list(q,1);
+  auto s= cast_list(q,1);
   if (auto z= s->count(); z > 0 && pos >= 0 && pos < z) {
     return s->nth(pos);
   } else {
@@ -1330,13 +1292,11 @@ d::DslValue LSet::seq() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LSet::first() const {
-  return nth(0);
-}
+d::DslValue LSet::first() const { return nth(0); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSet::rest() const {
-  auto s = s__cast(LList,seq().ptr());
+  auto s = s__cast(LList,seq().get());
   if (auto z= s->count(); z > 1) {
     d::ValVec out;
     for (auto i=1; i < z; ++i) {
@@ -1383,11 +1343,11 @@ stdstr LSet::pr_str(bool pretty) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LSet::eq(const d::Data* rhs) const {
+bool LSet::eq(d::DslValue rhs) const {
 
-  if (!(typeid(*this) == typeid(*rhs))) { return false; }
+  if (!is_same(rhs.get(),this)) { return false; }
 
-  auto const &rvs = s__ccast(LSet,rhs)->values;
+  auto const &rvs = cast_set(rhs,1)->values;
   auto sz = values->size();
 
   if (sz != rvs->size()) { return false; }
@@ -1404,9 +1364,8 @@ bool LSet::eq(const d::Data* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LSet::cmp(const d::Data* rhs) const {
-  const LSet* rs= (typeid(*this) == typeid(*rhs))
-                  ? s__ccast(LSet,rhs) : nullptr;
+int LSet::cmp(d::DslValue rhs) const {
+  const LSet* rs= is_same(rhs.get(),this) ? cast_set(rhs,1) : P_NIL;
   auto sz = values->size();
   if (rs) {
     auto rc = rs->count();
@@ -1420,7 +1379,7 @@ int LSet::cmp(const d::Data* rhs) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue LSet::withMeta(d::DslValue m) const {
-  return new LSet(*this, m);
+  return d::DslValue(new LSet(*this, m));
 }
 
 

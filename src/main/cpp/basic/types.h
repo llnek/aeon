@@ -19,24 +19,28 @@
 namespace czlab::basic {
 namespace a= czlab::aeon;
 namespace d= czlab::dsl;
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define FN_VAL(n, f) czlab::dsl::DslValue(new LibFunc(n, f))
-#define NUMBER_VAL(n) czlab::dsl::DslValue(new BNumber(n))
-#define STRING_VAL(s) czlab::dsl::DslValue(new BStr(s))
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define CAST(t,x) s__cast(t,x.ptr())
+#define FN_VAL(n, f) LibFunc::make(n, f)
+#define NUMBER_VAL(n) BNumber::make(n)
+#define STRING_VAL(s) BStr::make(s)
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#define CAST(t,x) s__cast(t,x.get())
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BValue : public d::Data {
 
-  // Abstract class to store data value in parsers.
-  virtual bool equals(const d::Data* rhs) const {
-    return X_NIL(rhs) && eq(rhs);
+  virtual bool equals(d::DslValue rhs) const {
+    ASSERT1(rhs);
+    return eq(rhs);
   }
-  virtual int compare(const d::Data* rhs) const {
-    return E_NIL(rhs) ? 1 : cmp(rhs);
+
+  virtual int compare(d::DslValue rhs) const {
+    ASSERT1(rhs);
+    return cmp(rhs);
   }
+
   virtual stdstr pr_str(bool p = 0) const = 0;
   virtual ~BValue() {}
 
@@ -44,8 +48,8 @@ struct BValue : public d::Data {
 
   BValue() {}
 
-  virtual bool eq(const d::Data*) const=0;
-  virtual int cmp(const d::Data*) const=0;
+  virtual bool eq(d::DslValue) const=0;
+  virtual int cmp(d::DslValue) const=0;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -76,91 +80,115 @@ struct LibFunc : public Function {
   virtual stdstr pr_str(bool p=0) const;
   virtual ~LibFunc() {}
 
-  LibFunc(const stdstr& name, Invoker);
-  LibFunc() {fn=NULL;}
+  static d::DslValue make(const stdstr& name, Invoker f) {
+    return d::DslValue(new LibFunc(name,f));
+  }
+
+  static d::DslValue make() {
+    return d::DslValue(new LibFunc());
+  }
+
+  LibFunc() {fn=P_NIL;}
 
   protected:
 
-  virtual bool eq(const d::Data* rhs) const {
-    return typeid(*this) == typeid(*rhs) &&
-           fn == s__cast(const LibFunc,rhs)->fn;
-  }
+  LibFunc(const stdstr& name, Invoker);
 
-  virtual int cmp(const d::Data* rhs) const {
-    if (typeid(*this) == typeid(*rhs)) {
-      auto v2= s__cast(const LibFunc,rhs)->fn;
-      return fn==v2 ? 0 : pr_str(0).compare(rhs->pr_str(0));
-    } else {
-      return pr_str(0).compare(rhs->pr_str(0));
-    }
-  }
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
 
   Invoker fn;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BArray : public BValue {
-  virtual stdstr pr_str(bool p=0) const;
-  BArray(const std::vector<llong>&);
-  BArray() { value=NULL;}
-  virtual ~BArray();
+
+  static d::DslValue make(const std::vector<llong>& v) {
+    return d::DslValue(new BArray(v));
+  }
+
+  static d::DslValue make() {
+    return d::DslValue(new BArray());
+  }
 
   d::DslValue set(d::VSlice, d::DslValue);
   d::DslValue get(d::VSlice);
 
+  virtual stdstr pr_str(bool p=0) const;
+
+  virtual ~BArray();
+
+  BArray() { value=P_NIL;}
+
   protected:
+
+  BArray(const std::vector<llong>&);
 
   std::vector<llong> ranges;
   d::ValVec* value;
   llong index(d::VSlice);
-  virtual bool eq(const Data* rhs) const;
-  virtual int cmp(const d::Data* rhs) const;
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
+
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BNumber : public BValue {
 
-  explicit BNumber(double d) : type(d::T_REAL) {
-    num=0;
-    real=d;
-  }
-  explicit BNumber(int n) : type(d::T_INTEGER) {
-    num=n;
-    real=0;
+  static d::DslValue make(double d) {
+    return d::DslValue(new BNumber(d));
   }
 
-  BNumber(llong n) : type(d::T_INTEGER) {
-    num=n;
-    real=0;
+  static d::DslValue make(int n) {
+    return d::DslValue(new BNumber(n));
   }
 
-  BNumber() : type(d::T_INTEGER) {
-    num=0;
-    real=0;
+  static d::DslValue make(llong n) {
+    return d::DslValue(new BNumber(n));
   }
 
-  double getFloat() const { return isInt() ? (double)num : real; }
-  llong getInt() const { return isInt() ? num : (llong) real; }
+  static d::DslValue make() {
+    return d::DslValue(new BNumber());
+  }
 
-  void setFloat(double d) { real=d; }
-  void setInt(llong n) { num=n; }
+  double getFloat() const { return isInt() ? (double)num.n : num.r; }
+  llong getInt() const { return isInt() ? num.n : (llong) num.r; }
+
+  void setFloat(double d) { num.r=d; }
+  void setInt(llong n) { num.n=n; }
 
   bool isInt() const { return type== d::T_INTEGER;}
 
   bool isZero() const {
-    return type==d::T_INTEGER ? num==0 : a::fuzzy_zero(real); }
+    return type==d::T_INTEGER ? getInt()==0 : a::fuzzy_zero(getFloat()); }
 
   bool isNeg() const {
-    return type==d::T_INTEGER ? num < 0 : real < 0.0; }
+    return type==d::T_INTEGER ? getInt() < 0 : getFloat() < 0.0; }
 
   bool isPos() const {
-    return type==d::T_INTEGER ? num > 0 : real > 0.0; }
+    return type==d::T_INTEGER ? getInt() > 0 : getFloat() > 0.0; }
 
   virtual stdstr pr_str(bool p=0) const {
-    return isInt() ? std::to_string(num) : std::to_string(real);
+    return isInt() ? std::to_string(getInt()) : std::to_string(getFloat());
+  }
+
+  BNumber() : type(d::T_INTEGER) {
+    num.n=0;
   }
 
   protected:
+
+  explicit BNumber(double d) : type(d::T_REAL) {
+    num.r=d;
+  }
+  explicit BNumber(int n) : type(d::T_INTEGER) {
+    num.n=n;
+  }
+
+  BNumber(llong n) : type(d::T_INTEGER) {
+    num.n=n;
+  }
+
 
   bool match(const BNumber* rhs) const {
     return (isInt() && rhs->isInt())
@@ -168,24 +196,12 @@ struct BNumber : public BValue {
              : a::fuzzy_equals(getFloat(), rhs->getFloat());
   }
 
-  virtual bool eq(const d::Data* other) const {
-    return typeid(*this) == typeid(*other)
-           ? match(s__cast(const BNumber,other)) : false;
-  }
-
-  virtual int cmp(const d::Data* other) const {
-    auto ok= typeid(*this) == typeid(*other);
-    if (ok) {
-      auto rhs= s__cast(const BNumber,other);
-      return match(rhs) ? 0 : (getFloat() > rhs->getFloat() ? 1 : -1);
-    } else {
-      return pr_str(0).compare(other->pr_str(0));
-    }
-  }
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
 
   int type;
-  llong num;
-  double real;
+  union {
+    llong n; double r; } num;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -193,46 +209,52 @@ struct BStr : public BValue {
 
   virtual stdstr pr_str(bool p=0) const { return value; }
 
-  BStr(const stdstr& s) : value(s) {}
-  BStr(const char* s) : value(s) {}
+  static d::DslValue make(const stdstr& s) {
+    return d::DslValue(new BStr(s));
+  }
+
+  static d::DslValue make(const char* s) {
+    return d::DslValue(new BStr(s));
+  }
 
   stdstr impl() const { return value; }
 
+
+  BStr() {}
+
   protected:
+
+  BStr(const stdstr& s) : value(s) {}
+  BStr(const char* s) : value(s) {}
 
   stdstr value;
 
-  virtual bool eq(const Data* rhs) const {
-    return X_NIL(rhs) &&
-           typeid(*this) == typeid(*rhs) &&
-           value == s__cast(const BStr,rhs)->value;
-  }
-
-  virtual int cmp(const d::Data* rhs) const {
-    if (typeid(*this) == typeid(*rhs)) {
-      auto v2= s__cast(const BStr,rhs)->value;
-      return value.compare(v2);
-    } else {
-      return pr_str(0).compare(rhs->pr_str(0));
-    }
-  }
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ForLoopInfo;
-typedef a::RefPtr<ForLoopInfo> DslForLoop;
-struct ForLoopInfo : public a::Counted {
-  ForLoopInfo(const stdstr& v, llong n, llong p) {
-    var=v; begin=n; end=0;
-    beginOffset=p;
-    endOffset=0;
+typedef std::shared_ptr<ForLoopInfo> DslFLInfo;
+struct ForLoopInfo {
+
+  static DslFLInfo make(const stdstr& v, llong n, llong p) {
+    return DslFLInfo(new ForLoopInfo(v,n,p));
   }
+
   llong beginOffset, endOffset;
   llong begin, end;
   stdstr var;
   d::DslValue init;
   d::DslValue step;
-  DslForLoop outer;
+  DslFLInfo outer;
+
+  private:
+  ForLoopInfo(const stdstr& v, llong n, llong p) {
+    var=v; begin=n; end=0;
+    beginOffset=p;
+    endOffset=0;
+  }
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -272,20 +294,20 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
 
   llong jumpSub(llong target, llong from, llong pos);
   llong retSub();
-  llong jumpFor(DslForLoop);
-  llong endFor(DslForLoop);
+  llong jumpFor(DslFLInfo);
+  llong endFor(DslFLInfo);
   llong jump(llong line);
 
   llong poffset() { auto p= progOffset; progOffset=0; return p;}
   llong pc() const { return progCounter; };
   llong incr_pc() { return ++progCounter; }
 
-  DslForLoop getCurForLoop() const { return forLoop; }
-  DslForLoop getForLoop(llong c) const;
+  DslFLInfo getCurForLoop() const { return forLoop; }
+  DslFLInfo getForLoop(llong c) const;
 
   // used during analysis
   void xrefForNext(const stdstr&, llong n, llong pos);
-  void addForLoop(DslForLoop f);
+  void addForLoop(DslFLInfo);
 
   Basic(const char* src);
   d::DslValue interpret();
@@ -293,13 +315,13 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
 
   private:
 
-  std::map<llong,DslForLoop> forBegins;
-  std::map<llong,DslForLoop> forEnds;
+  std::map<llong,DslFLInfo> forBegins;
+  std::map<llong,DslFLInfo> forEnds;
 
   std::stack<CheckPt> gosubReturns;
   std::map<llong,llong> lines;
 
-  DslForLoop forLoop;
+  DslFLInfo forLoop;
   bool running;
   const char* source;
 

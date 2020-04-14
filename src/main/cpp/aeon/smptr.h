@@ -73,7 +73,7 @@ struct MSVC_DLL RefPtr {
     return pObj != rhs.pObj;
   }
 
-  bool isNull() const {
+  bool isNone() const {
     return E_NIL(pObj);
   }
 

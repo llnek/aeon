@@ -19,9 +19,9 @@ namespace czlab::dsl {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Data* nothing() { return new Nothing(); }
+//Data* nothing() { return new Nothing(); }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::map<int, std::string> TOKENS {
+std::map<int, stdstr> TOKENS {
   {T_INTEGER, "long"},
   {T_REAL, "double"},
   {T_STRING, "string"},
@@ -55,10 +55,10 @@ std::map<int, std::string> TOKENS {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SemanticError::SemanticError(const std::string& x) : a::Exception(x) {}
+SemanticError::SemanticError(const stdstr& x) : a::Exception(x) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SyntaxError::SyntaxError(const std::string& x) : a::Exception(x) {}
+SyntaxError::SyntaxError(const stdstr& x) : a::Exception(x) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int preEqual(int wanted, int got, const stdstr& fn) {
@@ -143,8 +143,8 @@ void skipWhitespace(Context& ctx) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string line(Context& ctx) {
-  std::string res;
+stdstr line(Context& ctx) {
+  stdstr res;
   while (!ctx.eof) {
     auto ch = peek(ctx);
     advance(ctx);
@@ -157,8 +157,8 @@ std::string line(Context& ctx) {
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string digits(Context& ctx) {
-  std::string res;
+stdstr digits(Context& ctx) {
+  stdstr res;
   while (!ctx.eof && ::isdigit(peek(ctx))) {
     res += peek(ctx);
     advance(ctx);
@@ -167,7 +167,7 @@ std::string digits(Context& ctx) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string numeric(Context& ctx) {
+stdstr numeric(Context& ctx) {
   // handles 'signed' and floating points.
   auto ch= peek(ctx);
   auto minus=false;
@@ -186,9 +186,9 @@ std::string numeric(Context& ctx) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string str(Context& ctx) {
+stdstr str(Context& ctx) {
 
-  std::string res;
+  stdstr res;
   Tchar ch;
 
   if (!ctx.eof &&
@@ -221,8 +221,8 @@ std::string str(Context& ctx) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::string identifier(Context& ctx, IdPredicate pred) {
-  std::string res;
+stdstr identifier(Context& ctx, IdPredicate pred) {
+  stdstr res;
   Tchar ch;
   while (!ctx.eof) {
     ch=peek(ctx);
@@ -247,7 +247,7 @@ std::string identifier(Context& ctx, IdPredicate pred) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool Number::isZero() const {
-  if (type==T_INTEGER) { return u.n==0; } else { return u.r==0.0; }
+  return type==T_INTEGER ? u.n==0 : a::fuzzy_zero(u.r);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -279,10 +279,16 @@ Context::Context() {
 SrcInfo Context::mark() { return s__pair(int,int,line,col); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Frame::Frame(const std::string& n, DslFrame outer) : _name(n) { prev=outer; }
+DslFrame Frame::make(const stdstr& n, DslFrame outer) {
+  return DslFrame(new Frame(n, outer));
+}
+DslFrame Frame::make(const stdstr& n) {
+  return DslFrame(new Frame(n));
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Frame::Frame(const std::string& n) : _name(n) { }
+Frame::Frame(const stdstr& n, DslFrame outer) : _name(n) { prev=outer; }
+Frame::Frame(const stdstr& n) : _name(n) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Frame::pr_str() const {
@@ -297,7 +303,7 @@ stdstr Frame::pr_str() const {
 
   for (auto i= slots.begin(), e= slots.end(); i != e; ++i) {
     auto v= i->second;
-    auto vs= v.isSome() ? v->pr_str(1) : stdstr("null");
+    auto vs= v ? v->pr_str(1) : stdstr("null");
     if (!bits.empty()) bits += ", ";
     bits += i->first + "=" + vs;
   }
@@ -307,8 +313,8 @@ stdstr Frame::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::set<std::string> Frame::keys() const {
-  std::set<std::string> out;
+std::set<stdstr> Frame::keys() const {
+  std::set<stdstr> out;
   for (auto &x : slots) {
     out.insert(x.first);
   }
@@ -316,12 +322,12 @@ std::set<std::string> Frame::keys() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslValue Frame::get(const std::string& key) const {
+DslValue Frame::get(const stdstr& key) const {
 
   auto x= slots.find(key);
   auto r= x != slots.end()
           ? x->second
-          : (prev.isSome() ? prev->get(key) : DslValue());
+          : (prev ? prev->get(key) : DslValue(P_NIL));
 
   DEBUG("frame:get %s <- %s\n",
         C_STR(key), C_STR(r->pr_str()));
@@ -330,7 +336,7 @@ DslValue Frame::get(const std::string& key) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslValue Frame::setEx(const std::string& key, DslValue v) {
+DslValue Frame::setEx(const stdstr& key, DslValue v) {
 
   auto x= slots.find(key);
   if (x != slots.end()) {
@@ -338,15 +344,15 @@ DslValue Frame::setEx(const std::string& key, DslValue v) {
     DEBUG("frame:setEx %s -> %s\n",
           C_STR(key), C_STR(v->pr_str(1)));
     return v;
-  } else if (prev.isSome()) {
+  } else if (prev) {
     return prev->setEx(key,v);
   } else {
-    return DslValue();
+    return DslValue(P_NIL);
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslValue Frame::set(const std::string& key, DslValue v) {
+DslValue Frame::set(const stdstr& key, DslValue v) {
   slots[key]=v;
   DEBUG("frame:set %s -> %s\n",
         C_STR(key), C_STR(v->pr_str(1)));
@@ -359,59 +365,60 @@ bool Frame::contains(const stdstr& key) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFrame Frame::search(const stdstr& key) const {
-  auto x= slots.find(key);
-  return x != slots.end()
-         ? DslFrame(const_cast<Frame*>(this))
-         : (prev.isSome() ? prev->search(key) : DslFrame());
+DslFrame Frame::search(const stdstr& key, DslFrame from) {
+  ASSERT1(from);
+  return from->contains(key) ? from :
+         (from->prev ? search(key, from->prev) : DslFrame(P_NIL));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFrame Frame::getOuterRoot() const {
-  return prev.isSome()
-         ? prev->getOuterRoot()
-         : DslFrame(const_cast<Frame*>(this));
+DslFrame Frame::getRoot(DslFrame from) {
+  ASSERT1(from);
+  return from->prev ? getRoot(from->prev) : from;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DslFrame Frame::getOuter() const { return prev; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Table::Table(const std::string& n,
-             const std::map<std::string, DslSymbol>& root) : Table(n) {
-  for (auto& x : root) {
-    symbols[x.first]=x.second;
-  }
+DslTable Table::make(const stdstr& n, const SymbolMap& root) {
+  return DslTable(new Table(n,root));
+}
+DslTable Table::make(const stdstr& n, DslTable outer) {
+  return DslTable(new Table(n, outer));
+}
+DslTable Table::make(const stdstr& n) {
+  return DslTable(new Table(n));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Table::Table(const std::string& n, DslTable outer) : Table(n) {
-  enclosing=outer;
+Table::Table(const stdstr& n, DslTable outer) : Table(n) { enclosing=outer; }
+Table::Table(const stdstr& n, const SymbolMap& root) : Table(n) {
+  for (auto& x : root) { symbols[x.first]=x.second; }
 }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Table::Table(const std::string& n) : _name(n) {}
+Table::Table(const stdstr& n) : _name(n) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Table::insert(DslSymbol s) {
-  if (s.isSome())
+  if (s)
     symbols[s->name()] = s;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslSymbol Table::search(const std::string& name) const {
+DslSymbol Table::search(const stdstr& name) const {
   if (auto s = symbols.find(name); s != symbols.end()) {
     return s->second;
   } else {
-    return enclosing.isNull() ? DslSymbol() : enclosing->search(name);
+    return enclosing ? enclosing->search(name) : DslSymbol(P_NIL);
   }
 }
 
-DslSymbol Table::find(const std::string& name) const {
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DslSymbol Table::find(const stdstr& name) const {
   if (auto s = symbols.find(name); s != symbols.end()) {
     return s->second;
   } else {
-    return DslSymbol();
+    return DslSymbol(P_NIL);
   }
 }
 

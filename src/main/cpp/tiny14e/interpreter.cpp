@@ -33,24 +33,24 @@ d::DslValue Interpreter::interpret() {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Interpreter::eval(d::DslAst tree) {
-  return (pushFrame("root"), tree.ptr()->eval(this));
+  return (pushFrame("root"), tree.get()->eval(this));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame Interpreter::pushFrame(const stdstr& name) {
-  stack = d::DslFrame(new d::Frame(name, stack));
+  stack = d::Frame::make(name, stack);
   return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame Interpreter::popFrame() {
-  if (stack.isSome()) {
+  if (stack) {
     auto f= stack;
     //::printf("Frame pop'ed:=\n%s\n", f->pr_str().c_str());
     stack= stack->getOuter();
     return f;
   } else {
-    return nullptr;
+    return P_NIL;
   }
 }
 
@@ -62,63 +62,63 @@ d::DslFrame Interpreter::peekFrame() const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Interpreter::setValueEx(const stdstr& name, d::DslValue v) {
   auto x = peekFrame();
-  return x.isSome() ? x->setEx(name, v) : nullptr;
+  return x ? x->setEx(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Interpreter::setValue(const stdstr& name, d::DslValue v) {
   auto x = peekFrame();
-  return x.isSome() ? x->set(name, v) : nullptr;
+  return x ? x->set(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Interpreter::getValue(const stdstr& name) const {
   auto x = peekFrame();
-  return x.isSome() ? x->get(name) : nullptr;
+  return x ? x->get(name) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<stdstr,d::DslSymbol> BITS {
-  {"INTEGER", d::DslSymbol(new d::Symbol("INTEGER"))},
-  {"REAL", d::DslSymbol(new d::Symbol("REAL"))},
-  {"STRING", d::DslSymbol(new d::Symbol("STRING"))}
+  {"INTEGER", d::Symbol::make("INTEGER")},
+  {"REAL", d::Symbol::make("REAL")},
+  {"STRING", d::Symbol::make("STRING")}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Interpreter::check(d::DslAst tree) {
-  symbols= d::DslTable(new d::Table("root", BITS));
+  symbols= d::Table::make("root", BITS);
   tree->visit(this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslSymbol Interpreter::search(const stdstr& n) const {
-  return symbols.isSome() ? symbols->search(n) : nullptr;
+  return symbols ? symbols->search(n) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslSymbol Interpreter::find(const stdstr& n) const {
-  return symbols.isSome() ? symbols->find(n) : NULL;
+  return symbols ? symbols->find(n) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslSymbol Interpreter::define(d::DslSymbol s) {
-  if (symbols.isSome()) symbols->insert(s);
+  if (symbols) symbols->insert(s);
   return s;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslTable Interpreter::pushScope(const stdstr& name) {
-  symbols= d::DslTable(new d::Table(name, symbols));
+  symbols= d::Table::make(name, symbols);
   return symbols;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslTable Interpreter::popScope() {
-  if (symbols.isNull()) {
-    return NULL;
+  if (!symbols) {
+    return P_NIL;
   }
   auto cur = symbols;
-  symbols = cur.ptr()->outer();
+  symbols = cur.get()->outer();
   return cur;
 }
 

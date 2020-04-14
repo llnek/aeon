@@ -49,19 +49,19 @@ d::DslValue Basic::eval(d::DslAst tree) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame Basic::pushFrame(const stdstr& name) {
-  stack = d::DslFrame(new d::Frame(name, stack));
+  stack = d::Frame::make(name, stack);
   return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslFrame Basic::popFrame() {
-  if (stack.isSome()) {
+  if (stack) {
     auto f= stack;
     //::printf("Frame pop'ed:=\n%s\n", f->pr_str().c_str());
     stack= stack->getOuter();
     return f;
   } else {
-    return NULL;
+    return P_NIL;
   }
 }
 
@@ -73,63 +73,63 @@ d::DslFrame Basic::peekFrame() const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Basic::setValueEx(const stdstr& name, d::DslValue v) {
   auto x = peekFrame();
-  return x.isSome() ? x->setEx(name, v) : NULL;
+  return x ? x->setEx(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Basic::setValue(const stdstr& name, d::DslValue v) {
   auto x = peekFrame();
-  return x.isSome() ? x->set(name, v) : NULL;
+  return x ? x->set(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Basic::getValue(const stdstr& name) const {
   auto x = peekFrame();
-  return x.isSome() ? x->get(name) : NULL;
+  return x ? x->get(name) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<stdstr,d::DslSymbol> BITS {
-  {"INTEGER", d::DslSymbol(new d::Symbol("INTEGER"))},
-  {"REAL", d::DslSymbol(new d::Symbol("REAL"))},
-  {"STRING", d::DslSymbol(new d::Symbol("STRING"))}
+  {"INTEGER", d::Symbol::make("INTEGER")},
+  {"REAL", d::Symbol::make("REAL")},
+  {"STRING", d::Symbol::make("STRING")}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::check(d::DslAst tree) {
-  symbols= d::DslTable(new d::Table("root", BITS));
+  symbols= d::Table::make("root", BITS);
   tree->visit(this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslSymbol Basic::search(const stdstr& n) const {
-  return symbols.isSome() ? symbols->search(n) : NULL;
+  return symbols ? symbols->search(n) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslSymbol Basic::find(const stdstr& n) const {
-  return symbols.isSome() ? symbols->find(n) : NULL;
+  return symbols ? symbols->find(n) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslSymbol Basic::define(d::DslSymbol s) {
-  if (symbols.isSome()) symbols->insert(s);
+  if (symbols) symbols->insert(s);
   return s;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslTable Basic::pushScope(const stdstr& name) {
-  symbols= d::DslTable(new d::Table(name, symbols));
+  symbols= d::Table::make(name, symbols);
   return symbols;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslTable Basic::popScope() {
-  if (symbols.isNull()) {
-    return NULL;
+  if (!symbols) {
+    return P_NIL;
   }
   auto cur = symbols;
-  symbols = cur.ptr()->outer();
+  symbols = cur.get()->outer();
   return cur;
 }
 
@@ -236,35 +236,35 @@ llong Basic::jump(llong line) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Basic::jumpFor(DslForLoop f) {
+llong Basic::jumpFor(DslFLInfo f) {
   auto it= lines.find(f->begin);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad for-loop: %d\n", (int) f->begin);
+    RAISE(d::BadArg, "Bad for-loop: %d.", (int) f->begin);
   progOffset=f->beginOffset;
   return (progCounter = it->second -1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Basic::endFor(DslForLoop f) {
+llong Basic::endFor(DslFLInfo f) {
   auto it= lines.find(f->end);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad end-for: %d\n", (int)f->end);
-  f->init=NULL;
+    RAISE(d::BadArg, "Bad end-for: %d.", (int)f->end);
+  f->init=P_NIL;
   progOffset=f->endOffset+1;
   return (progCounter = it->second-1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::addForLoop(DslForLoop f) {
+void Basic::addForLoop(DslFLInfo f) {
   auto x= this->forLoop; // current outer for loop
   auto vn= f->var;
   auto bad=false;
-  while (x.isSome()) {
+  while (x) {
     bad = (x->var == vn);
     x=x->outer;
   }
   if (bad)
-    RAISE(d::SemanticError, "For counter-var %s reused.\n", C_STR(vn));
+    RAISE(d::SemanticError, "For counter-var %s reused.", C_STR(vn));
   f->outer= forLoop;
   forLoop=f;
 }
@@ -273,11 +273,11 @@ void Basic::addForLoop(DslForLoop f) {
 void Basic::xrefForNext(const stdstr& v, llong n, llong pos) {
   // make sure the next statement matches the current for loop.
   auto c = this->forLoop;
-  ASSERT1(c.isSome());
+  ASSERT1(c);
   if (!(c->var == v))
     RAISE(d::SemanticError,
           "Expecting  for-counter: %s, got %s.\n",
-          c->var.c_str(), v.c_str());
+          c->var.c_str(), C_STR(v));
   c->endOffset=pos;
   c->end= n;
   // find the corresponding counters
@@ -292,7 +292,7 @@ void Basic::xrefForNext(const stdstr& v, llong n, llong pos) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslForLoop Basic::getForLoop(llong c) const {
+DslFLInfo Basic::getForLoop(llong c) const {
   if (auto i = forBegins.find(c); i != forBegins.end()) {
     return i->second;
   }
@@ -301,7 +301,7 @@ DslForLoop Basic::getForLoop(llong c) const {
     return i->second;
   }
 
-  RAISE(d::SemanticError, "Unknown for-loop: %d.\n", (int) c);
+  RAISE(d::SemanticError, "Unknown for-loop: %d.", (int) c);
 }
 
 

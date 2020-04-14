@@ -94,30 +94,30 @@ stdstr Token::getLiteralAsStr() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& x, d::SrcInfo info) {
-  return new Token(type, x, info);
+  return Token::make(type, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, Tchar x, d::SrcInfo info) {
-  return new Token(type, x, info);
+  return Token::make(type, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& x, d::SrcInfo info, const stdstr& s) {
-  return new Token(type, x, info);
+  return Token::make(type, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& s, d::SrcInfo info, llong n) {
-  auto t= new Token(type, s, info);
-  t->impl().num.setInt(n);
+  auto t= Token::make(type, s, info);
+  s__cast(Token,t.get())->impl().num.setInt(n);
   return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& s, d::SrcInfo info, double d) {
-  auto t= new Token(type, s, info);
-  t->impl().num.setFloat(d);
+  auto t= Token::make(type, s, info);
+  s__cast(Token,t.get())->impl().num.setFloat(d);
   return t;
 }
 

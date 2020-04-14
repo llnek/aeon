@@ -21,60 +21,66 @@ namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool is_same(const d::Data* x, const d::Data* y) {
+  return typeid(*x) == typeid(*y);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #define CASTXXX(T,v,panic,object,msg) do { \
-  if (auto p= v.ptr(); p && typeid(object)==typeid(*p)) { return s__cast(T,p); } \
+  if (auto p= v.get(); p && typeid(object)==typeid(*p)) { return s__cast(T,p); } \
   if (panic) expected(msg, v); \
-  return NULL; } while (0)
+  return P_NIL; } while (0)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue expected(const stdstr& m, d::DslValue v) {
   RAISE(d::BadArg,
-        "Expected `%s`, got %s.\n", C_STR(m), C_STR(v->pr_str()));
+        "Expected `%s`, got %s.", C_STR(m), C_STR(v->pr_str()));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BNumber A_NUM { 0 };
-BStr A_STR { "" };
+// globals used to test typeids
+BNumber A_NUM;
+BStr A_STR;
 BArray A_ARRAY;
 LibFunc A_FUNC;
 
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BArray::~BArray() {
-  DEL_PTR(value);
-}
+BArray::~BArray() { DEL_PTR(value); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BArray::BArray(const std::vector<llong>& szs) {
-  auto len = 1;
+  int len = 1;
   // DIM(2,2,2) => 3 x 3 x 3 = 27
   for (auto& n : szs) {
     auto actual = n+1;
     len = len * actual;
     s__conj(ranges,actual);
   }
-  ASSERT1(len >= 0);
+  ASSERT(len >= 0, "Array size >= 0, got %d.", len);
   value=new d::ValVec(len);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue BArray::set(d::VSlice pms, d::DslValue v) {
-  auto pos = index(pms);
-  ASSERT1(pos >=0 && pos < value->size());
+  int pos = index(pms);
+  ASSERT(pos >=0 && pos < value->size(),
+         "Array::set, index out of bound, got %d.", pos);
   (*value)[pos]= v;
   return v;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue BArray::get(d::VSlice pms) {
-  auto pos= index(pms);
-  ASSERT1(pos >=0 && pos < value->size());
+  int pos= index(pms);
+  ASSERT(pos >=0 && pos < value->size(),
+         "Array::get, index out of bound, got %d.", pos);
   return value->operator[](pos);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 llong BArray::index(d::VSlice pms) {
-  ASSERT1(ranges.size() == pms.size());
+  ASSERT(ranges.size() == pms.size(),
+         "Array dims mismatch, expected %d, got %d.", (int)ranges.size(), (int)pms.size());
   //algo= z * (XY) + yX + x
   //DIM(3,3,3) A(2,2,2)
   auto X=0,Y=0,Z=0;
@@ -82,8 +88,7 @@ llong BArray::index(d::VSlice pms) {
   for (int i=0,e=pms.size();i<e;++i) {
     auto num= cast_number(*(pms.begin+i),1);
     ASSERT(num->isInt(),
-           "Array index expects int, got %s.\n", C_STR(num->pr_str()));
-    ASSERT1(i < 3);
+           "Array index expected Int, got %s.", C_STR(num->pr_str()));
     switch (i) {
       case 0:
         X=ranges[i]; x= num->getInt(); break;
@@ -107,14 +112,14 @@ stdstr BArray::pr_str(bool p) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool BArray::eq(const Data* other) const {
+bool BArray::eq(d::DslValue rhs) const {
   auto ok=false;
-  if (typeid(*this) == typeid(*other)) {
-    auto rhs= s__cast(const BArray,other);
+  if (is_same(rhs.get(), this)) {
+    auto p= s__cast(BArray, rhs.get());
     int i=0, len = value->size();
-    if (len == rhs->value->size()) {
+    if (len == p->value->size()) {
       for (; i < len; ++i) {
-        if (!value->operator[](i)->equals(rhs->value->operator[](i).ptr())) {
+        if (!value->operator[](i)->equals(p->value->operator[](i))) {
           break;
         }
       }
@@ -125,11 +130,11 @@ bool BArray::eq(const Data* other) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int BArray::cmp(const d::Data* other) const {
-  if (typeid(*this) == typeid(*other)) {
-    auto rhs= s__cast(const BArray,other);
+int BArray::cmp(d::DslValue rhs) const {
+  if (is_same(rhs.get(), this)) {
+    auto p= s__cast(BArray, rhs.get());
     auto len = value->size();
-    auto rz = rhs->value->size();
+    auto rz = p->value->size();
     if (eq(rhs)) { return 0; }
     else if (len > rz) { return 1; }
     else if (len < rz) { return -1; }
@@ -137,7 +142,7 @@ int BArray::cmp(const d::Data* other) const {
       return 0;
     }
   } else {
-    return pr_str().compare(other->pr_str());
+    return pr_str().compare(rhs->pr_str());
   }
 }
 
@@ -170,8 +175,8 @@ d::DslValue op_math(d::DslValue left, int op, d::DslValue right) {
   double R;
   switch (op) {
     case T_INT_DIV:
-      ASSERT1(ints);
-      ASSERT1(!rhs->isZero());
+      ASSERT(ints, "Operator INT-DIV requires %d integers.", 2);
+      ASSERT(!rhs->isZero(), "Div by zero error, denominator= %d.", (int)rhs->getInt());
       L = (lhs->getInt() / rhs->getInt());
     break;
     case d::T_PLUS:
@@ -193,7 +198,7 @@ d::DslValue op_math(d::DslValue left, int op, d::DslValue right) {
         R = lhs->getFloat() * rhs->getFloat();
     break;
     case d::T_DIV:
-      ASSERT1(!rhs->isZero());
+      ASSERT(!rhs->isZero(), "Div by zero error, denominator= %d.", (int)rhs->getInt());
       if (ints)
         L = lhs->getInt() / rhs->getInt();
       else
@@ -216,6 +221,58 @@ d::DslValue op_math(d::DslValue left, int op, d::DslValue right) {
   }
   return ints ? NUMBER_VAL(L) : NUMBER_VAL(R);
 }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool LibFunc::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(), this) &&
+         fn == s__cast(LibFunc, rhs.get())->fn;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int LibFunc::cmp(d::DslValue rhs) const {
+  if (is_same(rhs.get(), this)) {
+    auto v2= s__cast(LibFunc, rhs.get())->fn;
+    return fn==v2 ? 0 : pr_str(0).compare(rhs->pr_str(0));
+  } else {
+    return pr_str(0).compare(rhs->pr_str(0));
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool BNumber::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(), this) && match(s__cast(BNumber, rhs.get()));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int BNumber::cmp(d::DslValue rhs) const {
+  auto ok= is_same(rhs.get(), this);
+  if (ok) {
+    auto p= s__cast(BNumber, rhs.get());
+    return match(p) ? 0 : (getFloat() > p->getFloat() ? 1 : -1);
+  } else {
+    return pr_str(0).compare(rhs->pr_str(0));
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool BStr::eq(d::DslValue rhs) const {
+  return is_same(rhs.get(), this) &&
+           value == s__cast(BStr,rhs.get())->value;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int BStr::cmp(d::DslValue rhs) const {
+  if (is_same(rhs.get(), this)) {
+    return value.compare(s__cast(BStr,rhs.get())->value);
+  } else {
+    return pr_str(0).compare(rhs->pr_str(0));
+  }
+}
+
+
+
+
+
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -13,7 +13,7 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "tiny14e.h"
+#include "../dsl/dsl.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
@@ -63,8 +63,13 @@ struct Token : public d::AbstractToken {
 
   static stdstr typeToString(int);
 
-  Token(int type, const stdstr&, d::SrcInfo);
-  Token(int type, Tchar, d::SrcInfo);
+  static d::DslToken make(int t, const stdstr& s, d::SrcInfo i) {
+    return d::DslToken(new Token(t,s,i));
+  }
+
+  static d::DslToken make(int t, Tchar c, d::SrcInfo i) {
+    return d::DslToken(new Token(t,c,i));
+  }
 
   virtual stdstr getLiteralAsStr() const;
   virtual double getLiteralAsReal() const;
@@ -75,6 +80,9 @@ struct Token : public d::AbstractToken {
   d::Lexeme& impl() { return _impl; }
 
   private:
+
+  Token(int type, const stdstr&, d::SrcInfo);
+  Token(int type, Tchar, d::SrcInfo);
 
   d::Lexeme _impl;
 };
