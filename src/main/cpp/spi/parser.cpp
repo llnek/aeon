@@ -20,10 +20,9 @@ namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define INT_VAL(x) d::DslValue(new EVal( (llong)(x)))
-#define FLT_VAL(x) d::DslValue(new EVal(x))
-#define STR_VAL(x) d::DslValue(new EVal(x))
-#define CAST(t,x) s__cast(t, x.ptr())
+#define INT_VAL(x) EVal::make( (llong)(x))
+#define FLT_VAL(x) EVal::make(x)
+#define STR_VAL(x) EVal::make(x)
 #define C_AST(x) CAST(Ast, x)
 #define E_VAL(x) CAST(EVal, x)
 
@@ -200,7 +199,7 @@ Assignment::Assignment(d::DslAst left, d::DslToken op, d::DslAst right)
 void Assignment::visit(d::IAnalyzer* a) {
   auto lhs_ = C_AST(lhs);
   auto v = lhs_->token->getLiteralAsStr();
-  if (auto s= a->search(v); s.isNull()) {
+  if (auto s= a->search(v); !s) {
     RAISE(d::SyntaxError,
           "Unknown var %s near line %d(%d).\n",
           v.c_str(),
@@ -227,7 +226,7 @@ Var::Var(d::DslToken t) : Ast(t) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Var::visit(d::IAnalyzer* a) {
   auto n = token->getLiteralAsStr();
-  if (auto s= a->search(n); s.isNull()) {
+  if (auto s= a->search(n); !s) {
     RAISE(d::SyntaxError,
           "Unknown var %s near line %d(%d).\n",
           n.c_str(),
@@ -260,9 +259,9 @@ SymTable::SymTable(const stdstr& n, d::DslTable outer) : SymTable(n) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SymTable::SymTable(const std::string& n) : d::Table(n) {
-  insert(new BuiltinTypeSymbol("INTEGER"));
-  insert(new BuiltinTypeSymbol("REAL"));
-  insert(new BuiltinTypeSymbol("STRING"));
+  insert(BuiltinTypeSymbol::make("INTEGER"));
+  insert(BuiltinTypeSymbol::make("REAL"));
+  insert(BuiltinTypeSymbol::make("STRING"));
   DEBUG("Added built-in types: %s.\n", "int,float,string");
 }
 
@@ -275,7 +274,7 @@ Param::Param(d::DslAst var, d::DslAst type)
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Param::visit(d::IAnalyzer* a) {
   auto n= C_AST(type_node)->name();
-  if (auto t= a->search(n); t.isNull()) {
+  if (auto t= a->search(n); !t) {
     RAISE(d::SyntaxError,
           "Unknown type %s near line %d(%d).\n",
           n.c_str(),
@@ -299,20 +298,20 @@ void VarDecl::visit(d::IAnalyzer* a) {
   auto type_name = C_AST(type_node)->name();
   auto var_name = C_AST(var_node)->name();
   auto type_symbol = a->search(type_name);
-  if (type_symbol.isNull()) {
+  if (!type_symbol) {
     RAISE(d::SyntaxError,
           "Unknown type %s near line %d(%d).\n",
           C_STR(type_name),
           token->srcInfo().first, token->srcInfo().second);
   }
 
-  if (auto s = a->find(var_name); s.isSome()) {
+  if (auto s = a->find(var_name); s) {
     RAISE(d::SyntaxError,
           "Duplicate var %s near line %d(%d).\n",
           C_STR(var_name),
           token->srcInfo().first, token->srcInfo().second);
   } else {
-    a->define(new d::VarSymbol(var_name, type_symbol));
+    a->define(d::VarSymbol::make(var_name, type_symbol));
   }
 }
 
@@ -355,22 +354,23 @@ ProcedureDecl::ProcedureDecl(const stdstr& proc_name,
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ProcedureDecl::visit(d::IAnalyzer* a) {
-  auto fs= new d::FnSymbol( name());
+  auto fs= d::FnSymbol::make( name());
+  auto fp= CAST(d::FnSymbol,fs);
   a->define(fs);
   a->pushScope(name());
 
   for (auto& p : params) {
-    auto p_ = s__cast(Param,p.ptr());
+    auto p_ = s__cast(Param,p.get());
     auto pn = C_AST(p_->var_node)->name();
     auto tn = C_AST(p_->type_node)->name();
     auto pt= a->search(tn);
-    auto v = new d::VarSymbol(pn, pt);
-    s__conj(fs->params(), a->define(v));
+    auto v = d::VarSymbol::make(pn, pt);
+    s__conj(fp->params(), a->define(v));
   }
 
   block->visit(a);
   a->popScope();
-  fs->setBody(this->block);
+  fp->setBody(this->block);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -392,7 +392,7 @@ void ProcedureCall::visit(d::IAnalyzer* a) {
     p->visit(a);
   }
   //get the corresponding symbol
-  if (auto x = a->search(_name); x.isSome()) {
+  if (auto x = a->search(_name); x) {
     proc_symbol = x;
   } else {
     RAISE(d::SyntaxError,
@@ -441,7 +441,7 @@ d::DslValue Program::eval(d::IEvaluator* e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst variable(SimplePascalParser* ps) {
-  auto node = new Var(ps->token());
+  auto node = Var::make(ps->token());
   return (ps->eat(d::T_IDENT), node);
 }
 
@@ -452,19 +452,19 @@ d::DslAst factor(SimplePascalParser* ps) {
 
   switch (t->type()) {
     case d::T_PLUS:
-      res= (ps->eat(), d::DslAst(new UnaryOp(t, factor(ps))));
+      res= (ps->eat(), UnaryOp::make(t, factor(ps)));
       break;
     case d::T_MINUS:
-      res= (ps->eat(), d::DslAst(new UnaryOp(t, factor(ps))));
+      res= (ps->eat(), UnaryOp::make(t, factor(ps)));
       break;
     case d::T_INTEGER:
-      res= (ps->eat(), d::DslAst(new Num(t)));
+      res= (ps->eat(), Num::make(t));
       break;
     case d::T_REAL:
-      res= (ps->eat(), d::DslAst(new Num(t)));
+      res= (ps->eat(), Num::make(t));
       break;
     case d::T_STRING:
-      res= (ps->eat(), d::DslAst(new String(t)));
+      res= (ps->eat(), String::make(t));
       break;
     case d::T_LPAREN:
       res= (ps->eat(), expr(ps));
@@ -482,7 +482,7 @@ d::DslAst term(SimplePascalParser* ps) {
   static std::set<int> ops {d::T_MULT,d::T_DIV, T_INT_DIV};
   auto res= factor(ps);
   while (s__contains(ops,ps->cur())) {
-    res = new BinOp(res, ps->eat(), factor(ps));
+    res = BinOp::make(res, ps->eat(), factor(ps));
   }
   return res;
 }
@@ -492,7 +492,7 @@ d::DslAst expr(SimplePascalParser* ps) {
   static std::set<int> ops {d::T_PLUS, d::T_MINUS};
   d::DslAst res= term(ps);
   while (s__contains(ops,ps->cur())) {
-    res= new BinOp(res, ps->eat(), term(ps));
+    res= BinOp::make(res, ps->eat(), term(ps));
   }
   return res;
 }
@@ -509,20 +509,20 @@ d::DslAst type_spec(SimplePascalParser* ps) {
             "Unknown token %d near line %d(%d).\n",
             t->type(), t->srcInfo().first, t->srcInfo().second);
   }
-  return new Type(t);
+  return Type::make(t);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::vector<d::DslAst> variable_declaration(SimplePascalParser* ps) {
-  std::vector<d::DslAst> vars { new Var(ps->eat(d::T_IDENT)) };
+  d::AstVec vars { Var::make(ps->eat(d::T_IDENT)) };
   while (ps->isCur(d::T_COMMA)) {
     ps->eat();
-    s__conj(vars, new Var(ps->eat(d::T_IDENT)));
+    s__conj(vars, Var::make(ps->eat(d::T_IDENT)));
   }
   auto type = (ps->eat(d::T_COLON), type_spec(ps));
   std::vector<d::DslAst> out;
   for (auto &x : vars) {
-    s__conj(out, new VarDecl(x, type));
+    s__conj(out, VarDecl::make(x, type));
   }
   return out;
 }
@@ -532,12 +532,12 @@ d::DslAst assignment_statement(SimplePascalParser* ps) {
   auto left = variable(ps);
   auto t= ps->eat(T_ASSIGN);
   auto right = expr(ps);
-  return new Assignment(left, t, right);
+  return Assignment::make(left, t, right);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst empty(SimplePascalParser* ps) {
-  return new NoOp();
+  return NoOp::make();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -559,7 +559,7 @@ d::DslAst proccall_statement(SimplePascalParser* ps) {
   }
 
   return (ps->eat(d::T_RPAREN),
-          new ProcedureCall(pn, pms, token));
+          ProcedureCall::make(pn, pms, token));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -612,9 +612,10 @@ std::vector<d::DslAst> statement_list(SimplePascalParser* ps) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst compound_statement(SimplePascalParser* ps) {
   auto nodes = (ps->eat(T_BEGIN),statement_list(ps));
-  auto root= (ps->eat(T_END), new Compound());
+  auto root= (ps->eat(T_END), Compound::make());
+  auto pr= CAST(Compound,root);
   for (auto& node : nodes) {
-    s__conj(root->statements,node);
+    s__conj(pr->statements,node);
   }
   return root;
 }
@@ -622,8 +623,8 @@ d::DslAst compound_statement(SimplePascalParser* ps) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::vector<d::DslAst> formal_parameters(SimplePascalParser* ps) {
 
-  std::vector<d::DslToken> param_tokens { ps->eat(d::T_IDENT) };
-  std::vector<d::DslAst> pnodes;
+  d::TokenVec  param_tokens { ps->eat(d::T_IDENT) };
+  d::AstVec pnodes;
 
   while (ps->isCur(d::T_COMMA)) {
     ps->eat();
@@ -634,15 +635,15 @@ std::vector<d::DslAst> formal_parameters(SimplePascalParser* ps) {
 
   for (auto& t : param_tokens) {
     //::printf("param toke= %s\n", t->getLiteralAsStr());
-    s__conj(pnodes, new Param(new Var(t), type_node));
+    s__conj(pnodes, Param::make(Var::make(t), type_node));
   }
 
   return pnodes;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<d::DslAst> formal_parameter_list(SimplePascalParser* ps) {
-  std::vector<d::DslAst> out;
+d::AstVec formal_parameter_list(SimplePascalParser* ps) {
+  d::AstVec out;
 
   if (!ps->isCur(d::T_IDENT)) {
     return out;
@@ -660,14 +661,14 @@ std::vector<d::DslAst> formal_parameter_list(SimplePascalParser* ps) {
 d::DslAst procedure_declaration(SimplePascalParser* ps) {
 
   auto pn = (ps->eat(T_PROCEDURE), ps->eat(d::T_IDENT));
-  std::vector<d::DslAst> params;
+  d::AstVec params;
 
   if (ps->isCur(d::T_LPAREN)) {
     params = (ps->eat(), formal_parameter_list(ps));
     ps->eat(d::T_RPAREN);
   }
 
-  auto decl = new ProcedureDecl(pn->getLiteralAsStr(),
+  auto decl = ProcedureDecl::make(pn->getLiteralAsStr(),
                                 params,
                                 (ps->eat(d::T_SEMI), block(ps)));
   //::printf("proc name=%s\n", decl->name().c_str());
@@ -675,8 +676,8 @@ d::DslAst procedure_declaration(SimplePascalParser* ps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::vector<d::DslAst> declarations(SimplePascalParser* ps) {
-  std::vector<d::DslAst> ds;
+d::AstVec declarations(SimplePascalParser* ps) {
+  d::AstVec ds;
 
   if (ps->isCur(T_VAR)) {
     ps->eat();
@@ -697,14 +698,14 @@ std::vector<d::DslAst> declarations(SimplePascalParser* ps) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst block(SimplePascalParser* ps) {
   auto decls=declarations(ps);
-  return new Block(decls, compound_statement(ps));
+  return Block::make(decls, compound_statement(ps));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslAst program(SimplePascalParser* ps) {
   auto var_node = (ps->eat(T_PROGRAM),variable(ps));
   auto pn= C_AST(var_node)->name();
-  auto prog = new Program(pn, (ps->eat(d::T_SEMI),block(ps)));
+  auto prog = Program::make(pn, (ps->eat(d::T_SEMI),block(ps)));
   //::printf("program = %s\n", prog->name().c_str());
   return (ps->eat(d::T_DOT), prog);
 }

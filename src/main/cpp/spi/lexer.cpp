@@ -50,16 +50,17 @@ std::map<stdstr,int> KEYWORDS {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static void error(const stdstr& expected, const Token* tkn) {
+  auto i=tkn->srcInfo();
   RAISE(d::SyntaxError,
-        "Expecting %s, got token %d, near line %d(%d).\n",
-        C_STR(expected), tkn->type(), tkn->srcInfo().first, tkn->srcInfo().second);
+        "Expecting %s, got token %d, near line %d(%d).",
+        C_STR(expected), tkn->type(), i.first, i.second);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Token::typeToString(int type) {
   return s__contains(TOKENS, type)
          ? map__val(TOKENS,type)
-         : ("token=" + std::to_string(type));
+         : ("token=" + N_STR(type));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -100,31 +101,31 @@ stdstr Token::getLiteralAsStr() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, Tchar c, d::SrcInfo info) {
-  return new Token(type, c, info);
+  return Token::make(type, c, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& x, d::SrcInfo info) {
-  return new Token(type, x, info);
+  return Token::make(type, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& s, d::SrcInfo info, llong n) {
-  auto t= new Token(type, s, info);
-  t->impl().num.setInt(n);
+  auto t= Token::make(type, s, info);
+  s__cast(Token,t.get())->impl().num.setInt(n);
   return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken token(int type, const stdstr& s, d::SrcInfo info, double d) {
-  auto t= new Token(type,s, info);
-  t->impl().num.setFloat(d);
+  auto t= Token::make(type,s, info);
+  s__cast(Token,t.get())->impl().num.setFloat(d);
   return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Token::pr_str() const {
-  return "Token#{type =" + std::to_string(type()) + ", text = " + _impl.txt + "}";
+  return "Token#{type =" + N_STR(type()) + ", text = " + _impl.txt + "}";
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
