@@ -20,7 +20,7 @@ namespace czlab::tiny14e {
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Interpreter::Interpreter(const char* src) {
+Interpreter::Interpreter(const Tchar* src) {
   source = src;
 }
 
@@ -37,7 +37,7 @@ d::DslValue Interpreter::eval(d::DslAst tree) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::pushFrame(const stdstr& name) {
+d::DslFrame Interpreter::pushFrame(cstdstr& name) {
   stack = d::Frame::make(name, stack);
   return stack;
 }
@@ -60,19 +60,19 @@ d::DslFrame Interpreter::peekFrame() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::setValueEx(const stdstr& name, d::DslValue v) {
+d::DslValue Interpreter::setValueEx(cstdstr& name, d::DslValue v) {
   auto x = peekFrame();
   return x ? x->setEx(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::setValue(const stdstr& name, d::DslValue v) {
+d::DslValue Interpreter::setValue(cstdstr& name, d::DslValue v) {
   auto x = peekFrame();
   return x ? x->set(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::getValue(const stdstr& name) const {
+d::DslValue Interpreter::getValue(cstdstr& name) const {
   auto x = peekFrame();
   return x ? x->get(name) : P_NIL;
 }
@@ -91,12 +91,12 @@ void Interpreter::check(d::DslAst tree) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::search(const stdstr& n) const {
+d::DslSymbol Interpreter::search(cstdstr& n) const {
   return symbols ? symbols->search(n) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::find(const stdstr& n) const {
+d::DslSymbol Interpreter::find(cstdstr& n) const {
   return symbols ? symbols->find(n) : P_NIL;
 }
 
@@ -107,7 +107,7 @@ d::DslSymbol Interpreter::define(d::DslSymbol s) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslTable Interpreter::pushScope(const stdstr& name) {
+d::DslTable Interpreter::pushScope(cstdstr& name) {
   symbols= d::Table::make(name, symbols);
   return symbols;
 }
@@ -144,7 +144,7 @@ llong Interpreter::readInt() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::writeString(const stdstr& s) {
+void Interpreter::writeString(cstdstr& s) {
   ::printf("%s", s.c_str());
 }
 

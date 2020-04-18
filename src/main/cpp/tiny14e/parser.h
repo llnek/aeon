@@ -32,7 +32,7 @@ struct Reader {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Writer {
-  virtual void writeString(const stdstr&)=0;
+  virtual void writeString(cstdstr&)=0;
   virtual void writeFloat(double)=0;
   virtual void writeInt(llong)=0;
   virtual void writeln()=0;
@@ -78,7 +78,7 @@ struct Ast : public d::Node {
 struct BoolExpr : public Ast {
 
   static d::DslAst make(const d::AstVec& a, const d::TokenVec& v) {
-    return d::DslAst(new BoolExpr(a,v));
+    return WRAP_AST(new BoolExpr(a,v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -97,7 +97,7 @@ struct BoolExpr : public Ast {
 struct BoolTerm : public Ast {
 
   static d::DslAst make(const d::AstVec& v) {
-    return d::DslAst(new BoolTerm(v));
+    return WRAP_AST(new BoolTerm(v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -115,7 +115,7 @@ struct BoolTerm : public Ast {
 struct RelationOp : public Ast {
 
   static d::DslAst make(d::DslAst left, d::DslToken op, d::DslAst right) {
-    return d::DslAst(new RelationOp(left, op, right));
+    return WRAP_AST(new RelationOp(left, op, right));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -133,7 +133,7 @@ struct RelationOp : public Ast {
 struct BinOp : public Ast {
 
   static d::DslAst make(d::DslAst left, d::DslToken op, d::DslAst right) {
-    return d::DslAst(new BinOp(left, op, right));
+    return WRAP_AST(new BinOp(left, op, right));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -155,7 +155,7 @@ struct Num : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new Num(t));
+    return WRAP_AST(new Num(t));
   }
 
   virtual stdstr name() const;
@@ -173,7 +173,7 @@ struct String : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new String(t));
+    return WRAP_AST(new String(t));
   }
 
   virtual ~String() {}
@@ -188,7 +188,7 @@ struct String : public Ast {
 struct NotFactor : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst expr) {
-    return d::DslAst(new NotFactor(t, expr));
+    return WRAP_AST(new NotFactor(t, expr));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -206,7 +206,7 @@ struct NotFactor : public Ast {
 struct UnaryOp : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst expr) {
-    return d::DslAst(new UnaryOp(t, expr));
+    return WRAP_AST(new UnaryOp(t, expr));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -227,7 +227,7 @@ struct Compound : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make() {
-    return d::DslAst(new Compound());
+    return WRAP_AST(new Compound());
   }
 
   virtual stdstr name() const;
@@ -246,7 +246,7 @@ struct Var : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new Var(t));
+    return WRAP_AST(new Var(t));
   }
 
   virtual stdstr name() const;
@@ -266,7 +266,7 @@ struct VarInput : public Var {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new VarInput(t));
+    return WRAP_AST(new VarInput(t));
   }
 
   virtual ~VarInput() {}
@@ -284,7 +284,7 @@ struct Type : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new Type(t));
+    return WRAP_AST(new Type(t));
   }
 
   virtual stdstr name() const;
@@ -298,7 +298,7 @@ struct Type : public Ast {
 struct Write : public Ast {
 
   static d::DslAst make(d::DslToken t, const d::AstVec& v) {
-    return d::DslAst(new Write(t, v));
+    return WRAP_AST(new Write(t, v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -315,7 +315,7 @@ struct Write : public Ast {
 struct Read : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst a) {
-    return d::DslAst(new Read(t, a));
+    return WRAP_AST(new Read(t, a));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -332,7 +332,7 @@ struct Read : public Ast {
 struct WhileLoop : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst c, d::DslAst a) {
-    return d::DslAst(new WhileLoop(t, c, a));
+    return WRAP_AST(new WhileLoop(t, c, a));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -350,7 +350,7 @@ struct WhileLoop : public Ast {
 struct ForLoop : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst v, d::DslAst i, d::DslAst e, d::DslAst s) {
-    return d::DslAst(new ForLoop(t,v,i,e,s));
+    return WRAP_AST(new ForLoop(t,v,i,e,s));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -370,11 +370,11 @@ struct ForLoop : public Ast {
 struct IfThenElse : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst c, d::DslAst n, d::DslAst z) {
-    return d::DslAst(new IfThenElse(t,c,n,z));
+    return WRAP_AST(new IfThenElse(t,c,n,z));
   }
 
   static d::DslAst make(d::DslToken t, d::DslAst c, d::DslAst n) {
-    return d::DslAst(new IfThenElse(t,c,n));
+    return WRAP_AST(new IfThenElse(t,c,n));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -395,7 +395,7 @@ struct IfThenElse : public Ast {
 struct RepeatUntil : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst c, d::DslAst b) {
-    return d::DslAst(new RepeatUntil(t,c,b));
+    return WRAP_AST(new RepeatUntil(t,c,b));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -414,7 +414,7 @@ struct RepeatUntil : public Ast {
 struct Assignment : public Ast {
 
   static d::DslAst make(d::DslAst left, d::DslToken op, d::DslAst right) {
-    return d::DslAst(new Assignment(left, op, right));
+    return WRAP_AST(new Assignment(left, op, right));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -437,7 +437,7 @@ struct NoOp : public Ast {
   virtual stdstr name() const { return "709394"; }
   virtual ~NoOp() {}
 
-  static d::DslAst make() { return d::DslAst(new NoOp()); }
+  static d::DslAst make() { return WRAP_AST(new NoOp()); }
 
   private:
 
@@ -448,7 +448,7 @@ struct NoOp : public Ast {
 struct VarDecl : public Ast {
 
   static d::DslAst make(d::DslAst v, d::DslAst t) {
-    return d::DslAst(new VarDecl(v,t));
+    return WRAP_AST(new VarDecl(v,t));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -468,7 +468,7 @@ struct VarDecl : public Ast {
 struct Block : public Ast {
 
   static d::DslAst make(const d::AstVec& v, d::DslAst b) {
-    return d::DslAst(new Block(v,b));
+    return WRAP_AST(new Block(v,b));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -487,7 +487,7 @@ struct Block : public Ast {
 struct ProcedureDecl : public Ast {
 
   static d::DslAst make(d::DslToken t, const d::AstVec& v, d::DslAst b) {
-    return d::DslAst(new ProcedureDecl(t,v,b));
+    return WRAP_AST(new ProcedureDecl(t,v,b));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -506,7 +506,7 @@ struct ProcedureDecl : public Ast {
 struct ProcedureCall : public Ast {
 
   static d::DslAst make(d::DslToken t, const d::AstVec& v) {
-    return d::DslAst(new ProcedureCall(t, v));
+    return WRAP_AST(new ProcedureCall(t, v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -525,7 +525,7 @@ struct ProcedureCall : public Ast {
 struct Program : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst b) {
-    return d::DslAst(new Program(t,b));
+    return WRAP_AST(new Program(t,b));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -542,7 +542,7 @@ struct Program : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct CrenshawParser : public d::IParser {
 
-  CrenshawParser(const char* src);
+  CrenshawParser(const Tchar* src);
   virtual ~CrenshawParser();
 
   Lexer* rdr() { return lex; }

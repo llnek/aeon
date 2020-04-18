@@ -40,98 +40,54 @@ std::map<stdstr,int> KEYWORDS {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Token::typeToString(int type) {
+stdstr typeToString(int type) {
   return s__contains(TOKENS,type)
          ? map__val(TOKENS,type)
-         : stdstr("token-type=") + std::to_string(type);
+         : stdstr("token-type=") + N_STR(type);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, const stdstr& s, d::SrcInfo info) : d::AbstractToken(type) {
-  this->info = info;
-  _impl.txt= s;
+LToken::LToken(int t, cstdstr& s, d::Mark m) : d::Token(t,s,m) { }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+LToken::LToken(int t, Tchar c, d::Mark m) : d::Token(t,c,m) { }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr LToken::getStr() const {
+  return s__contains(TOKENS,type()) ? TOKENS.at(type()) : lexeme;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, Tchar ch, d::SrcInfo info) : d::AbstractToken(type) {
-  _impl.txt= stdstr { ch };
-  this->info = info;
+d::DslToken token(int t, cstdstr& x, d::Mark info) {
+  return LToken::make(t, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-double Token::getLiteralAsReal() const {
-  if (type() != d::T_REAL) {
-    RAISE(d::SemanticError,
-          "Expecting float near %d(%d).\n", info.first, info.second);
-  }
-  return _impl.num.getFloat();
+d::DslToken token(int t, Tchar x, d::Mark info) {
+  return LToken::make(t, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Token::getLiteralAsInt() const {
-  if (type() != d::T_INTEGER) {
-    RAISE(d::SemanticError,
-          "Expecting int near %d(%d).\n", info.first, info.second);
-  }
-  return _impl.num.getInt();
+d::DslToken token(int t, cstdstr& x, d::Mark info, cstdstr&) {
+  return LToken::make(t, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Token::getLiteralAsStr() const {
-
-  if (type() == d::T_IDENT ||
-      type() == T_KEYWORD ||
-      type() == d::T_STRING) { return _impl.txt; }
-
-  if (! s__contains(TOKENS,type())) {
-    RAISE(d::SemanticError,
-          "Unexpected token %d near %d(%d).\n",
-          type(), info.first, info.second);
-  }
-
-  return TOKENS.at(type());
+d::DslToken token(int t, cstdstr& s, d::Mark info, llong n) {
+  auto k= LToken::make(t, s, info);
+  DCAST(LToken,k)->setLiteral(n);
+  return k;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, const stdstr& x, d::SrcInfo info) {
-  return Token::make(type, x, info);
+d::DslToken token(int t, cstdstr& s, d::Mark info, double d) {
+  auto k= LToken::make(t, s, info);
+  DCAST(LToken,k)->setLiteral(d);
+  return k;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, Tchar x, d::SrcInfo info) {
-  return Token::make(type, x, info);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, const stdstr& x, d::SrcInfo info, const stdstr& s) {
-  return Token::make(type, x, info);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, const stdstr& s, d::SrcInfo info, llong n) {
-  auto t= Token::make(type, s, info);
-  s__cast(Token,t.get())->impl().num.setInt(n);
-  return t;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, const stdstr& s, d::SrcInfo info, double d) {
-  auto t= Token::make(type, s, info);
-  s__cast(Token,t.get())->impl().num.setFloat(d);
-  return t;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Token::pr_str() const {
-  char buf[1024];
-  ::sprintf(buf,
-            "Token#{%d, %s}",
-            type(), C_STR(_impl.txt));
-  return stdstr(buf);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Reader::Reader(const char* src) {
+Reader::Reader(const Tchar* src) {
   _ctx.len= ::strlen(src);
   _ctx.eof=false;
   _ctx.src=src;
@@ -142,7 +98,7 @@ Reader::Reader(const char* src) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Reader::isKeyword(const stdstr& k) const {
+bool Reader::isKeyword(cstdstr& k) const {
   throw d::Unsupported("not allowed!");
 }
 
@@ -196,10 +152,7 @@ d::DslToken Reader::keywd() {
     auto ch=peek(_ctx);
     if (isKeywdChar(ch)) {
       res += ch;
-      advance(_ctx);
-    } else {
-      break;
-    }
+      advance(_ctx); } else { break; }
   }
   return token(T_KEYWORD, res, m, res);
 }
@@ -218,14 +171,11 @@ d::DslToken Reader::id() {
     d::advance(_ctx);
   }
   if (res == "false") {
-    return token(T_FALSE, res, m);
-  }
+    return token(T_FALSE, res, m); }
   if (res == "true") {
-    return token(T_TRUE, res, m);
-  }
+    return token(T_TRUE, res, m); }
   if (res == "nil") {
-    return token(T_NIL, res, m);
-  }
+    return token(T_NIL, res, m); }
   DEBUG("::id = %s.\n", C_STR(res));
   return token(d::T_IDENT, res, m, res);
 }
@@ -238,7 +188,6 @@ void Reader::skipCommas() {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslToken Reader::getNextToken() {
-
   Tchar ch;
   while (!_ctx.eof) {
     ch= d::peek(_ctx);
@@ -255,7 +204,7 @@ d::DslToken Reader::getNextToken() {
     }
     else
     if (ch == '~' &&
-        d::peekNext(_ctx) == '@') {
+        d::peekAhead(_ctx) == '@') {
       auto m= _ctx.mark();
       d::advance(_ctx, 2);
       return token(T_SPLICE_UNQUOTE, "~@", m);
@@ -292,7 +241,7 @@ d::DslToken Reader::getNextToken() {
     }
     else
     if ((ch == '-' || ch == '+') &&
-        ::isdigit(d::peekNext(_ctx))) {
+        ::isdigit(d::peekAhead(_ctx))) {
       //skip the pointless + sign
       if (ch=='+') { d::advance(_ctx); }
       return number();
@@ -307,14 +256,14 @@ d::DslToken Reader::getNextToken() {
     }
     else
     if (ch == '#' &&
-        d::peekNext(_ctx) == '{') {
+        d::peekAhead(_ctx) == '{') {
       auto m=_ctx.mark();
       d::advance(_ctx, 2);
       return token(T_SET, "#{", m);
     }
     else
     if (ch == '#' &&
-        d::peekNext(_ctx) == '(') {
+        d::peekAhead(_ctx) == '(') {
       auto m=_ctx.mark();
       d::advance(_ctx, 2);
       return token(T_ANONFN, "#(", m);
@@ -357,7 +306,7 @@ d::DslToken Reader::getNextToken() {
     }
     else
     if (ch == ':') {
-      auto nx= d::peekNext(_ctx);
+      auto nx= d::peekAhead(_ctx);
       if (isKeywdChar(nx)) {
         return keywd();
       } else {
@@ -377,8 +326,9 @@ d::DslToken Reader::getNextToken() {
       return id();
     }
     else {
-      RAISE(d::SyntaxError,
-            "Unexpected char %c near line %d(%d).\n", ch, _ctx.line, _ctx.col);
+      auto m= _ctx.mark();
+      d::advance(_ctx);
+      return token(d::T_ROGUE, ch,m);
     }
   }
 

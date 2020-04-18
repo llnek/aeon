@@ -21,9 +21,10 @@ namespace czlab::basic {
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Basic::Basic(const char* src) {
+Basic::Basic(const Tchar* src) {
   source = src;
   running=false;
+  dataPtr=0;
   progOffset=0;
   progCounter=0;
 }
@@ -38,9 +39,28 @@ d::DslValue Basic::interpret() {
   BasicParser p(source);
   root_env();
   auto tree= p.parse();
-  //std::cout << s__cast(Ast,tree.ptr())->pr_str() << "\n";
+  //std::cout << s__cast(Ast,tree.get())->pr_str() << "\n";
   return check(tree), eval(tree);
 }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::addData(d::DslValue v) {
+  ASSERT1(v);
+  //std::cout << "addData = " << v->pr_str(0) << "\n";
+  s__conj(dataSlots,v);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Basic::readData() {
+  return (dataPtr >= 0 &&
+      dataPtr < dataSlots.size()) ? dataSlots[dataPtr++] : P_NIL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::restore() {
+  dataPtr=0;
+}
+
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Basic::eval(d::DslAst tree) {
@@ -71,14 +91,16 @@ d::DslFrame Basic::peekFrame() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Basic::setValueEx(const stdstr& name, d::DslValue v) {
-  auto x = peekFrame();
-  return x ? x->setEx(name, v) : P_NIL;
+d::DslValue Basic::setValueEx(cstdstr& name, d::DslValue v) {
+  throw d::Unsupported("Can't call setValueEx.");
+  //auto x = peekFrame();
+  //return x ? x->setEx(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Basic::setValue(const stdstr& name, d::DslValue v) {
+d::DslValue Basic::setValue(cstdstr& name, d::DslValue v) {
   auto x = peekFrame();
+  ensure_data_type(name,v);
   return x ? x->set(name, v) : P_NIL;
 }
 
@@ -176,7 +198,7 @@ void Basic::writeln() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::installProgram(const std::map<llong,llong>& m) {
+void Basic::installProgram(const std::map<int,int>& m) {
   for (auto& x : m) { lines[x.first] = x.second; }
 }
 
@@ -189,12 +211,14 @@ void Basic::uninstall() {
 void Basic::init_counters() {
   while (!gosubReturns.empty()) gosubReturns.pop();
   running=true;
+  dataPtr=0;
   progOffset=0;
   progCounter= -1;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::finz_counters() {
+  dataPtr=0;
   progOffset=0;
   progCounter= -1;
   running=false;
@@ -202,9 +226,9 @@ void Basic::finz_counters() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Basic::retSub() {
+int Basic::retSub() {
   if (gosubReturns.empty())
-    RAISE(d::BadArg, "Bad gosub-return: %s\n", "no sub called");
+    RAISE(d::BadArg, "Bad gosub-return: %s.", "no sub called");
   auto r= gosubReturns.top();
   gosubReturns.pop();
   progOffset = r.second+1;
@@ -212,43 +236,43 @@ llong Basic::retSub() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Basic::jumpSub(llong target, llong from, llong off) {
+int Basic::jumpSub(int target, int from, int off) {
 
   auto it= lines.find(target);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad gosub: %d\n", (int)target);
+    RAISE(d::BadArg, "Bad gosub: %d.", target);
 
   ASSERT1(progCounter == lines[from]);
-  gosubReturns.push(s__pair(llong,llong,progCounter,off));
+  gosubReturns.push(s__pair(int,int,progCounter,off));
   auto pc = it->second;
   progOffset=0;
   return (progCounter = pc-1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Basic::jump(llong line) {
+int Basic::jump(int line) {
   auto it= lines.find(line);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad goto: %d\n", (int)line);
+    RAISE(d::BadArg, "Bad goto: %d.", line);
   auto pos = it->second ;
   progOffset=0;
   return (progCounter = pos-1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Basic::jumpFor(DslFLInfo f) {
+int Basic::jumpFor(DslFLInfo f) {
   auto it= lines.find(f->begin);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad for-loop: %d.", (int) f->begin);
+    RAISE(d::BadArg, "Bad for-loop: %d.",  f->begin);
   progOffset=f->beginOffset;
   return (progCounter = it->second -1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Basic::endFor(DslFLInfo f) {
+int Basic::endFor(DslFLInfo f) {
   auto it= lines.find(f->end);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad end-for: %d.", (int)f->end);
+    RAISE(d::BadArg, "Bad end-for: %d.", f->end);
   f->init=P_NIL;
   progOffset=f->endOffset+1;
   return (progCounter = it->second-1);
@@ -270,14 +294,20 @@ void Basic::addForLoop(DslFLInfo f) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::xrefForNext(const stdstr& v, llong n, llong pos) {
+void Basic::xrefForNext(int n, int pos) {
+  xrefForNext("", n, pos);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::xrefForNext(cstdstr& v, int n, int pos) {
   // make sure the next statement matches the current for loop.
   auto c = this->forLoop;
   ASSERT1(c);
-  if (!(c->var == v))
-    RAISE(d::SemanticError,
-          "Expecting  for-counter: %s, got %s.\n",
-          c->var.c_str(), C_STR(v));
+  if (!v.empty())
+    if (!(c->var == v))
+      RAISE(d::SemanticError,
+            "Expecting  for-counter: %s, got %s.",
+            c->var.c_str(), C_STR(v));
   c->endOffset=pos;
   c->end= n;
   // find the corresponding counters
@@ -292,7 +322,7 @@ void Basic::xrefForNext(const stdstr& v, llong n, llong pos) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFLInfo Basic::getForLoop(llong c) const {
+DslFLInfo Basic::getForLoop(int c) const {
   if (auto i = forBegins.find(c); i != forBegins.end()) {
     return i->second;
   }

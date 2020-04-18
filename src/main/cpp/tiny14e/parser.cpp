@@ -17,10 +17,6 @@
 #include "parser.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define P_TOKE(ps) s__cast(Token, ps->token().get())
-#define P_AST(a) CAST(Ast,a)
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::tiny14e {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
@@ -72,12 +68,12 @@ bool toBool(d::DslValue e) { return toInt(e) != 0L; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Ast::Ast() {
-  _token=Token::make(d::T_ETHEREAL,"<?>", s__pair(int,int,0,0));
+  _token=SToken::make(d::T_ETHEREAL,"<?>", DMARK(0,0));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Ast::name() const {
-  return CAST(Token,_token)->impl().txt;
+  return DCAST(SToken,_token)->getStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -137,9 +133,9 @@ d::DslValue BinOp::eval(d::IEvaluator* e) {
       R = plf->getFloat() / prt->getFloat();
     break;
     default:
-    { auto i= token()->srcInfo();
+    { auto i= token()->marker();
       RAISE(d::SemanticError,
-            "Bad op near line %d(%d).\n", i.first, i.second);
+            "Bad op near line %d(%d).", i.first, i.second);
     }
   }
 
@@ -157,7 +153,7 @@ stdstr String::name() const { return "string"; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue String::eval(d::IEvaluator* e) {
-  return SStr::make(token()->getLiteralAsStr());
+  return SStr::make(token()->getStr());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -172,7 +168,7 @@ stdstr Num::name() const {
     case d::T_INTEGER: return "integer";
     case d::T_REAL: return "real";
     default:
-    { auto i= token()->srcInfo();
+    { auto i= token()->marker();
       RAISE(d::SyntaxError,
             "Bad number near line %d(%d).", i.first, i.second);
     }
@@ -183,11 +179,11 @@ stdstr Num::name() const {
 d::DslValue Num::eval(d::IEvaluator* e) {
   switch (token()->type()) {
     case d::T_INTEGER:
-      return SNumber::make(token()->getLiteralAsInt());
+      return SNumber::make(token()->getInt());
     case d::T_REAL:
-      return SNumber::make(token()->getLiteralAsReal());
+      return SNumber::make(token()->getFloat());
     default:
-    { auto i= token()->srcInfo();
+    { auto i= token()->marker();
       RAISE(d::SyntaxError,
             "Bad number near line %d(%d).", i.first, i.second);
     }
@@ -203,7 +199,7 @@ stdstr UnaryOp::name() const {
     case d::T_MINUS: return "-";
     case d::T_PLUS: return "+";
     default:
-    { auto i= token()->srcInfo();
+    { auto i= token()->marker();
       RAISE(d::SyntaxError,
             "Bad op near line %d(%d).", i.first, i.second);
     }
@@ -259,11 +255,11 @@ stdstr Assignment::name() const { return ":="; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Assignment::visit(d::IAnalyzer* a) {
-  auto pl= P_AST(lhs);
+  auto pl= DCAST(Ast,lhs);
   auto pn=pl->name();
   auto s= a->search(pn);
   if (!s) {
-    auto i= pl->token()->srcInfo();
+    auto i= pl->token()->marker();
     RAISE(d::SemanticError,
           "Unknown var %s near line %d(%d).",
           C_STR(pn), i.first, i.second);
@@ -273,8 +269,8 @@ void Assignment::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Assignment::eval(d::IEvaluator* e) {
-  auto pl= P_AST(lhs);
-  auto v = pl->token()->getLiteralAsStr();
+  auto pl= DCAST(Ast,lhs);
+  auto v = pl->token()->getStr();
   auto t= s__cast(Var,pl)->type_symbol;
   auto r= rhs->eval(e);
   DEBUG("Assigning value %s to %s.",
@@ -287,14 +283,14 @@ Var::Var(d::DslToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Var::name() const {
-  return token()->getLiteralAsStr();
+  return token()->getStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Var::visit(d::IAnalyzer* a) {
   auto n = name();
   if (auto x= a->search(n); !x) {
-    auto i= token()->srcInfo();
+    auto i= token()->marker();
     RAISE(d::SemanticError,
           "Unknown var %s near line %d(%d).", C_STR(n), i.first, i.second);
   }
@@ -310,7 +306,7 @@ Type::Type(d::DslToken token) : Ast(token) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Type::name() const {
-  return token()->getLiteralAsStr();
+  return token()->getStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -321,18 +317,18 @@ d::DslValue Type::eval(d::IEvaluator* e) { return P_NIL; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 VarDecl::VarDecl(d::DslAst var, d::DslAst type)
-  : Ast(CAST(Var,var)->token()), var_node(var), type_node(type) {
+  : Ast(DCAST(Var,var)->token()), var_node(var), type_node(type) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr VarDecl::name() const { return P_AST(var_node)->name(); }
+stdstr VarDecl::name() const { return DCAST(Var,var_node)->name(); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void VarDecl::visit(d::IAnalyzer* a) {
-  auto tname = P_AST(type_node)->name();
-  auto vname = P_AST(var_node)->name();
+  auto tname = DCAST(Ast,type_node)->name();
+  auto vname = DCAST(Ast,var_node)->name();
   auto tsym = a->search(tname);
-  auto i= token()->srcInfo();
+  auto i= token()->marker();
 
   if (!tsym) {
     RAISE(d::SemanticError,
@@ -345,13 +341,13 @@ void VarDecl::visit(d::IAnalyzer* a) {
           C_STR(vname), i.first, i.second);
   }
 
-  CAST(Var,var_node)->type_symbol= tsym;
+  DCAST(Var,var_node)->type_symbol= tsym;
   a->define(d::VarSymbol::make(vname, tsym));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue VarDecl::eval(d::IEvaluator* e) {
-  auto t= CAST(Var,var_node)->type_symbol;
+  auto t= DCAST(Var,var_node)->type_symbol;
   d::DslValue v;
   //std::cout << "var=== " << name() << "\n";
   return e->setValue(name(), cast(v, t));
@@ -486,7 +482,7 @@ d::DslValue RelationOp::eval(d::IEvaluator* e) {
     case T_EQUALS: res = l == r; break;
     case T_NOTEQ: res = l != r; break;
     default:
-    { auto i= token()->srcInfo();
+    { auto i= token()->marker();
       RAISE(d::SemanticError,
             "Unknown op near line %d(%d).", i.first, i.second);
     }
@@ -530,14 +526,14 @@ ProcedureDecl::ProcedureDecl(d::DslToken proc_name,
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ProcedureDecl::visit(d::IAnalyzer* a) {
   auto fs= d::FnSymbol::make( name());
-  auto fp= CAST(d::FnSymbol,fs);
+  auto fp= DCAST(d::FnSymbol,fs);
   a->define(fs);
   a->pushScope(name());
 
   for (auto& p : params) {
-    auto pm = CAST(VarDecl,p);
-    auto tn = P_AST(pm->type_node)->name();
-    auto pn = P_AST(pm->var_node)->name();
+    auto pm = DCAST(VarDecl,p);
+    auto tn = DCAST(Ast,pm->type_node)->name();
+    auto pn = DCAST(Ast,pm->var_node)->name();
     auto pt = a->search(tn);
     auto v = d::VarSymbol::make(pn, pt);
     a->define(v);
@@ -551,7 +547,7 @@ void ProcedureDecl::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr ProcedureDecl::name() const {
-  return token()->getLiteralAsStr();
+  return token()->getStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -567,7 +563,7 @@ ProcedureCall::ProcedureCall(d::DslToken proc_name, const d::AstVec& p)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr ProcedureCall::name() const {
-  return token()->getLiteralAsStr();
+  return token()->getStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -579,7 +575,7 @@ void ProcedureCall::visit(d::IAnalyzer* a) {
   if (auto x = a->search( name()); x) {
     proc_symbol = x;
   } else {
-    auto i=token()->srcInfo();
+    auto i=token()->marker();
     RAISE(d::SemanticError,
           "Unknown proc %s near line %d(%d).",
           C_STR(name()), i.first, i.second);
@@ -588,14 +584,14 @@ void ProcedureCall::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue ProcedureCall::eval(d::IEvaluator* e) {
-  auto fs= CAST(d::FnSymbol,proc_symbol);
+  auto fs= DCAST(d::FnSymbol,proc_symbol);
   auto fz= fs->params().size();
   auto az= args.size();
   ASSERT(fz == az,
          "Mismatch sizes, params= %d, but args= %d.", (int)fz, (int)az);
   e->pushFrame(name());
   for (auto i=0; i < args.size(); ++i) {
-    auto p= CAST(d::VarSymbol,fs->params()[i]);
+    auto p= DCAST(d::VarSymbol,fs->params()[i]);
     auto v= args[i]->eval(e);
     e->setValue(p->name(), cast(v, p->type()));
   }
@@ -612,7 +608,7 @@ Program::Program(d::DslToken pname, d::DslAst block) : Ast(pname) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Program::name() const {
-  return token()->getLiteralAsStr();
+  return token()->getStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -735,7 +731,7 @@ d::DslAst type_spec(CrenshawParser* ps) {
     case T_INT:
     case T_REAL: ps->eat(); break;
     default:
-    { auto i= CAST(Token,t)->srcInfo();
+    { auto i= DCAST(SToken,t)->marker();
       RAISE(d::SyntaxError,
             "Unknown token %d near line %d(%d).",
             t->type(), i.first, i.second);
@@ -868,8 +864,8 @@ ForLoop::ForLoop(d::DslToken t, d::DslAst v, d::DslAst i, d::DslAst e, d::DslAst
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue ForLoop::eval(d::IEvaluator* e) {
-  auto tn= CAST(Var,var_node)->type_symbol;
-  auto vn= P_AST(var_node)->name();
+  auto tn= DCAST(Var,var_node)->type_symbol;
+  auto vn= DCAST(Var,var_node)->name();
   d::DslValue ret;
 
   auto _i= init->eval(e);
@@ -894,14 +890,14 @@ d::DslValue ForLoop::eval(d::IEvaluator* e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ForLoop::visit(d::IAnalyzer* a) {
-  auto vn = CAST(Var,var_node);
+  auto vn = DCAST(Var,var_node);
   auto s= a->search(vn->name());
   if (!s) {
     RAISE(d::SyntaxError,
           "Missing type in forloop decl, var = %s.", C_STR(vn->name()));
   }
   vn->visit(a);
-  vn->type_symbol = CAST(d::VarSymbol,s)->type();
+  vn->type_symbol = DCAST(d::VarSymbol,s)->type();
   init->visit(a);
   term->visit(a);
   code->visit(a);
@@ -956,9 +952,9 @@ d::DslValue VarInput::eval(d::IEvaluator* e) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void VarInput::visit(d::IAnalyzer* a) {
   if (auto s = a->search(name()); s) {
-    type_symbol= CAST(d::VarSymbol,s)->type();
+    type_symbol= DCAST(d::VarSymbol,s)->type();
   } else {
-    auto i= CAST(Token,token())->srcInfo();
+    auto i= DCAST(SToken,token())->marker();
     RAISE(d::SemanticError,
           "Unknown var %s near line %d(%d).",
           C_STR(name()), i.first, i.second);
@@ -1127,22 +1123,22 @@ void statement_list(CrenshawParser* ps, d::AstVec& results) {
 
   auto s= statement(ps);
 
-  if (!(P_AST(s)->name() == "709394")) {
+  if (!(DCAST(Ast,s)->name() == "709394")) {
     s__conj(results,s);
   }
 
   while (ps->isCur(d::T_SEMI)) {
     ps->eat();
     s= statement(ps);
-    if (!(P_AST(s)->name() == "709394")) {
+    if (!(DCAST(Ast,s)->name() == "709394")) {
       s__conj(results,s);
     }
   }
 
   if (ps->isCur(d::T_IDENT)) {
     RAISE(d::SyntaxError,
-        "Unexpected token `%s`\n",
-        P_TOKE(ps)->getLiteralAsStr().c_str());
+        "Unexpected token `%s`.",
+        C_STR(ps->token()->getStr()));
   }
 
 }
@@ -1154,7 +1150,7 @@ d::DslAst compound_statement(CrenshawParser* ps, bool beginend) {
   statement_list(ps, nodes);
   if (beginend) {ps->eat(T_END);}
   auto root= Compound::make();
-  auto pr= CAST(Compound,root);
+  auto pr= DCAST(Compound,root);
   for (auto& node : nodes) {
     s__conj(pr->statements,node);
   }
@@ -1303,10 +1299,10 @@ d::DslToken CrenshawParser::eat() {
 d::DslToken CrenshawParser::eat(int wanted) {
   auto t= token();
   if (t->type() != wanted) {
-    auto i= CAST(Token,t)->srcInfo();
+    auto i= DCAST(SToken,t)->marker();
     RAISE(d::SyntaxError,
           "Expected token %s, found token %s near line %d(%d).",
-          Token::typeToString(wanted).c_str(),
+          C_STR(typeToString(wanted)),
           C_STR(t->pr_str()), i.first, i.second);
   }
   lex->ctx().cur= lex->getNextToken();

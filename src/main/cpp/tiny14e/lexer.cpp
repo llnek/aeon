@@ -72,91 +72,48 @@ std::map<stdstr,int> KEYWORDS {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Token::typeToString(int type) {
+stdstr typeToString(int type) {
   return s__contains(TOKENS, type)
          ? map__val(TOKENS,type)
          : stdstr("token-type=") + N_STR(type);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, const stdstr& s, d::SrcInfo info) : d::AbstractToken(type) {
-  _impl.txt= s;
-  this->info = info;
+stdstr SToken::getStr() const {
+  return s__contains(TOKENS,type())  ? TOKENS.at(type()) : lexeme;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, Tchar ch, d::SrcInfo info) : d::AbstractToken(type) {
-  this->info = info;
-  _impl.txt= stdstr { ch };
+d::DslToken token(int t, cstdstr& s, d::Mark info) {
+  return SToken::make(t, s, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-double Token::getLiteralAsReal() const {
-  if (type() != d::T_REAL) {
-    RAISE(d::SemanticError,
-          "Expecting float near %d(%d).\n", info.first, info.second);
-  }
-  return _impl.num.getFloat();
+d::DslToken token(int t, Tchar c, d::Mark info) {
+  return SToken::make(t, c, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Token::getLiteralAsInt() const {
-  if (type() != d::T_INTEGER) {
-    RAISE(d::SemanticError,
-          "Expecting int near %d(%d).\n", info.first, info.second);
-  }
-  return _impl.num.getInt();
+d::DslToken token(int t, cstdstr& x, d::Mark info, cstdstr& s) {
+  return SToken::make(t, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Token::getLiteralAsStr() const {
-  if (type() == d::T_IDENT ||
-      type() == d::T_STRING) { return _impl.txt; }
-
-  if (! s__contains(TOKENS,type())) {
-    RAISE(d::SemanticError,
-          "Expecting identifier near %d(%d).\n", info.first, info.second);
-  }
-
-  return TOKENS.at(type());
+d::DslToken token(int t, cstdstr& s, d::Mark info, llong n) {
+  auto k= SToken::make(t, s, info);
+  DCAST(SToken,k)->setLiteral(n);
+  return k;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, const stdstr& s, d::SrcInfo info) {
-  return Token::make(type, s, info);
+d::DslToken token(int t, cstdstr& s, d::Mark info, double d) {
+  auto k= SToken::make(t,s, info);
+  DCAST(SToken,k)->setLiteral(d);
+  return k;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, Tchar c, d::SrcInfo info) {
-  return Token::make(type, c, info);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, const stdstr& x, d::SrcInfo info, const stdstr& s) {
-  return Token::make(type, x, info);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, const stdstr& s, d::SrcInfo info, llong n) {
-  auto t= Token::make(type, s, info);
-  s__cast(Token,t.get())->impl().num.setInt(n);
-  return t;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, const stdstr& s, d::SrcInfo info, double d) {
-  auto t= Token::make(type,s, info);
-  s__cast(Token,t.get())->impl().num.setFloat(d);
-  return t;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Token::pr_str() const {
-  PRN_STR("Token#{type = %d, text = %s}", type(), C_STR(_impl.txt));
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Lexer::Lexer(const char* src) {
+Lexer::Lexer(const Tchar* src) {
   _ctx.len= ::strlen(src);
   _ctx.eof=false;
   _ctx.src=src;
@@ -167,7 +124,7 @@ Lexer::Lexer(const char* src) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Lexer::isKeyword(const stdstr& k) const {
+bool Lexer::isKeyword(cstdstr& k) const {
   return s__contains(KEYWORDS, k);
 }
 
@@ -276,13 +233,13 @@ d::DslToken Lexer::getNextToken() {
       return id();
     }
     else
-    if (ch== ':' && '=' == d::peekNext(_ctx)) {
+    if (ch== ':' && '=' == d::peekAhead(_ctx)) {
       auto m= _ctx.mark();
       d::advance(_ctx,2);
       return token(T_ASSIGN, ":=", m);
     }
     else
-    if (ch== '=' && '=' == d::peekNext(_ctx)) {
+    if (ch== '=' && '=' == d::peekAhead(_ctx)) {
       auto m= _ctx.mark();
       d::advance(_ctx,2);
       return token(T_EQUALS, "==", m);
@@ -295,11 +252,11 @@ d::DslToken Lexer::getNextToken() {
     else
     if (ch == '<') {
       auto m= _ctx.mark();
-      if (d::peekNext(_ctx) == '=') {
+      if (d::peekAhead(_ctx) == '=') {
         d::advance(_ctx,2);
         return token(T_LTEQ, "<=", m);
       }
-      else if (d::peekNext(_ctx) == '>') {
+      else if (d::peekAhead(_ctx) == '>') {
         d::advance(_ctx,2);
         return token(T_NOTEQ, "<>", m);
       }
@@ -311,7 +268,7 @@ d::DslToken Lexer::getNextToken() {
     else
     if (ch == '>') {
       auto m= _ctx.mark();
-      if (d::peekNext(_ctx) == '=') {
+      if (d::peekAhead(_ctx) == '=') {
         d::advance(_ctx,2);
         return token(T_GTEQ, ">=", m);
       } else {
@@ -321,7 +278,7 @@ d::DslToken Lexer::getNextToken() {
     }
     else
     if (ch == '|') {
-      if (d::peekNext(_ctx) == '|') {
+      if (d::peekAhead(_ctx) == '|') {
         auto m= _ctx.mark();
         d::advance(_ctx,2);
         return token(T_OR, "||", m);
@@ -329,7 +286,7 @@ d::DslToken Lexer::getNextToken() {
     }
     else
     if (ch == '&') {
-      if (d::peekNext(_ctx) == '&') {
+      if (d::peekAhead(_ctx) == '&') {
         auto m= _ctx.mark();
         d::advance(_ctx,2);
         return token(T_AND, "&&", m);
@@ -372,8 +329,9 @@ d::DslToken Lexer::getNextToken() {
       return token(d::T_DOT, ch, m);
     }
     else {
-      RAISE(d::SyntaxError,
-            "Unexpected char %c near line %d(%d).\n", ch, _ctx.line, _ctx.col);
+      auto m=_ctx.mark();
+      d::advance(_ctx);
+      return token(d::T_ROGUE, ch, m);
     }
   }
 

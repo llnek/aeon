@@ -21,8 +21,7 @@ namespace a= czlab::aeon;
 namespace d= czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define CAST(t,x) s__cast(t,x.get())
-#define TO_VAL(x) CAST(LValue,x)
+#define TO_VAL(x) DCAST(LValue,x)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LNative A_NATIVE;
@@ -265,7 +264,7 @@ bool LValue::equals(d::DslValue rhs) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LFalse::cmp(d::DslValue rhs) const {
-  return is_same(rhs.get(), this)
+  return d::is_same(rhs, this)
          ? 0 : pr_str().compare(rhs->pr_str());
 }
 
@@ -281,7 +280,7 @@ d::DslValue LFalse::withMeta(d::DslValue m) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LFalse::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(), this);
+  return d::is_same(rhs, this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -300,13 +299,13 @@ d::DslValue LTrue::withMeta(d::DslValue m) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LTrue::cmp(d::DslValue rhs) const {
-  return is_same(rhs.get(), this)
+  return d::is_same(rhs, this)
          ? 0 : pr_str().compare(rhs->pr_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LTrue::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(),this);
+  return d::is_same(rhs,this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -322,12 +321,12 @@ d::DslValue LNil::withMeta(d::DslValue m) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LNil::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(), this);
+  return d::is_same(rhs, this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LNil::cmp(d::DslValue rhs) const {
-  return is_same(rhs.get(), this)
+  return d::is_same(rhs, this)
          ? 0 : pr_str().compare(rhs->pr_str());
 }
 
@@ -367,12 +366,12 @@ LNumber::LNumber(int n) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LNumber::pr_str(bool) const {
-  return isInt() ? std::to_string(num.n) : std::to_string(num.r);
+  return isInt() ? N_STR(num.n) : N_STR(num.r);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LNumber::eq(d::DslValue rhs) const {
-  if (is_same(rhs.get(), this)) {
+  if (d::is_same(rhs, this)) {
     auto p= cast_number(rhs,1);
     return isInt() == p->isInt() &&
          a::fuzzy_equals(getFloat(), p->getFloat());
@@ -383,7 +382,7 @@ bool LNumber::eq(d::DslValue rhs) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LNumber::cmp(d::DslValue rhs) const {
-  if (is_same(rhs.get(), this)) {
+  if (d::is_same(rhs, this)) {
     auto f= cast_number(rhs,1)->getFloat();
     auto f2= getFloat();
     return a::fuzzy_equals(f, f2) ? 0 : (f2 > f ? 1 : -1);
@@ -399,7 +398,7 @@ stdstr LChar::pr_str(bool p) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LChar::cmp(d::DslValue rhs) const {
-  if (is_same(rhs.get(), this)) {
+  if (d::is_same(rhs, this)) {
     auto c = s__ccast(LChar, rhs.get())->value;
     return value==c ? 0 : value > c ? 1 : -1;
   } else {
@@ -414,7 +413,7 @@ LChar::LChar(const LChar& rhs, d::DslValue m) : LValue(m) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LChar::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(), this) &&
+  return d::is_same(rhs, this) &&
          value == cast_char(rhs,1)->value;
 }
 
@@ -438,12 +437,12 @@ LAtom::LAtom(const LAtom& rhs, d::DslValue m) : LValue(m) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LAtom::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(), this) && value->equals(rhs);
+  return d::is_same(rhs, this) && value->equals(rhs);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LAtom::cmp(d::DslValue rhs) const {
-  if (is_same(rhs.get(), this)) {
+  if (d::is_same(rhs, this)) {
     return value->compare(cast_atom(rhs,1)->value);
   } else {
     return pr_str().compare(rhs->pr_str());
@@ -475,13 +474,13 @@ stdstr LString::encoded() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LString::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(), this) &&
+  return d::is_same(rhs, this) &&
          value == cast_string(rhs,1)->value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LString::cmp(d::DslValue rhs) const {
-  if (is_same(rhs.get(), this)) {
+  if (d::is_same(rhs, this)) {
     return value.compare(cast_string(rhs,1)->value);
   } else {
     return pr_str().compare(rhs->pr_str());
@@ -558,13 +557,13 @@ stdstr LKeyword::pr_str(bool p) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LKeyword::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(), this) &&
+  return d::is_same(rhs, this) &&
          value == cast_keyword(rhs,1)->value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LKeyword::cmp(d::DslValue rhs) const {
-  if (is_same(rhs.get(),this)) {
+  if (d::is_same(rhs,this)) {
     return value.compare(cast_keyword(rhs,1)->value);
   } else {
     return pr_str().compare(rhs->pr_str());
@@ -602,13 +601,13 @@ d::DslValue LSymbol::eval(Lisper*, d::DslFrame e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LSymbol::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(),this) &&
+  return d::is_same(rhs,this) &&
          value == cast_symbol(rhs,1)->value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LSymbol::cmp(d::DslValue rhs) const {
-  if (is_same(rhs.get(),this)) {
+  if (d::is_same(rhs,this)) {
     return value.compare(cast_symbol(rhs,1)->value);
   } else {
     return pr_str().compare(rhs->pr_str());
@@ -671,11 +670,11 @@ d::DslValue LSequential::nth(int pos) const {
 bool LSequential::eq(d::DslValue rhs) const {
   const LSequential* p = P_NIL;
   auto sz= count();
-  if (is_same(&A_LIST, rhs.get())) {
+  if (d::is_same(rhs,&A_LIST)) {
     p= cast_sequential(rhs,1);
   }
   else
-  if (is_same(&A_VEC, rhs.get())) {
+  if (d::is_same(rhs,&A_VEC)) {
     p= cast_sequential(rhs,1);
   }
   if (E_NIL(p) || sz != p->count()) {
@@ -693,11 +692,11 @@ bool LSequential::eq(d::DslValue rhs) const {
 int LSequential::cmp(d::DslValue rhs) const {
   const LSequential* p = P_NIL;
   auto sz= count();
-  if (is_same(&A_LIST, rhs.get())) {
+  if (d::is_same(rhs,&A_LIST)) {
     p= cast_sequential(rhs,1);
   }
   else
-  if (is_same(&A_VEC, rhs.get())) {
+  if (d::is_same(rhs,&A_VEC)) {
     p= cast_sequential(rhs,1);
   }
   if (p) {
@@ -998,7 +997,7 @@ stdstr LHash::pr_str(bool pretty) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LHash::eq(d::DslValue rhs) const {
 
-  if (!is_same(rhs.get(),this)) { return false; }
+  if (!d::is_same(rhs,this)) { return false; }
 
   auto const &rvs = cast_map(rhs,1)->values;
   auto sz = values.size();
@@ -1022,7 +1021,7 @@ bool LHash::eq(d::DslValue rhs) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LHash::cmp(d::DslValue rhs) const {
 
-  const LHash* rs= is_same(rhs.get(),this) ? cast_map(rhs,1) : P_NIL;
+  const LHash* rs= d::is_same(rhs,this) ? cast_map(rhs,1) : P_NIL;
   auto sz = values.size();
   if (rs) {
     auto rc= rs->count();
@@ -1055,7 +1054,7 @@ stdstr LNative::pr_str(bool pretty) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LNative::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(),this) ? (this == rhs.get()) : false;
+  return d::is_same(rhs,this) ? (this == rhs.get()) : false;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1158,7 +1157,7 @@ LLambda::LLambda(const LLambda& rhs, d::DslValue m) : LFunction(m) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LLambda::eq(d::DslValue rhs) const {
-  if (!is_same(rhs.get(),this)) { return false; }
+  if (!d::is_same(rhs,this)) { return false; }
   auto x= cast_lambda(rhs,1);
   return _name == x->_name &&
       a::equals<stdstr>(params, x->params) &&
@@ -1345,7 +1344,7 @@ stdstr LSet::pr_str(bool pretty) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool LSet::eq(d::DslValue rhs) const {
 
-  if (!is_same(rhs.get(),this)) { return false; }
+  if (!d::is_same(rhs,this)) { return false; }
 
   auto const &rvs = cast_set(rhs,1)->values;
   auto sz = values->size();
@@ -1365,7 +1364,7 @@ bool LSet::eq(d::DslValue rhs) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int LSet::cmp(d::DslValue rhs) const {
-  const LSet* rs= is_same(rhs.get(),this) ? cast_set(rhs,1) : P_NIL;
+  const LSet* rs= d::is_same(rhs,this) ? cast_set(rhs,1) : P_NIL;
   auto sz = values->size();
   if (rs) {
     auto rc = rs->count();

@@ -39,45 +39,44 @@ enum TokenType {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Token : public d::AbstractToken {
+stdstr typeToString(int);
 
-  static d::DslToken make(int t, const stdstr& s, d::SrcInfo i) {
-    return d::DslToken(new Token(t,s,i));
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct SToken : public d::Token {
+
+  static d::DslToken make(int t, cstdstr& s, d::Mark i) {
+    return WRAP_TKN(new SToken(t,s,i));
   }
 
-  static d::DslToken make(int t, Tchar c, d::SrcInfo i) {
-    return d::DslToken(new Token(t,c,i));
+  static d::DslToken make(int t, Tchar c, d::Mark i) {
+    return WRAP_TKN(new SToken(t,c,i));
   }
 
-  virtual stdstr getLiteralAsStr() const;
-  virtual double getLiteralAsReal() const;
-  virtual llong getLiteralAsInt() const;
-  virtual stdstr pr_str() const;
-  virtual ~Token() {}
+  virtual stdstr getStr() const;
+  virtual ~SToken() {}
 
-  d::Lexeme& impl() { return _impl; }
-
-  static stdstr typeToString(int);
+  void setLiteral(double d) { number.r=d;}
+  void setLiteral(int n) { number.n=n;}
+  void setLiteral(llong n) { number.n=n;}
 
   private:
 
-  Token(int type, const stdstr&, d::SrcInfo);
-  Token(int type, Tchar, d::SrcInfo);
+  SToken(int t, cstdstr& s, d::Mark m) : d::Token(t,s,m) {}
+  SToken(int t, Tchar c, d::Mark m) : d::Token(t,c,m) {}
 
-  d::Lexeme _impl;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lexer : public d::IScanner {
 
-  virtual bool isKeyword(const stdstr&) const;
+  virtual bool isKeyword(cstdstr&) const;
   virtual d::DslToken getNextToken();
   virtual d::DslToken number();
   virtual d::DslToken id();
   virtual d::DslToken string();
   virtual d::DslToken skipComment();
 
-  Lexer(const char* src);
+  Lexer(const Tchar* src);
   virtual ~Lexer() {}
 
   d::Context& ctx() { return _ctx; }

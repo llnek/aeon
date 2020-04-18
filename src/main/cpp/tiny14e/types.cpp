@@ -24,21 +24,14 @@ namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool is_same(const d::Data* x, const d::Data* y) {
-  ASSERT1(x);
-  ASSERT1(y);
-  return typeid(*x) == typeid(*y);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool SStr::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(), this) && CAST(SStr,rhs)->value == value;
+  return d::is_same(rhs, this) && DCAST(SStr,rhs)->value == value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int SStr::cmp(d::DslValue rhs) const {
-  if (is_same(rhs.get(), this)) {
-    auto p= CAST(SStr,rhs);
+  if (d::is_same(rhs, this)) {
+    auto p= DCAST(SStr,rhs);
     return value==p->value ? 0 : value.compare(p->value);
   } else {
     return pr_str(0).compare(rhs->pr_str(0));
@@ -47,13 +40,13 @@ int SStr::cmp(d::DslValue rhs) const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool SNumber::eq(d::DslValue rhs) const {
-  return is_same(rhs.get(), this) && match(CAST(SNumber, rhs));
+  return d::is_same(rhs, this) && match(DCAST(SNumber, rhs));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int SNumber::cmp(d::DslValue rhs) const {
-  if (is_same(rhs.get(), this)) {
-    auto p= CAST(SNumber, rhs);
+  if (d::is_same(rhs, this)) {
+    auto p= DCAST(SNumber, rhs);
     return match(p) ? 0 : (getFloat() > p->getFloat() ? 1 : -1);
   } else {
     return pr_str(0).compare(rhs->pr_str(0));
@@ -68,7 +61,7 @@ bool SNumber::match(const SNumber* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue expected(const stdstr& m, d::DslValue v) {
+d::DslValue expected(cstdstr& m, d::DslValue v) {
   RAISE(d::BadArg,
         "Expected `%s`, got %s.", C_STR(m), C_STR(v->pr_str()));
 }

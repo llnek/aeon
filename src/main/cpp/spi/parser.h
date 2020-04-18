@@ -19,21 +19,19 @@
 namespace czlab::spi {
 namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define CAST(t,x) s__cast(t, x.get())
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct EVal : public d::Data {
 
   static d::DslValue make(double d) {
-    return d::DslValue(new EVal(d));
+    return WRAP_VAL(new EVal(d));
   }
-  static d::DslValue make(const stdstr& s) {
-    return d::DslValue(new EVal(s));
+  static d::DslValue make(cstdstr& s) {
+    return WRAP_VAL(new EVal(s));
   }
-  static d::DslValue make(const char* s) {
-    return d::DslValue(new EVal(s));
+  static d::DslValue make(const Tchar* s) {
+    return WRAP_VAL(new EVal(s));
   }
   static d::DslValue make(llong n) {
-    return d::DslValue(new EVal(n));
+    return WRAP_VAL(new EVal(n));
   }
 
   virtual stdstr pr_str(bool p=0) const {
@@ -58,8 +56,8 @@ struct EVal : public d::Data {
 
   private:
   explicit EVal(double d) { u.r=d; type= d::T_REAL; }
-  EVal(const stdstr& s) { str=s; type=d::T_STRING; }
-  EVal(const char* s) { str=s; type=d::T_STRING; }
+  EVal(cstdstr& s) { str=s; type=d::T_STRING; }
+  EVal(const Tchar* s) { str=s; type=d::T_STRING; }
   EVal(llong n) { u.n=n; type= d::T_INTEGER; }
 };
 
@@ -82,7 +80,7 @@ struct Ast : public d::Node {
 struct BinOp : public Ast {
 
   static d::DslAst make(d::DslAst left, d::DslToken op, d::DslAst right) {
-    return d::DslAst(new BinOp(left,op,right));
+    return WRAP_AST(new BinOp(left,op,right));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -100,7 +98,7 @@ struct BinOp : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Num : public Ast {
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new Num(t));
+    return WRAP_AST(new Num(t));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -119,7 +117,7 @@ struct String : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new String(t));
+    return WRAP_AST(new String(t));
   }
 
   virtual ~String() {}
@@ -132,7 +130,7 @@ struct String : public Ast {
 struct UnaryOp : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst a) {
-    return d::DslAst(new UnaryOp(t,a));
+    return WRAP_AST(new UnaryOp(t,a));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -154,7 +152,7 @@ struct Compound : public Ast {
   virtual ~Compound() {}
 
   static d::DslAst make() {
-    return d::DslAst(new Compound());
+    return WRAP_AST(new Compound());
   }
 
   d::AstVec  statements;
@@ -171,7 +169,7 @@ struct Var : public Ast {
   virtual ~Var() {}
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new Var(t));
+    return WRAP_AST(new Var(t));
   }
 
   private:
@@ -186,7 +184,7 @@ struct Type : public Ast {
   virtual ~Type() {}
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new Type(t));
+    return WRAP_AST(new Type(t));
   }
 
   private:
@@ -197,7 +195,7 @@ struct Type : public Ast {
 struct Assignment : public Ast {
 
   static d::DslAst make(d::DslAst left, d::DslToken op, d::DslAst right) {
-    return d::DslAst(new Assignment(left,op,right));
+    return WRAP_AST(new Assignment(left,op,right));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -215,11 +213,11 @@ struct Assignment : public Ast {
 struct NoOp : public Ast {
 
   virtual d::DslValue eval(d::IEvaluator*) {
-    return d::DslValue();
+    return WRAP_VAL(P_NIL);
   }
 
   static d::DslAst make() {
-    return d::DslAst(new NoOp());
+    return WRAP_AST(new NoOp());
   }
 
   virtual void visit(d::IAnalyzer*) {}
@@ -233,7 +231,7 @@ struct NoOp : public Ast {
 struct Param : public Ast {
 
   static d::DslAst make(d::DslAst var, d::DslAst type) {
-    return d::DslAst(new Param(var,type));
+    return WRAP_AST(new Param(var,type));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -251,7 +249,7 @@ struct Param : public Ast {
 struct VarDecl : public Ast {
 
   static d::DslAst make(d::DslAst var, d::DslAst type) {
-    return d::DslAst(new VarDecl(var,type));
+    return WRAP_AST(new VarDecl(var,type));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -269,7 +267,7 @@ struct VarDecl : public Ast {
 struct Block : public Ast {
 
   static d::DslAst make(d::AstVec& decls, d::DslAst c) {
-    return d::DslAst(new Block(decls, c));
+    return WRAP_AST(new Block(decls, c));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -287,7 +285,7 @@ struct Block : public Ast {
 struct ProcedureDecl : public Ast {
 
   static d::DslAst make(const stdstr& s, d::AstVec& v, d::DslAst b) {
-    return d::DslAst(new ProcedureDecl(s,v,b));
+    return WRAP_AST(new ProcedureDecl(s,v,b));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -305,7 +303,7 @@ struct ProcedureDecl : public Ast {
 struct ProcedureCall : public Ast {
 
   static d::DslAst make(const stdstr& s, d::AstVec& v, d::DslToken t) {
-    return d::DslAst(new ProcedureCall(s,v,t));
+    return WRAP_AST(new ProcedureCall(s,v,t));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -323,7 +321,7 @@ struct ProcedureCall : public Ast {
 struct Program : public Ast {
 
   static d::DslAst make(const stdstr& s, d::DslAst b) {
-    return d::DslAst(new Program(s,b));
+    return WRAP_AST(new Program(s,b));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -340,19 +338,19 @@ struct Program : public Ast {
 struct BuiltinTypeSymbol : public d::TypeSymbol {
 
   static d::DslSymbol make(const stdstr& n) {
-    return d::DslSymbol(new BuiltinTypeSymbol(n));
+    return WRAP_SYM(new BuiltinTypeSymbol(n));
   }
 
   ~BuiltinTypeSymbol() {}
 
   private:
-  BuiltinTypeSymbol(const stdstr& n) : d::TypeSymbol(n) {}
+  BuiltinTypeSymbol(cstdstr& n) : d::TypeSymbol(n) {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SymTable : public d::Table {
 
-  static d::DslTable make(const stdstr& s, d::DslTable t) {
+  static d::DslTable make(cstdstr& s, d::DslTable t) {
     return d::DslTable(new SymTable(s,t));
   }
 
@@ -363,13 +361,13 @@ struct SymTable : public d::Table {
   ~SymTable() {}
 
   private:
-  SymTable(const stdstr&, d::DslTable);
-  SymTable(const stdstr&);
+  SymTable(cstdstr&, d::DslTable);
+  SymTable(cstdstr&);
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SimplePascalParser : public d::IParser {
-  SimplePascalParser(const char* src);
+  SimplePascalParser(const Tchar* src);
   virtual ~SimplePascalParser();
 
   virtual d::DslToken eat(int wantedToken);

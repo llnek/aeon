@@ -40,8 +40,7 @@ StrVec CORE_LISP {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define CAST(t,x) s__cast(t,x.get())
-#define TO_VAL(x) CAST(LValue,x)
+#define TO_VAL(x) DCAST(LValue,x)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Lisper::evalAst(d::DslValue ast, d::DslFrame env) {

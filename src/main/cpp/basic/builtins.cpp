@@ -17,10 +17,6 @@
 #include "builtins.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//#define TO_FLOAT(x) x.isInt() ? (double) x.getInt() : x.getFloat()
-//#define TO_INT(x) x.isInt() ? x.getInt() : (llong) x.getFloat()
-//#define CHKSZ(x, e) ((x) >= 0 && (x) < (e))
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::basic {
 namespace a = czlab::aeon;

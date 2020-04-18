@@ -26,32 +26,38 @@ struct Ast : public d::Node {
 
   virtual d::DslValue eval(d::IEvaluator*) = 0;
   virtual void visit(d::IAnalyzer*) = 0;
-  virtual stdstr pr_str() const=0;
+
+  virtual stdstr pr_str() const {
+    return token()->getStr();
+  }
 
   virtual ~Ast() {}
 
   d::DslToken token() const { return _token; }
-  llong line() const { return _line; }
-  void line(llong n) { _line=n;}
+  int line() const { return _line; }
+  void line(int n) { _line=n;}
 
-  llong offset() const { return _offset; }
-  void offset(llong n) { _offset=n;}
+  int offset() const { return _offset; }
+  void offset(int n) { _offset=n;}
 
   protected:
 
-  Ast(d::DslToken t) : _token(t) { _line =0; _offset=0; }
+  Ast(d::DslToken t) : _token(t) {
+    _line =0; _offset=0;
+  }
+
   Ast();
 
+  int _offset;
+  int _line;
   d::DslToken _token;
-  llong _offset;
-  llong _line;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct FuncCall : public Ast {
 
   static d::DslAst make(d::DslAst a, const d::AstVec& v) {
-    return d::DslAst(new FuncCall(a,v));
+    return WRAP_AST(new FuncCall(a,v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -74,7 +80,7 @@ struct FuncCall : public Ast {
 struct BoolTerm : public Ast {
 
   static d::DslAst make(const d::AstVec& v) {
-    return d::DslAst(new BoolTerm(v));
+    return WRAP_AST(new BoolTerm(v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -92,7 +98,7 @@ struct BoolTerm : public Ast {
 struct BoolExpr : public Ast {
 
   static d::DslAst make(const d::AstVec& v, const d::TokenVec& t) {
-    return d::DslAst(new BoolExpr(v,t));
+    return WRAP_AST(new BoolExpr(v,t));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -113,7 +119,7 @@ struct BoolExpr : public Ast {
 struct RelationOp : public Ast {
 
   static d::DslAst make(d::DslAst left, d::DslToken op, d::DslAst right) {
-    return d::DslAst(new RelationOp(left,op,right));
+    return WRAP_AST(new RelationOp(left,op,right));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -135,7 +141,7 @@ struct NotFactor : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslAst a) {
-    return d::DslAst(new NotFactor(a));
+    return WRAP_AST(new NotFactor(a));
   }
 
   virtual stdstr pr_str() const;
@@ -146,13 +152,14 @@ struct NotFactor : public Ast {
   NotFactor(d::DslAst);
 
   d::DslAst expr;
+
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Assignment : public Ast {
 
   static d::DslAst make(d::DslAst left, d::DslToken op, d::DslAst right) {
-    return d::DslAst(new Assignment(left,op,right));
+    return WRAP_AST(new Assignment(left,op,right));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -172,7 +179,7 @@ struct Assignment : public Ast {
 struct BinOp : public Ast {
 
   static d::DslAst make(d::DslAst left, d::DslToken op, d::DslAst right) {
-    return d::DslAst(new BinOp(left,op,right));
+    return WRAP_AST(new BinOp(left,op,right));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -195,10 +202,9 @@ struct Num : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new Num(t));
+    return WRAP_AST(new Num(t));
   }
 
-  virtual stdstr pr_str() const;
   virtual ~Num() {}
 
   protected:
@@ -213,7 +219,7 @@ struct String : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new String(t));
+    return WRAP_AST(new String(t));
   }
 
   virtual stdstr pr_str() const;
@@ -227,15 +233,14 @@ struct String : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Var : public Ast {
 
-  stdstr name() const { return token()->getLiteralAsStr(); }
+  stdstr name() const { return token()->getStr(); }
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new Var(t));
+    return WRAP_AST(new Var(t));
   }
 
-  virtual stdstr pr_str() const;
   virtual ~Var() {}
 
   protected:
@@ -247,7 +252,7 @@ struct Var : public Ast {
 struct UnaryOp : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst a) {
-    return d::DslAst(new UnaryOp(t,a));
+    return WRAP_AST(new UnaryOp(t,a));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -267,10 +272,9 @@ struct Run : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new Run(t));
+    return WRAP_AST(new Run(t));
   }
 
-  virtual stdstr pr_str() const;
   virtual ~Run() {}
 
   protected:
@@ -279,15 +283,31 @@ struct Run : public Ast {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Restore : public Ast {
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+
+  static d::DslAst make(d::DslToken t) {
+    return WRAP_AST(new Restore(t));
+  }
+
+  virtual ~Restore() {}
+
+  protected:
+
+  Restore(d::DslToken);
+
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct End : public Ast {
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new End(t));
+    return WRAP_AST(new End(t));
   }
 
-  virtual stdstr pr_str() const;
   virtual ~End() {}
 
   protected:
@@ -297,16 +317,33 @@ struct End : public Ast {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Read : public Ast {
+
+  static d::DslAst make(d::DslToken t, const d::AstVec& v) {
+    return WRAP_AST(new Read(t,v));
+  }
+
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+
+  virtual ~Read() {}
+
+  protected:
+
+  d::AstVec vars;
+  Read(d::DslToken, const d::AstVec&);
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct GoSubReturn : public Ast {
 
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new GoSubReturn(t));
+    return WRAP_AST(new GoSubReturn(t));
   }
 
-  virtual stdstr pr_str() const;
   virtual ~GoSubReturn() {}
 
   protected:
@@ -318,7 +355,7 @@ struct GoSubReturn : public Ast {
 struct GoSub : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst a) {
-    return d::DslAst(new GoSub(t,a));
+    return WRAP_AST(new GoSub(t,a));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -336,7 +373,7 @@ struct GoSub : public Ast {
 struct Goto : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst a) {
-    return d::DslAst(new Goto(t,a));
+    return WRAP_AST(new Goto(t,a));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -351,21 +388,44 @@ struct Goto : public Ast {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct OnXXX : public Ast {
+
+  static d::DslAst make(d::DslToken t, d::DslToken n, d::TokenVec& v) {
+    return WRAP_AST(new OnXXX(t, Var::make(n), v));
+  }
+
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+
+  virtual ~OnXXX() {}
+
+  private:
+
+  OnXXX(d::DslToken, d::DslAst, d::TokenVec&);
+  d::DslAst var;
+  IntVec targets;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ForNext : public Ast {
 
   virtual d::DslValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
-  static d::DslAst make(d::DslAst var) {
-    return d::DslAst(new ForNext(var));
+  static d::DslAst make(d::DslToken t, d::DslAst var) {
+    return WRAP_AST(new ForNext(t, var));
   }
 
-  virtual stdstr pr_str() const;
+  static d::DslAst make(d::DslToken t) {
+    return WRAP_AST(new ForNext(t));
+  }
+
   virtual ~ForNext() {}
 
   private:
 
-  ForNext(d::DslAst var);
+  ForNext(d::DslToken, d::DslAst);
+  ForNext(d::DslToken);
   d::DslAst var;
 };
 
@@ -373,7 +433,7 @@ struct ForNext : public Ast {
 struct ForLoop : public Ast {
 
   static d::DslAst make(d::DslAst var, d::DslAst init, d::DslAst term, d::DslAst step) {
-    return d::DslAst(new ForLoop(var,init,term,step));
+    return WRAP_AST(new ForLoop(var,init,term,step));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -397,10 +457,9 @@ struct PrintSep : public Ast {
   virtual void visit(d::IAnalyzer*);
 
   static d::DslAst make(d::DslToken t) {
-    return d::DslAst(new PrintSep(t));
+    return WRAP_AST(new PrintSep(t));
   }
 
-  virtual stdstr pr_str() const;
   virtual ~PrintSep() {}
 
   protected:
@@ -411,8 +470,8 @@ struct PrintSep : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Print : public Ast {
 
-  static d::DslAst make(const d::AstVec& v) {
-    return d::DslAst(new Print(v));
+  static d::DslAst make(d::DslToken t,const d::AstVec& v) {
+    return WRAP_AST(new Print(t, v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -423,7 +482,7 @@ struct Print : public Ast {
 
   private:
 
-  Print(const d::AstVec&);
+  Print(d::DslToken, const d::AstVec&);
   d::AstVec exprs;
 };
 
@@ -431,11 +490,11 @@ struct Print : public Ast {
 struct IfThen : public Ast {
 
   static d::DslAst make(d::DslToken t, d::DslAst c, d::DslAst n, d::DslAst z) {
-    return d::DslAst(new IfThen(t,c,n,z));
+    return WRAP_AST(new IfThen(t,c,n,z));
   }
 
   static d::DslAst make(d::DslToken t, d::DslAst c, d::DslAst n) {
-    return d::DslAst(new IfThen(t,c,n));
+    return WRAP_AST(new IfThen(t,c,n));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -455,8 +514,8 @@ struct IfThen : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Program : public Ast {
 
-  static d::DslAst make(const std::map<llong,d::DslAst>& v) {
-    return d::DslAst(new Program(v));
+  static d::DslAst make(const std::map<int,d::DslAst>& v) {
+    return WRAP_AST(new Program(v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -466,16 +525,16 @@ struct Program : public Ast {
 
   private:
 
-  Program(const std::map<llong,d::DslAst>&);
+  Program(const std::map<int,d::DslAst>&);
   d::AstVec vlines;
-  std::map<llong,llong> mlines;
+  std::map<int,int> mlines;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Compound : public Ast {
 
-  static d::DslAst make(llong line, const d::AstVec& v) {
-    return d::DslAst(new Compound(line,v));
+  static d::DslAst make(int line, const d::AstVec& v) {
+    return WRAP_AST(new Compound(line,v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -485,15 +544,33 @@ struct Compound : public Ast {
 
   private:
 
-  Compound(llong line, const d::AstVec&);
+  Compound(int line, const d::AstVec&);
   d::AstVec stmts;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Data : public Ast {
+
+  static d::DslAst make(d::DslToken t, const d::AstVec& vs) {
+    return WRAP_AST(new Data(t,vs));
+  }
+
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+  virtual stdstr pr_str() const;
+  virtual ~Data() {}
+
+  private:
+
+  Data(d::DslToken, const d::AstVec&);
+  d::AstVec data;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Input : public Ast {
 
-  static d::DslAst make(d::DslAst var, d::DslAst prompt) {
-    return d::DslAst(new Input(var, prompt));
+  static d::DslAst make(d::DslToken t, d::DslAst var, d::DslAst prompt) {
+    return WRAP_AST(new Input(t, var, prompt));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -503,7 +580,7 @@ struct Input : public Ast {
 
   private:
 
-  Input(d::DslAst var, d::DslAst prompt);
+  Input(d::DslToken, d::DslAst var, d::DslAst prompt);
   d::DslAst var;
   d::DslAst prompt;
 };
@@ -512,7 +589,7 @@ struct Input : public Ast {
 struct Comment : public Ast {
 
   static d::DslAst make(const d::TokenVec& v) {
-    return d::DslAst(new Comment(v));
+    return WRAP_AST(new Comment(v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -529,8 +606,8 @@ struct Comment : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ArrayDecl : public Ast {
 
-  static d::DslAst make(d::DslToken n, d::DslAst t, const std::vector<llong>& v) {
-    return d::DslAst(new ArrayDecl(n,t,v));
+  static d::DslAst make(d::DslToken n, d::DslAst t, const IntVec& v) {
+    return WRAP_AST(new ArrayDecl(n,t,v));
   }
 
   virtual d::DslValue eval(d::IEvaluator*);
@@ -540,10 +617,10 @@ struct ArrayDecl : public Ast {
 
   private:
 
-  ArrayDecl(d::DslToken, d::DslAst, const std::vector<llong>&);
+  ArrayDecl(d::DslToken, d::DslAst, const IntVec&);
   bool stringType;
   d::DslAst var;
-  std::vector<llong> ranges;
+  IntVec ranges;
 };
 
 
@@ -563,15 +640,21 @@ struct BasicParser : public d::IParser {
   bool isCur(int);
   d::DslToken token();
 
-  llong line() const { return curLine; }
-  void setLine(llong n) { curLine=n;}
-  d::DslToken getEthereal();
+  int line() const { return curLine; }
+  void setLine(int n) { curLine=n;}
 
   private:
 
   Lexer* lex;
-  llong curLine;
+  int curLine;
 };
+
+
+
+
+
+
+
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

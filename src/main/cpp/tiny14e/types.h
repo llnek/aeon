@@ -21,7 +21,6 @@ namespace czlab::tiny14e {
 namespace d = czlab::dsl;
 namespace a = czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define CAST(t,a) s__cast(t,a.get())
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SValue : public d::Data {
 
@@ -41,13 +40,10 @@ struct SValue : public d::Data {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SNumber : public SValue {
 
-  static d::DslValue make(double d) { return d::DslValue(new SNumber(d)); }
-
-  static d::DslValue make(int n) { return d::DslValue(new SNumber(n)); }
-
-  static d::DslValue make(llong n) { return d::DslValue(new SNumber(n)); }
-
-  static d::DslValue make() { return d::DslValue(new SNumber()); }
+  static d::DslValue make(double d) { return WRAP_VAL(new SNumber(d)); }
+  static d::DslValue make(int n) { return WRAP_VAL(new SNumber(n)); }
+  static d::DslValue make(llong n) { return WRAP_VAL(new SNumber(n)); }
+  static d::DslValue make() { return WRAP_VAL(new SNumber()); }
 
   double getFloat() const { return isInt() ? (double)num.n : num.r; }
   llong getInt() const { return isInt() ? num.n : (llong) num.r; }
@@ -70,15 +66,12 @@ struct SNumber : public SValue {
     return isInt() ? N_STR(getInt()) : N_STR(getFloat());
   }
 
-  SNumber() : type(d::T_INTEGER) {
-    num.n=0;
-  }
+  SNumber() : type(d::T_INTEGER) { num.n=0; }
 
   protected:
 
   explicit SNumber(double d) : type(d::T_REAL) { num.r=d; }
   explicit SNumber(int n) : type(d::T_INTEGER) { num.n=n; }
-
   SNumber(llong n) : type(d::T_INTEGER) { num.n=n; }
 
   bool match(const SNumber* rhs) const;
@@ -96,12 +89,12 @@ struct SStr : public SValue {
 
   virtual stdstr pr_str(bool p=0) const { return value; }
 
-  static d::DslValue make(const stdstr& s) {
-    return d::DslValue(new SStr(s));
+  static d::DslValue make(cstdstr& s) {
+    return WRAP_VAL(new SStr(s));
   }
 
   static d::DslValue make(const char* s) {
-    return d::DslValue(new SStr(s));
+    return WRAP_VAL(new SStr(s));
   }
 
   SStr() {}
@@ -113,13 +106,13 @@ struct SStr : public SValue {
   virtual bool eq(d::DslValue) const;
   virtual int cmp(d::DslValue) const;
 
-  SStr(const stdstr& s) : value(s) {}
+  SStr(cstdstr& s) : value(s) {}
   SStr(const char* s) : value(s) {}
 
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue expected(const stdstr& m, d::DslValue v);
+d::DslValue expected(cstdstr& m, d::DslValue v);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 SNumber* cast_number(d::DslValue, int panic=0);

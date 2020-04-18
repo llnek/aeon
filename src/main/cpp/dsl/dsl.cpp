@@ -12,6 +12,7 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
+#include <typeinfo>
 #include "dsl.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -55,60 +56,68 @@ std::map<int, stdstr> TOKENS {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SemanticError::SemanticError(const stdstr& x) : a::Exception(x) {}
+SemanticError::SemanticError(cstdstr& x) : a::Exception(x) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SyntaxError::SyntaxError(const stdstr& x) : a::Exception(x) {}
+SyntaxError::SyntaxError(cstdstr& x) : a::Exception(x) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preEqual(int wanted, int got, const stdstr& fn) {
+bool is_same(const Data* x, const Data* y) {
+  return typeid(*x) == typeid(*y);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool is_same(DslValue x, const Data* y) {
+  auto p= x.get();
+  return typeid(*p) == typeid(*y);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int preEqual(int wanted, int got, cstdstr& fn) {
   if (wanted != got)
     RAISE(BadArity,
-          "%s requires %d args, got %d.\n", C_STR(fn), wanted, got);
+          "%s requires %d args, got %d.", C_STR(fn), wanted, got);
   return got;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preMax(int max, int got, const stdstr& fn) {
+int preMax(int max, int got, cstdstr& fn) {
   if (got > max)
     RAISE(BadArity,
-          "%s requires at most %d args, got %d.\n", C_STR(fn), max, got);
+          "%s requires at most %d args, got %d.", C_STR(fn), max, got);
   return got;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preMin(int min, int got, const stdstr& fn) {
+int preMin(int min, int got, cstdstr& fn) {
   if (got < min)
     RAISE(BadArity,
-          "%s requires at least %d args, got %d.\n", C_STR(fn), min, got);
+          "%s requires at least %d args, got %d.", C_STR(fn), min, got);
   return got;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preNonZero(int c, const stdstr& fn) {
+int preNonZero(int c, cstdstr& fn) {
   if (c == 0)
     RAISE(BadArity,
-          "%s requires some args, got %d.\n", C_STR(fn), c);
+          "%s requires some args, got %d.", C_STR(fn), c);
   return c;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int preEven(int c, const stdstr& fn) {
+int preEven(int c, cstdstr& fn) {
   if (!a::is_even(c))
     RAISE(BadArity,
-          "%s requires even args, got %d.\n", C_STR(fn), c);
+          "%s requires even args, got %d.", C_STR(fn), c);
   return c;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Tchar peek(Context& ctx) {
-  // return the current char.
-  return ctx.src[ctx.pos];
-}
+Tchar peek(Context& ctx) { return ctx.src[ctx.pos]; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Tchar peekNext(Context& ctx, int offset) {
-  // Peek into the buffer and see what's ahead.
+// Peek into the buffer and see what's ahead.
+Tchar peekAhead(Context& ctx, int offset) {
   auto nx = ctx.pos + offset;
   return nx >= 0 && nx < ctx.len ? ctx.src[nx] : '\0';
 }
@@ -123,16 +132,15 @@ bool forward(Context& ctx) {
   }
   ++ctx.pos;
   if (ctx.pos >= ctx.len) {
-    ctx.eof=true;
-  } else {
-    ++ctx.col;
-  }
+    ctx.eof=true; }
+  else {
+    ++ctx.col; }
   return !ctx.eof;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool advance(Context& ctx, int steps) {
-  for (int i=0; i < steps; ++i) { forward(ctx); }
+  for (auto i=0; i < steps; ++i) { forward(ctx); }
   return !ctx.eof;
 }
 
@@ -159,7 +167,8 @@ stdstr line(Context& ctx) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr digits(Context& ctx) {
   stdstr res;
-  while (!ctx.eof && ::isdigit(peek(ctx))) {
+  while (!ctx.eof &&
+         ::isdigit(peek(ctx))) {
     res += peek(ctx);
     advance(ctx);
   }
@@ -170,18 +179,18 @@ stdstr digits(Context& ctx) {
 stdstr numeric(Context& ctx) {
   // handles 'signed' and floating points.
   auto ch= peek(ctx);
-  auto minus=false;
+  bool minus=0;
   if (ch == '-' || ch== '+') {
     minus= (ch=='-');
     advance(ctx);
   }
   auto res = digits(ctx);
-  if (!ctx.eof && peek(ctx) == '.') {
+  if (!ctx.eof &&
+      peek(ctx) == '.') {
     res += peek(ctx);
     advance(ctx);
     res += digits(ctx);
   }
-
   return minus ? "-"+res : res;
 }
 
@@ -196,14 +205,11 @@ stdstr str(Context& ctx) {
     advance(ctx);
     while (!ctx.eof) {
       ch= peek(ctx);
-      if (ch == '"') {
-        break;
-      }
+      if (ch == '"') { break; }
       if (ch == '\\') {
         if (!advance(ctx)) {
           RAISE(SyntaxError,
-                "Malformed string value, bad escaped char %c\n.", ch);
-        }
+                "Malformed string value, bad escaped char %c.", ch); }
         ch=a::unescape_char(peek(ctx));
       }
       res += ch;
@@ -211,8 +217,7 @@ stdstr str(Context& ctx) {
     }
     if (ctx.eof || ch != '"') {
       RAISE(SyntaxError,
-            "Malformed string value, missing %s\n.", "dquote");
-    }
+            "Malformed string value, missing %s.", "dquote"); }
     // good, got the end dquote
     advance(ctx);
   }
@@ -223,27 +228,50 @@ stdstr str(Context& ctx) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr identifier(Context& ctx, IdPredicate pred) {
   stdstr res;
-  Tchar ch;
   while (!ctx.eof) {
-    ch=peek(ctx);
+    auto ch=peek(ctx);
     if (res.empty()) {
       if (pred(ch,true)) {
         res += ch;
-        advance(ctx);
-      } else {
-        break;
-      }
+        advance(ctx); } else { break; }
     } else {
       if (pred(ch,false)) {
         res += ch;
-        advance(ctx);
-      } else {
-        break;
-      }
+        advance(ctx); } else { break; }
     }
   }
   return res;
 }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Token::Token(int type, cstdstr& s, Mark info) : Lexeme(type) {
+  lexeme= s;
+  this->info = info;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Token::Token(int type, Tchar ch, Mark info) : Lexeme(type) {
+  this->info = info;
+  lexeme= stdstr { ch };
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+double Token::getFloat() const {
+  return type() == T_REAL ? number.r : number.n;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+llong Token::getInt() const {
+  return type() == T_INTEGER ? number.n : number.r;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr Token::getStr() const {
+  return lexeme;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr Token::pr_str() const { return lexeme; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool Number::isZero() const {
@@ -266,6 +294,9 @@ void Number::setFloat(double d) { u.r=d; }
 void Number::setInt(llong n) { u.n=n; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Number::setInt(int n) { u.n=n; }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Context::Context() {
   S_NIL(src);
   len=0;
@@ -276,19 +307,18 @@ Context::Context() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SrcInfo Context::mark() { return s__pair(int,int,line,col); }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFrame Frame::make(const stdstr& n, DslFrame outer) {
-  return DslFrame(new Frame(n, outer));
-}
-DslFrame Frame::make(const stdstr& n) {
-  return DslFrame(new Frame(n));
+DslFrame Frame::make(cstdstr& n, DslFrame outer) {
+  return WRAP_ENV(new Frame(n, outer));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Frame::Frame(const stdstr& n, DslFrame outer) : _name(n) { prev=outer; }
-Frame::Frame(const stdstr& n) : _name(n) { }
+DslFrame Frame::make(cstdstr& n) {
+  return WRAP_ENV(new Frame(n));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Frame::Frame(cstdstr& n, DslFrame outer) : _name(n) { prev=outer; }
+Frame::Frame(cstdstr& n) : _name(n) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Frame::pr_str() const {
@@ -322,12 +352,12 @@ std::set<stdstr> Frame::keys() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslValue Frame::get(const stdstr& key) const {
+DslValue Frame::get(cstdstr& key) const {
 
   auto x= slots.find(key);
   auto r= x != slots.end()
           ? x->second
-          : (prev ? prev->get(key) : DslValue(P_NIL));
+          : (prev ? prev->get(key) : WRAP_VAL(P_NIL));
 
   DEBUG("frame:get %s <- %s\n",
         C_STR(key), C_STR(r->pr_str()));
@@ -336,7 +366,7 @@ DslValue Frame::get(const stdstr& key) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslValue Frame::setEx(const stdstr& key, DslValue v) {
+DslValue Frame::setEx(cstdstr& key, DslValue v) {
 
   auto x= slots.find(key);
   if (x != slots.end()) {
@@ -347,12 +377,12 @@ DslValue Frame::setEx(const stdstr& key, DslValue v) {
   } else if (prev) {
     return prev->setEx(key,v);
   } else {
-    return DslValue(P_NIL);
+    return WRAP_VAL(P_NIL);
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslValue Frame::set(const stdstr& key, DslValue v) {
+DslValue Frame::set(cstdstr& key, DslValue v) {
   slots[key]=v;
   DEBUG("frame:set %s -> %s\n",
         C_STR(key), C_STR(v->pr_str(1)));
@@ -360,15 +390,15 @@ DslValue Frame::set(const stdstr& key, DslValue v) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Frame::contains(const stdstr& key) const {
+bool Frame::contains(cstdstr& key) const {
   return slots.find(key) != slots.end();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFrame Frame::search(const stdstr& key, DslFrame from) {
+DslFrame Frame::search(cstdstr& key, DslFrame from) {
   ASSERT1(from);
   return from->contains(key) ? from :
-         (from->prev ? search(key, from->prev) : DslFrame(P_NIL));
+         (from->prev ? search(key, from->prev) : WRAP_ENV(P_NIL));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -381,22 +411,22 @@ DslFrame Frame::getRoot(DslFrame from) {
 DslFrame Frame::getOuter() const { return prev; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslTable Table::make(const stdstr& n, const SymbolMap& root) {
+DslTable Table::make(cstdstr& n, const SymbolMap& root) {
   return DslTable(new Table(n,root));
 }
-DslTable Table::make(const stdstr& n, DslTable outer) {
+DslTable Table::make(cstdstr& n, DslTable outer) {
   return DslTable(new Table(n, outer));
 }
-DslTable Table::make(const stdstr& n) {
+DslTable Table::make(cstdstr& n) {
   return DslTable(new Table(n));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Table::Table(const stdstr& n, DslTable outer) : Table(n) { enclosing=outer; }
-Table::Table(const stdstr& n, const SymbolMap& root) : Table(n) {
+Table::Table(cstdstr& n, DslTable outer) : Table(n) { enclosing=outer; }
+Table::Table(cstdstr& n, const SymbolMap& root) : Table(n) {
   for (auto& x : root) { symbols[x.first]=x.second; }
 }
-Table::Table(const stdstr& n) : _name(n) {}
+Table::Table(cstdstr& n) : _name(n) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Table::insert(DslSymbol s) {
@@ -405,20 +435,20 @@ void Table::insert(DslSymbol s) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslSymbol Table::search(const stdstr& name) const {
+DslSymbol Table::search(cstdstr& name) const {
   if (auto s = symbols.find(name); s != symbols.end()) {
     return s->second;
   } else {
-    return enclosing ? enclosing->search(name) : DslSymbol(P_NIL);
+    return enclosing ? enclosing->search(name) : WRAP_SYM(P_NIL);
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslSymbol Table::find(const stdstr& name) const {
+DslSymbol Table::find(cstdstr& name) const {
   if (auto s = symbols.find(name); s != symbols.end()) {
     return s->second;
   } else {
-    return DslSymbol(P_NIL);
+    return WRAP_SYM(P_NIL);
   }
 }
 

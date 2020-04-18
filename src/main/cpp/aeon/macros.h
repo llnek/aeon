@@ -142,7 +142,11 @@ typedef int64_t llong;
 #define s__contains(C,x) ((C).find((x)) != (C).end())
 #define map__val(M,K) (M).find(K)->second
 typedef std::string stdstr;
+typedef const std::string cstdstr;
 typedef std::vector<std::string> StrVec;
+typedef std::vector<int> IntVec;
+typedef std::vector<llong> LongVec;
+
 
 //////////////////////////////////////////////////////////////////////////////
 // pointer macros

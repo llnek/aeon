@@ -32,36 +32,31 @@ enum TokenType {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Token : public d::AbstractToken {
+stdstr typeToString(int type);
 
-  // A Lex token.
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct LToken : public d::Token {
 
-  static stdstr typeToString(int);
-
-  static d::DslToken make(int t, const stdstr& s, d::SrcInfo i) {
-    return d::DslToken(new Token(t, s, i));
+  static d::DslToken make(int t, cstdstr& s, d::Mark i) {
+    return WRAP_TKN(new LToken(t, s, i));
   }
 
-  static d::DslToken make(int t, Tchar c, d::SrcInfo i) {
-    return d::DslToken(new Token(t, c, i));
+  static d::DslToken make(int t, Tchar c, d::Mark i) {
+    return WRAP_TKN(new LToken(t, c, i));
   }
 
-  virtual stdstr getLiteralAsStr() const;
-  virtual double getLiteralAsReal() const;
-  virtual llong getLiteralAsInt() const;
+  virtual stdstr getStr() const;
+  virtual ~LToken() {}
 
-  d::Lexeme& impl() { return _impl; }
-  virtual stdstr pr_str() const;
-
-  virtual ~Token() {}
+  void setLiteral(double d) { number.r=d;}
+  void setLiteral(llong n) { number.n=n;}
+  void setLiteral(int n) { number.n= n;}
 
   protected:
 
-  Token(int type, const stdstr&, d::SrcInfo);
-  Token(int type, Tchar, d::SrcInfo);
-  Token();
-
-  d::Lexeme _impl;
+  LToken(int type, cstdstr&, d::Mark);
+  LToken(int type, Tchar, d::Mark);
+  LToken();
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -69,7 +64,7 @@ struct Reader : public d::IScanner {
 
   // A Lexer.
 
-  bool isKeyword(const stdstr&) const;
+  bool isKeyword(cstdstr&) const;
   d::DslToken getNextToken();
   d::DslToken number();
   d::DslToken id();

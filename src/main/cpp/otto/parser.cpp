@@ -27,7 +27,7 @@ d::DslValue readForm(SExprParser*);
 d::DslValue readAtom(SExprParser*);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr gensym(const stdstr& prefix) {
+stdstr gensym(cstdstr& prefix) {
   static int seed=0;
   stdstr out;
   int x;
@@ -46,7 +46,7 @@ stdstr gensym(const stdstr& prefix) {
   }
 
   ++seed;
-  return prefix + out + std::to_string(seed);
+  return prefix + out + N_STR(seed);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -73,19 +73,19 @@ d::DslValue readAtom(SExprParser* p) {
   DEBUG("token = %d.\n", p->cur());
   switch (p->cur()) {
     case d::T_STRING:
-      return STRING_VAL(p->eat()->getLiteralAsStr());
+      return STRING_VAL(p->eat()->getStr());
     break;
     case d::T_REAL:
-      return NUMBER_VAL(p->eat()->getLiteralAsReal());
+      return NUMBER_VAL(p->eat()->getFloat());
     break;
     case d::T_INTEGER:
-      return NUMBER_VAL(p->eat()->getLiteralAsInt());
+      return NUMBER_VAL(p->eat()->getInt());
     break;
     case T_KEYWORD:
-      return KEYWORD_VAL(p->eat()->getLiteralAsStr());
+      return KEYWORD_VAL(p->eat()->getStr());
     break;
     case d::T_IDENT:
-      return SYMBOL_VAL(p->eat()->getLiteralAsStr());
+      return SYMBOL_VAL(p->eat()->getStr());
     break;
     case T_TRUE:
       return (p->eat(), TRUE_VAL());
@@ -117,12 +117,12 @@ d::DslValue readAtom(SExprParser* p) {
         auto m = (p->eat(), readForm(p));
         auto v = readForm(p);
         if (!m)
-          RAISE(d::SyntaxError, "Bad form: %s.\n", "meta");
+          RAISE(d::SyntaxError, "Bad form: %s.", "meta");
         if (!v)
-          RAISE(d::SyntaxError, "Bad form: %s.\n", "value");
+          RAISE(d::SyntaxError, "Bad form: %s.", "value");
         return LIST_VAL3(SYMBOL_VAL("with-meta"), v, m);
       }
-      return SYMBOL_VAL(p->eat()->getLiteralAsStr());
+      return SYMBOL_VAL(p->eat()->getStr());
     break;
   }
 }
@@ -317,12 +317,13 @@ d::DslToken SExprParser::eat() {
 d::DslToken SExprParser::eat(int wanted) {
   auto t= token();
   if (t->type() != wanted) {
+    auto i= t->marker();
     RAISE(d::SyntaxError,
           "Expected token %s, found token %s near line %d(%d).\n",
-          C_STR(Token::typeToString(wanted)),
+          C_STR(typeToString(wanted)),
           C_STR(t->pr_str()),
-          t->srcInfo().first,
-          t->srcInfo().second);
+          i.first,
+          i.second);
   }
   lexer->ctx().cur= lexer->getNextToken();
   return t;

@@ -20,7 +20,7 @@ namespace czlab::spi {
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Interpreter::Interpreter(const char* src) {
+Interpreter::Interpreter(const Tchar* src) {
   source = src;
 }
 
@@ -62,17 +62,17 @@ d::DslFrame Interpreter::peekFrame() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::setValueEx(const stdstr& name, d::DslValue v) {
+d::DslValue Interpreter::setValueEx(cstdstr& name, d::DslValue v) {
   return stack ? stack->setEx(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::setValue(const stdstr& name, d::DslValue v) {
+d::DslValue Interpreter::setValue(cstdstr& name, d::DslValue v) {
   return stack ? stack->set(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::getValue(const stdstr& name) const {
+d::DslValue Interpreter::getValue(cstdstr& name) const {
   return stack ? stack->get(name) : P_NIL;
 }
 
@@ -83,12 +83,12 @@ void Interpreter::check(d::DslAst tree) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::search(const stdstr& n) const {
+d::DslSymbol Interpreter::search(cstdstr& n) const {
   return s__cast(d::Table,symbols.get())->search(n);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::find(const stdstr& n) const {
+d::DslSymbol Interpreter::find(cstdstr& n) const {
   return s__cast(d::Table,symbols.get())->find(n);
 }
 
@@ -99,7 +99,7 @@ d::DslSymbol Interpreter::define(d::DslSymbol s) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslTable Interpreter::pushScope(const stdstr& name) {
+d::DslTable Interpreter::pushScope(cstdstr& name) {
   symbols = SymTable::make(name, symbols);
   return symbols;
 }
