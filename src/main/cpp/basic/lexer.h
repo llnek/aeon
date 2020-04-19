@@ -50,6 +50,7 @@ enum TokenType {
   T_AND,
   T_OR,
   T_ON,
+  T_DEF,
   T_XOR,
   T_DIM,
   T_RESTORE,

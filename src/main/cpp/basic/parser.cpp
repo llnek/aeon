@@ -51,7 +51,6 @@ d::DslValue Program::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto len=vlines.size();
   d::DslValue last;
-  _e->init_counters();
   //std::cout << "len = " << len << "\n" << pr_str() << "\n";
   while (_e->isOn() &&
          _e->incr_pc() < len) {
@@ -59,7 +58,7 @@ d::DslValue Program::eval(d::IEvaluator* e) {
     //std::cout << line->pr_str() << "\n";
     last= line->eval(e);
   }
-  return (_e->finz_counters(), last);
+  return last;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -436,21 +435,28 @@ FuncCall::FuncCall(d::DslAst var, const d::AstVec& pms) {
 d::DslValue FuncCall::eval(d::IEvaluator* e) {
   auto n= DCAST(Var,fn)->name();
   auto f= e->getValue(n);
+
   if (!f)
     RAISE(d::NoSuchVar, "Unknown function/array: %s.", C_STR(n));
-  auto fa = cast_array(f,0);
   auto fv = cast_native(f,0);
-  if (E_NIL(fa) && E_NIL(fv)) {
+  auto fd = cast_lambda(f,0);
+  auto fa = cast_array(f,0);
+
+  if (E_NIL(fa) &&
+      E_NIL(fv) && E_NIL(fd)) {
     expected("Array var or function", f); }
+
   //else
   d::ValVec pms;
   for (auto& a : args) {
     s__conj(pms, a->eval(e)); }
-  //
+
   d::VSlice _args(pms);
+  auto ff = X_NIL(fd) ? (Function*) fd : (Function*) fv;
+
   return fa
     ? fa->get(_args)
-    : (pms.empty() ? fv->invoke(e) : fv->invoke(e,_args));
+    : (pms.empty() ? ff->invoke(e) : ff->invoke(e,_args));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -706,6 +712,32 @@ stdstr BinOp::pr_str() const {
 void BinOp::visit(d::IAnalyzer* a) {
   lhs->visit(a);
   rhs->visit(a);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Defun::Defun(d::DslToken t, d::DslAst var, d::AstVec& pms, d::DslAst body) : Ast(t) {
+  this->var=var;
+  this->body=body;
+  s__ccat(params,pms);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Defun::eval(d::IEvaluator* e) {
+  return P_NIL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Defun::visit(d::IAnalyzer* a) {
+  var->visit(a);
+  StrVec vs;
+  for (auto& p : params) {
+    p->visit(a);
+    s__conj(vs, DCAST(Var,p)->name());
+  }
+  body->visit(a);
+  auto vn = DCAST(Var,var)->name();
+  auto _a = s__cast(Basic, a);
+  _a->addLambda(Lambda::make(vn, vs, body));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -967,7 +999,6 @@ d::DslValue Input::eval(d::IEvaluator* e) {
   else {
     v= NUMBER_VAL(::atoi(cs)); }
 
-  std::cout << "sfdsfsd " << v->pr_str(1) << "\n";
   return e->setValue(vn,v), P_NIL;
 }
 
@@ -1073,6 +1104,31 @@ d::DslAst input(BasicParser* bp) {
     bp->eat(d::T_SEMI);
   }
   return Input::make(t, Var::make(bp->eat(d::T_IDENT)),prompt);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslAst defun(BasicParser* bp) {
+  auto t= bp->eat(T_DEF);
+  auto fn= bp->eat(d::T_IDENT);
+  d::AstVec vs;
+
+  if (bp->isCur(d::T_LPAREN)) {
+    bp->eat();
+    if (!bp->isCur(d::T_RPAREN)) {
+      s__conj(vs, Var::make(bp->eat(d::T_IDENT)));
+      while (bp->isCur(d::T_COMMA)) {
+        bp->eat();
+        s__conj(vs, Var::make(bp->eat(d::T_IDENT))); } }
+    bp->eat(d::T_RPAREN);
+  } else if (bp->isCur(d::T_EQ)) {
+  } else {
+    auto i= t->marker();
+    RAISE(d::SyntaxError,
+          "Malformed function defn near line %d(%d).", i.first, i.second);
+  }
+
+  bp->eat(d::T_EQ);
+  return Defun::make(t, Var::make(fn), vs, expr(bp));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1350,6 +1406,9 @@ d::DslAst declArray(BasicParser* bp) {
 d::DslAst statement(BasicParser* bp) {
   d::DslAst res;
   switch (bp->cur()) {
+  case T_DEF:
+    res= defun(bp);
+  break;
   case T_REM:
     res= skipComment(bp);
   break;

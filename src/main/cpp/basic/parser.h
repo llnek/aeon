@@ -407,6 +407,26 @@ struct OnXXX : public Ast {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Defun : public Ast {
+
+  virtual d::DslValue eval(d::IEvaluator*);
+  virtual void visit(d::IAnalyzer*);
+
+  static d::DslAst make(d::DslToken t, d::DslAst var, d::AstVec& pms, d::DslAst body) {
+    return WRAP_AST(new Defun(t, var, pms, body));
+  }
+
+  virtual ~Defun() {}
+
+  private:
+
+  Defun(d::DslToken, d::DslAst, d::AstVec&, d::DslAst);
+  d::DslAst var;
+  d::DslAst body;
+  d::AstVec params;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ForNext : public Ast {
 
   virtual d::DslValue eval(d::IEvaluator*);

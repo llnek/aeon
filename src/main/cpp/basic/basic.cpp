@@ -38,6 +38,8 @@ d::DslFrame Basic::root_env() {
 d::DslValue Basic::interpret() {
   BasicParser p(source);
   root_env();
+  dataSlots.clear();
+  defs.clear();
   auto tree= p.parse();
   //std::cout << s__cast(Ast,tree.get())->pr_str() << "\n";
   return check(tree), eval(tree);
@@ -61,10 +63,17 @@ void Basic::restore() {
   dataPtr=0;
 }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::addLambda(d::DslValue f) {
+  auto func= DCAST(Lambda,f);
+  defs[func->name()] = f;
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DslValue Basic::eval(d::DslAst tree) {
-  return tree->eval(this);
+  init_counters();
+  auto res= tree->eval(this);
+  return (finz_counters(), res);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -204,16 +213,31 @@ void Basic::installProgram(const std::map<int,int>& m) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::uninstall() {
+  dataSlots.clear();
+  defs.clear();
   lines.clear();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void Basic::init_lambdas() {
+  for (auto& x : defs) {
+    auto v= x.second;
+    auto p= DCAST(Lambda,v);
+    setValue(p->name(), v);
+    //std::cout << "installed lambda: " << p->name() << "\n";
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#define CLEAR_STACK(s) do { while (!s.empty()) s.pop(); } while (0)
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::init_counters() {
-  while (!gosubReturns.empty()) gosubReturns.pop();
   running=true;
   dataPtr=0;
   progOffset=0;
   progCounter= -1;
+  init_lambdas();
+  CLEAR_STACK(gosubReturns);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -222,7 +246,7 @@ void Basic::finz_counters() {
   progOffset=0;
   progCounter= -1;
   running=false;
-  while (!gosubReturns.empty()) gosubReturns.pop();
+  CLEAR_STACK(gosubReturns);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -38,6 +38,7 @@ BNumber A_NUM;
 BStr A_STR;
 BArray A_ARRAY;
 LibFunc A_FUNC;
+Lambda A_DEFN;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BArray::~BArray() { DEL_PTR(value); }
@@ -146,6 +147,11 @@ LibFunc* cast_native(d::DslValue v, int panic) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Lambda* cast_lambda(d::DslValue v, int panic) {
+  CASTXXX(Lambda,v,panic,A_DEFN,"lambda");
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BArray* cast_array(d::DslValue v, int panic) {
   CASTXXX(BArray,v,panic,A_ARRAY,"array");
 }
@@ -231,6 +237,54 @@ void ensure_data_type(cstdstr& n, d::DslValue v) {
   default:
     ASSERT(!s, "Expecting number, got %s.", C_STR(v->pr_str(1)));
   break;
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Lambda::Lambda(cstdstr& name, StrVec& pms, d::DslAst e) : Function(name) {
+  body=e;
+  s__ccat(params, pms);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Lambda::invoke(d::IEvaluator* e, d::VSlice args) {
+  ASSERT(args.size() == params.size(),
+      "Arity error, expecting %d got %d.", (int)params.size(), (int)args.size());
+  // we need to create a new frame to process this defn.
+  e->pushFrame(name());
+  // push all args onto stack
+  for (int i=0, z=params.size(); i < z; ++i) {
+    auto pv= *(args.begin+i);
+    e->setValue(params[i],pv);
+  }
+  auto res= body->eval(e);
+  e->popFrame();
+  return res;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DslValue Lambda::invoke(d::IEvaluator* e) {
+  d::ValVec vs;
+  return invoke(e, d::VSlice(vs));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr Lambda::pr_str(bool p) const {
+  return "#lambda@" + _name;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool Lambda::eq(d::DslValue rhs) const {
+  return d::is_same(rhs, this) &&
+         DCAST(Lambda, rhs)->name() == name();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int Lambda::cmp(d::DslValue rhs) const {
+  if (d::is_same(rhs, this)) {
+    return eq(rhs) ? 0 : pr_str().compare(rhs->pr_str());
+  } else {
+    return pr_str().compare(rhs->pr_str());
   }
 }
 

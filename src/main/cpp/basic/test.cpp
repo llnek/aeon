@@ -24,7 +24,7 @@ using namespace czlab::aeon;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-#if 1
+#if 0
 int main(int argc, char* argv[]) {
   using namespace czlab::basic;
   namespace a=czlab::aeon;

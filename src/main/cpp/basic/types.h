@@ -98,6 +98,32 @@ struct LibFunc : public Function {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Lambda : public Function {
+
+  virtual d::DslValue invoke(d::IEvaluator*, d::VSlice);
+  virtual d::DslValue invoke(d::IEvaluator*);
+  virtual stdstr pr_str(bool p=0) const;
+
+  static d::DslValue make(cstdstr& name, StrVec& pms, d::DslAst body) {
+    return WRAP_VAL(new Lambda(name,pms,body));
+  }
+
+  virtual ~Lambda() {}
+
+  //internal use only
+  Lambda() { }
+
+  protected:
+
+  virtual bool eq(d::DslValue) const;
+  virtual int cmp(d::DslValue) const;
+
+  StrVec params;
+  d::DslAst body;
+  Lambda(cstdstr&, StrVec&, d::DslAst);
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BArray : public BValue {
 
   static d::DslValue make(const IntVec& v) {
@@ -273,6 +299,8 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   void installProgram(const std::map<int,int>&);
   void uninstall();
 
+  void addLambda(d::DslValue);
+
   void addData(d::DslValue);
   d::DslValue readData();
   void restore();
@@ -313,6 +341,8 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   std::stack<CheckPt> gosubReturns;
   std::map<int,int> lines;
 
+  std::map<stdstr,d::DslValue> defs;
+
   d::ValVec dataSlots;
   int dataPtr;
 
@@ -324,6 +354,7 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
 
   d::DslFrame stack;
   d::DslTable symbols;
+  void init_lambdas();
   void check(d::DslAst);
   d::DslFrame root_env();
   d::DslValue eval(d::DslAst);
@@ -338,8 +369,8 @@ void ensure_data_type(cstdstr&, d::DslValue);
 BNumber* cast_number(d::DslValue, int panic=0);
 BStr* cast_string(d::DslValue, int panic=0);
 BArray* cast_array(d::DslValue, int panic=0);
+Lambda* cast_lambda(d::DslValue, int panic=0);
 LibFunc* cast_native(d::DslValue, int panic=0);
-
 
 
 
