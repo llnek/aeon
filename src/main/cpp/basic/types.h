@@ -21,20 +21,21 @@ namespace a= czlab::aeon;
 namespace d= czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define FN_VAL(n, f) LibFunc::make(n, f)
 #define NUMBER_VAL(n) BNumber::make(n)
 #define STRING_VAL(s) BStr::make(s)
+#define CHAR_VAL(s) BChar::make(s)
 #define FALSE_VAL() BNumber::make(0)
 #define TRUE_VAL() BNumber::make(1)
+#define FN_VAL(n, f) LibFunc::make(n, f)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BValue : public d::Data {
 
-  virtual bool equals(d::DslValue rhs) const {
+  virtual bool equals(d::DValue rhs) const {
     ASSERT1(rhs); return eq(rhs);
   }
 
-  virtual int compare(d::DslValue rhs) const {
+  virtual int compare(d::DValue rhs) const {
     ASSERT1(rhs); return cmp(rhs);
   }
 
@@ -45,19 +46,19 @@ struct BValue : public d::Data {
 
   BValue() {}
 
-  virtual bool eq(d::DslValue) const=0;
-  virtual int cmp(d::DslValue) const=0;
+  virtual bool eq(d::DValue) const=0;
+  virtual int cmp(d::DValue) const=0;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-typedef d::DslValue (*Invoker) (d::IEvaluator*, d::VSlice);
+typedef d::DValue (*Invoker) (d::IEvaluator*, d::VSlice);
 typedef std::pair<int,int> CheckPt;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Function : public BValue {
 
-  virtual d::DslValue invoke(d::IEvaluator*, d::VSlice)=0;
-  virtual d::DslValue invoke(d::IEvaluator*)=0;
+  virtual d::DValue invoke(d::IEvaluator*, d::VSlice)=0;
+  virtual d::DValue invoke(d::IEvaluator*)=0;
   stdstr name() const { return _name; }
 
   protected:
@@ -72,17 +73,17 @@ struct Function : public BValue {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct LibFunc : public Function {
 
-  virtual d::DslValue invoke(d::IEvaluator*, d::VSlice);
-  virtual d::DslValue invoke(d::IEvaluator*);
+  virtual d::DValue invoke(d::IEvaluator*, d::VSlice);
+  virtual d::DValue invoke(d::IEvaluator*);
   virtual stdstr pr_str(bool p=0) const;
   virtual ~LibFunc() {}
 
-  static d::DslValue make() {
-    return WRAP_VAL(new LibFunc());
+  static d::DValue make() {
+    return WRAP_VAL(LibFunc);
   }
 
-  static d::DslValue make(cstdstr& name, Invoker f) {
-    return WRAP_VAL(new LibFunc(name,f));
+  static d::DValue make(cstdstr& name, Invoker f) {
+    return WRAP_VAL(LibFunc,name,f);
   }
 
   //internal use only
@@ -90,8 +91,8 @@ struct LibFunc : public Function {
 
   protected:
 
-  virtual bool eq(d::DslValue) const;
-  virtual int cmp(d::DslValue) const;
+  virtual bool eq(d::DValue) const;
+  virtual int cmp(d::DValue) const;
 
   LibFunc(cstdstr& name, Invoker);
   Invoker fn;
@@ -100,12 +101,12 @@ struct LibFunc : public Function {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lambda : public Function {
 
-  virtual d::DslValue invoke(d::IEvaluator*, d::VSlice);
-  virtual d::DslValue invoke(d::IEvaluator*);
+  virtual d::DValue invoke(d::IEvaluator*, d::VSlice);
+  virtual d::DValue invoke(d::IEvaluator*);
   virtual stdstr pr_str(bool p=0) const;
 
-  static d::DslValue make(cstdstr& name, StrVec& pms, d::DslAst body) {
-    return WRAP_VAL(new Lambda(name,pms,body));
+  static d::DValue make(cstdstr& name, StrVec& pms, d::DAst body) {
+    return WRAP_VAL(Lambda, name,pms,body);
   }
 
   virtual ~Lambda() {}
@@ -115,27 +116,27 @@ struct Lambda : public Function {
 
   protected:
 
-  virtual bool eq(d::DslValue) const;
-  virtual int cmp(d::DslValue) const;
+  virtual bool eq(d::DValue) const;
+  virtual int cmp(d::DValue) const;
 
   StrVec params;
-  d::DslAst body;
-  Lambda(cstdstr&, StrVec&, d::DslAst);
+  d::DAst body;
+  Lambda(cstdstr&, StrVec&, d::DAst);
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BArray : public BValue {
 
-  static d::DslValue make(const IntVec& v) {
-    return WRAP_VAL(new BArray(v));
+  static d::DValue make(const IntVec& v) {
+    return WRAP_VAL(BArray,v);
   }
 
-  static d::DslValue make() {
-    return WRAP_VAL(new BArray());
+  static d::DValue make() {
+    return WRAP_VAL(BArray);
   }
 
-  d::DslValue set(d::VSlice, d::DslValue);
-  d::DslValue get(d::VSlice);
+  d::DValue set(d::VSlice, d::DValue);
+  d::DValue get(d::VSlice);
 
   virtual stdstr pr_str(bool p=0) const;
 
@@ -146,8 +147,8 @@ struct BArray : public BValue {
 
   protected:
 
-  virtual bool eq(d::DslValue) const;
-  virtual int cmp(d::DslValue) const;
+  virtual bool eq(d::DValue) const;
+  virtual int cmp(d::DValue) const;
   BArray(const IntVec&);
   int index(d::VSlice);
 
@@ -158,20 +159,20 @@ struct BArray : public BValue {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BNumber : public BValue {
 
-  static d::DslValue make(double d) {
-    return WRAP_VAL(new BNumber(d));
+  static d::DValue make(double d) {
+    return WRAP_VAL(BNumber,d);
   }
 
-  static d::DslValue make(int n) {
-    return WRAP_VAL(new BNumber(n));
+  static d::DValue make(int n) {
+    return WRAP_VAL(BNumber,n);
   }
 
-  static d::DslValue make(llong n) {
-    return WRAP_VAL(new BNumber(n));
+  static d::DValue make(llong n) {
+    return WRAP_VAL(BNumber,n);
   }
 
-  static d::DslValue make() {
-    return WRAP_VAL(new BNumber());
+  static d::DValue make() {
+    return WRAP_VAL(BNumber);
   }
 
   double getFloat() const { return isInt() ? (double)num.n : num.r; }
@@ -203,8 +204,8 @@ struct BNumber : public BValue {
   explicit BNumber(int n) : type(d::T_INTEGER) { num.n=n; }
   BNumber(llong n) : type(d::T_INTEGER) { num.n=n; }
 
-  virtual bool eq(d::DslValue) const;
-  virtual int cmp(d::DslValue) const;
+  virtual bool eq(d::DValue) const;
+  virtual int cmp(d::DValue) const;
   bool match(const BNumber*) const;
 
   int type;
@@ -213,14 +214,41 @@ struct BNumber : public BValue {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BStr : public BValue {
+struct BChar : public BValue {
 
-  static d::DslValue make(const Tchar* s) {
-    return WRAP_VAL(new BStr(s));
+  static d::DValue make(const Tchar c) {
+    return WRAP_VAL(BChar,c);
   }
 
-  static d::DslValue make(cstdstr& s) {
-    return WRAP_VAL(new BStr(s));
+  virtual stdstr pr_str(bool p=0) const {
+    stdstr s;
+    return s + value;
+  }
+
+  Tchar impl() const { return value; }
+
+  // internal use only
+  BChar() { value=0;}
+
+  protected:
+
+  virtual bool eq(d::DValue) const;
+  virtual int cmp(d::DValue) const;
+
+  BChar(const Tchar c) : value(c) {}
+
+  Tchar value;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct BStr : public BValue {
+
+  static d::DValue make(const Tchar* s) {
+    return WRAP_VAL(BStr,s);
+  }
+
+  static d::DValue make(cstdstr& s) {
+    return WRAP_VAL(BStr,s);
   }
 
   virtual stdstr pr_str(bool p=0) const {
@@ -234,8 +262,8 @@ struct BStr : public BValue {
 
   protected:
 
-  virtual bool eq(d::DslValue) const;
-  virtual int cmp(d::DslValue) const;
+  virtual bool eq(d::DValue) const;
+  virtual int cmp(d::DValue) const;
 
   BStr(cstdstr& s) : value(s) {}
   BStr(const Tchar* s) : value(s) {}
@@ -256,8 +284,8 @@ struct ForLoopInfo {
   int beginOffset, endOffset;
   int begin, end;
   stdstr var;
-  d::DslValue init;
-  d::DslValue step;
+  d::DValue init;
+  d::DValue step;
   DslFLInfo outer;
 
   private:
@@ -274,12 +302,12 @@ struct ForLoopInfo {
 struct Basic : public d::IEvaluator, public d::IAnalyzer {
 
   //evaluator
-  virtual d::DslValue setValueEx(cstdstr&, d::DslValue);
-  virtual d::DslValue setValue(cstdstr&, d::DslValue);
-  virtual d::DslValue getValue(cstdstr&) const;
-  virtual d::DslFrame pushFrame(cstdstr&);
-  virtual d::DslFrame popFrame();
-  virtual d::DslFrame peekFrame() const;
+  virtual d::DValue setValueEx(cstdstr&, d::DValue);
+  virtual d::DValue setValue(cstdstr&, d::DValue);
+  virtual d::DValue getValue(cstdstr&) const;
+  virtual d::DFrame pushFrame(cstdstr&);
+  virtual d::DFrame popFrame();
+  virtual d::DFrame peekFrame() const;
 
   void writeString(cstdstr&);
   void writeFloat(double);
@@ -290,19 +318,19 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   llong readInt();
 
   //analyzer
-  virtual d::DslSymbol search(cstdstr&) const;
-  virtual d::DslSymbol find(cstdstr&) const;
-  virtual d::DslTable pushScope(cstdstr&);
-  virtual d::DslTable popScope();
-  virtual d::DslSymbol define(d::DslSymbol);
+  virtual d::DSymbol search(cstdstr&) const;
+  virtual d::DSymbol find(cstdstr&) const;
+  virtual d::DTable pushScope(cstdstr&);
+  virtual d::DTable popScope();
+  virtual d::DSymbol define(d::DSymbol);
 
   void installProgram(const std::map<int,int>&);
   void uninstall();
 
-  void addLambda(d::DslValue);
+  void addLambda(d::DValue);
 
-  void addData(d::DslValue);
-  d::DslValue readData();
+  void addData(d::DValue);
+  d::DValue readData();
   void restore();
 
   void init_counters();
@@ -330,7 +358,7 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   void addForLoop(DslFLInfo);
 
   Basic(const Tchar* src);
-  d::DslValue interpret();
+  d::DValue interpret();
   virtual ~Basic() {}
 
   private:
@@ -341,7 +369,7 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   std::stack<CheckPt> gosubReturns;
   std::map<int,int> lines;
 
-  std::map<stdstr,d::DslValue> defs;
+  std::map<stdstr,d::DValue> defs;
 
   d::ValVec dataSlots;
   int dataPtr;
@@ -352,25 +380,26 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   int progCounter;
   int progOffset;
 
-  d::DslFrame stack;
-  d::DslTable symbols;
+  d::DFrame stack;
+  d::DTable symbols;
   void init_lambdas();
-  void check(d::DslAst);
-  d::DslFrame root_env();
-  d::DslValue eval(d::DslAst);
+  void check(d::DAst);
+  d::DFrame root_env();
+  d::DValue eval(d::DAst);
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue op_math(d::DslValue, int op, d::DslValue);
-d::DslValue expected(cstdstr&, d::DslValue);
-void ensure_data_type(cstdstr&, d::DslValue);
+d::DValue op_math(d::DValue, int op, d::DValue);
+d::DValue expected(cstdstr&, d::DValue);
+void ensure_data_type(cstdstr&, d::DValue);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BNumber* cast_number(d::DslValue, int panic=0);
-BStr* cast_string(d::DslValue, int panic=0);
-BArray* cast_array(d::DslValue, int panic=0);
-Lambda* cast_lambda(d::DslValue, int panic=0);
-LibFunc* cast_native(d::DslValue, int panic=0);
+BNumber* cast_number(d::DValue, int panic=0);
+BStr* cast_string(d::DValue, int panic=0);
+BChar* cast_char(d::DValue, int panic=0);
+BArray* cast_array(d::DValue, int panic=0);
+Lambda* cast_lambda(d::DValue, int panic=0);
+LibFunc* cast_native(d::DValue, int panic=0);
 
 
 

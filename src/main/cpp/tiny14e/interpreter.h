@@ -22,13 +22,13 @@ namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
   //evaluator
-  virtual d::DslValue setValueEx(cstdstr&, d::DslValue);
-  virtual d::DslValue setValue(cstdstr&, d::DslValue);
-  virtual d::DslValue getValue(cstdstr&) const;
+  virtual d::DValue setValueEx(cstdstr&, d::DValue);
+  virtual d::DValue setValue(cstdstr&, d::DValue);
+  virtual d::DValue getValue(cstdstr&) const;
 
-  virtual d::DslFrame pushFrame(cstdstr& name);
-  virtual d::DslFrame popFrame();
-  virtual d::DslFrame peekFrame() const;
+  virtual d::DFrame pushFrame(cstdstr& name);
+  virtual d::DFrame popFrame();
+  virtual d::DFrame peekFrame() const;
 
 
   stdstr readString();
@@ -40,23 +40,23 @@ struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
   void writeln();
 
   //analyzer
-  virtual d::DslSymbol search(cstdstr&) const;
-  virtual d::DslSymbol find(cstdstr&) const;
-  virtual d::DslTable pushScope(cstdstr&);
-  virtual d::DslTable popScope();
-  virtual d::DslSymbol define(d::DslSymbol);
+  virtual d::DSymbol search(cstdstr&) const;
+  virtual d::DSymbol find(cstdstr&) const;
+  virtual d::DTable pushScope(cstdstr&);
+  virtual d::DTable popScope();
+  virtual d::DSymbol define(d::DSymbol);
 
   Interpreter(const Tchar* src);
-  d::DslValue interpret();
+  d::DValue interpret();
   virtual ~Interpreter() {}
 
   private:
 
   const Tchar* source;
-  d::DslFrame stack;
-  d::DslTable symbols;
-  void check(d::DslAst);
-  d::DslValue eval(d::DslAst);
+  d::DFrame stack;
+  d::DTable symbols;
+  void check(d::DAst);
+  d::DValue eval(d::DAst);
 };
 
 

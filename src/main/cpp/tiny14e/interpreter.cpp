@@ -25,25 +25,25 @@ Interpreter::Interpreter(const Tchar* src) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::interpret() {
+d::DValue Interpreter::interpret() {
   CrenshawParser p(source);
   auto tree= p.parse();
   return check(tree), eval(tree);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::eval(d::DslAst tree) {
+d::DValue Interpreter::eval(d::DAst tree) {
   return (pushFrame("root"), tree.get()->eval(this));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::pushFrame(cstdstr& name) {
+d::DFrame Interpreter::pushFrame(cstdstr& name) {
   stack = d::Frame::make(name, stack);
   return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::popFrame() {
+d::DFrame Interpreter::popFrame() {
   if (stack) {
     auto f= stack;
     //::printf("Frame pop'ed:=\n%s\n", f->pr_str().c_str());
@@ -55,65 +55,65 @@ d::DslFrame Interpreter::popFrame() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::peekFrame() const {
+d::DFrame Interpreter::peekFrame() const {
   return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::setValueEx(cstdstr& name, d::DslValue v) {
+d::DValue Interpreter::setValueEx(cstdstr& name, d::DValue v) {
   auto x = peekFrame();
   return x ? x->setEx(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::setValue(cstdstr& name, d::DslValue v) {
+d::DValue Interpreter::setValue(cstdstr& name, d::DValue v) {
   auto x = peekFrame();
   return x ? x->set(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::getValue(cstdstr& name) const {
+d::DValue Interpreter::getValue(cstdstr& name) const {
   auto x = peekFrame();
   return x ? x->get(name) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::map<stdstr,d::DslSymbol> BITS {
+std::map<stdstr,d::DSymbol> BITS {
   {"INTEGER", d::Symbol::make("INTEGER")},
   {"REAL", d::Symbol::make("REAL")},
   {"STRING", d::Symbol::make("STRING")}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::check(d::DslAst tree) {
+void Interpreter::check(d::DAst tree) {
   symbols= d::Table::make("root", BITS);
   tree->visit(this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::search(cstdstr& n) const {
+d::DSymbol Interpreter::search(cstdstr& n) const {
   return symbols ? symbols->search(n) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::find(cstdstr& n) const {
+d::DSymbol Interpreter::find(cstdstr& n) const {
   return symbols ? symbols->find(n) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::define(d::DslSymbol s) {
+d::DSymbol Interpreter::define(d::DSymbol s) {
   if (symbols) symbols->insert(s);
   return s;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslTable Interpreter::pushScope(cstdstr& name) {
+d::DTable Interpreter::pushScope(cstdstr& name) {
   symbols= d::Table::make(name, symbols);
   return symbols;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslTable Interpreter::popScope() {
+d::DTable Interpreter::popScope() {
   if (!symbols) {
     return P_NIL;
   }

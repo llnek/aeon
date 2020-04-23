@@ -24,18 +24,18 @@ namespace d = czlab::dsl;
 #define FLT_VAL(x) EVal::make((double)x)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst compound_statement(SimplePascalParser*);
-d::DslAst block(SimplePascalParser*);
-d::DslAst expr(SimplePascalParser*);
+d::DAst compound_statement(SimplePascalParser*);
+d::DAst block(SimplePascalParser*);
+d::DAst expr(SimplePascalParser*);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast::Ast(d::DslToken t) { token=t; }
+Ast::Ast(d::DToken t) { token=t; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Ast::Ast() { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BinOp::BinOp(d::DslAst left, d::DslToken op, d::DslAst right)
+BinOp::BinOp(d::DAst left, d::DToken op, d::DAst right)
   : Ast(op), lhs(left), rhs(right) {
   _name= "BinOp";
 }
@@ -47,7 +47,7 @@ void BinOp::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue BinOp::eval(d::IEvaluator* e) {
+d::DValue BinOp::eval(d::IEvaluator* e) {
 
   auto lf = lhs->eval(e);
   auto rt = rhs->eval(e);
@@ -89,18 +89,18 @@ d::DslValue BinOp::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-String::String(d::DslToken t) : Ast(t) { _name="string"; }
+String::String(d::DToken t) : Ast(t) { _name="string"; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void String::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue String::eval(d::IEvaluator* e) {
+d::DValue String::eval(d::IEvaluator* e) {
   return EVal::make(token->getStr());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Num::Num(d::DslToken t) : Ast(t) { }
+Num::Num(d::DToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Num::visit(d::IAnalyzer* a) { }
@@ -115,7 +115,7 @@ stdstr Num::name() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Num::eval(d::IEvaluator* e) {
+d::DValue Num::eval(d::IEvaluator* e) {
   switch (token->type()) {
     case d::T_INTEGER:
       return INT_VAL(token->getInt());
@@ -131,7 +131,7 @@ d::DslValue Num::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-UnaryOp::UnaryOp(d::DslToken t, d::DslAst expr) : Ast(t), expr(expr) { }
+UnaryOp::UnaryOp(d::DToken t, d::DAst expr) : Ast(t), expr(expr) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr UnaryOp::name() const {
@@ -153,7 +153,7 @@ void UnaryOp::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue UnaryOp::eval(d::IEvaluator* e) {
+d::DValue UnaryOp::eval(d::IEvaluator* e) {
   auto r = expr->eval(e);
   auto r_ = DCAST(EVal,r);
 
@@ -185,8 +185,8 @@ void Compound::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Compound::eval(d::IEvaluator* e) {
-  d::DslValue ret;
+d::DValue Compound::eval(d::IEvaluator* e) {
+  d::DValue ret;
   for (auto& it : statements) {
     ret=it->eval(e);
   }
@@ -194,7 +194,7 @@ d::DslValue Compound::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Assignment::Assignment(d::DslAst left, d::DslToken op, d::DslAst right)
+Assignment::Assignment(d::DAst left, d::DToken op, d::DAst right)
   : Ast(op), lhs(left), rhs(right) {
   _name=":=";
 }
@@ -214,7 +214,7 @@ void Assignment::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Assignment::eval(d::IEvaluator* e) {
+d::DValue Assignment::eval(d::IEvaluator* e) {
   auto lhs_= DCAST(Ast,lhs);
   auto v = lhs_->token->getStr();
   auto r= rhs->eval(e);
@@ -224,7 +224,7 @@ d::DslValue Assignment::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Var::Var(d::DslToken t) : Ast(t) {
+Var::Var(d::DToken t) : Ast(t) {
   _name= token->getStr();
 }
 
@@ -241,12 +241,12 @@ void Var::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Var::eval(d::IEvaluator* e) {
+d::DValue Var::eval(d::IEvaluator* e) {
   return e->getValue(token->getStr());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Type::Type(d::DslToken token) : Ast(token) {
+Type::Type(d::DToken token) : Ast(token) {
   _name= token->getStr();
 }
 
@@ -254,12 +254,12 @@ Type::Type(d::DslToken token) : Ast(token) {
 void Type::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Type::eval(d::IEvaluator* e) {
+d::DValue Type::eval(d::IEvaluator* e) {
   return NULL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SymTable::SymTable(cstdstr& n, d::DslTable outer) : SymTable(n) {
+SymTable::SymTable(cstdstr& n, d::DTable outer) : SymTable(n) {
   enclosing=outer;
 }
 
@@ -272,7 +272,7 @@ SymTable::SymTable(cstdstr& n) : d::Table(n) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Param::Param(d::DslAst var, d::DslAst type)
+Param::Param(d::DAst var, d::DAst type)
   : Ast(), var_node(var), type_node(type) {
   _name = DCAST(Var,var_node)->name();
 }
@@ -290,12 +290,12 @@ void Param::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Param::eval(d::IEvaluator* e) {
+d::DValue Param::eval(d::IEvaluator* e) {
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-VarDecl::VarDecl(d::DslAst var, d::DslAst type)
+VarDecl::VarDecl(d::DAst var, d::DAst type)
   : Ast(DCAST(Ast,var)->token), var_node(var), type_node(type) {
   _name= DCAST(Ast,var_node)->name();
 }
@@ -324,13 +324,13 @@ void VarDecl::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue VarDecl::eval(d::IEvaluator* e) {
-  d::DslValue v;
+d::DValue VarDecl::eval(d::IEvaluator* e) {
+  d::DValue v;
   return e->setValue(this->name(), v);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Block::Block(std::vector<d::DslAst>& decls, d::DslAst compound)
+Block::Block(std::vector<d::DAst>& decls, d::DAst compound)
   : Ast(), compound(compound) {
   _name="Block";
   s__ccat(declarations, decls);
@@ -345,7 +345,7 @@ void Block::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Block::eval(d::IEvaluator* e) {
+d::DValue Block::eval(d::IEvaluator* e) {
   for (auto& x : declarations) {
     auto v= x->eval(e);
   }
@@ -354,7 +354,7 @@ d::DslValue Block::eval(d::IEvaluator* e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ProcedureDecl::ProcedureDecl(cstdstr& proc_name,
-    d::AstVec& pms, d::DslAst block_node) : Ast()  {
+    d::AstVec& pms, d::DAst block_node) : Ast()  {
   _name=proc_name;
   block=block_node;
   s__ccat(params, pms);
@@ -382,13 +382,13 @@ void ProcedureDecl::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue ProcedureDecl::eval(d::IEvaluator* e) {
+d::DValue ProcedureDecl::eval(d::IEvaluator* e) {
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ProcedureCall::ProcedureCall(cstdstr& proc_name,
-                             d::AstVec& p, d::DslToken token)
+                             d::AstVec& p, d::DToken token)
   : Ast(token) {
   _name=proc_name;
   s__ccat(args, p);
@@ -413,7 +413,7 @@ void ProcedureCall::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue ProcedureCall::eval(d::IEvaluator* e) {
+d::DValue ProcedureCall::eval(d::IEvaluator* e) {
 
   auto fs= DCAST(d::FnSymbol,proc_symbol);
   auto z= args.size();
@@ -433,7 +433,7 @@ d::DslValue ProcedureCall::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Program::Program(cstdstr& name, d::DslAst block) : Ast() {
+Program::Program(cstdstr& name, d::DAst block) : Ast() {
   _name=name;
   this->block=block;
 }
@@ -444,20 +444,20 @@ void Program::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Program::eval(d::IEvaluator* e) {
+d::DValue Program::eval(d::IEvaluator* e) {
   return block->eval(e);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst variable(SimplePascalParser* ps) {
+d::DAst variable(SimplePascalParser* ps) {
   auto node = Var::make(ps->token());
   return (ps->eat(d::T_IDENT), node);
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst factor(SimplePascalParser* ps) {
+d::DAst factor(SimplePascalParser* ps) {
   auto t= ps->token();
-  d::DslAst res;
+  d::DAst res;
 
   switch (t->type()) {
     case d::T_PLUS:
@@ -487,7 +487,7 @@ d::DslAst factor(SimplePascalParser* ps) {
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst term(SimplePascalParser* ps) {
+d::DAst term(SimplePascalParser* ps) {
   static std::set<int> ops {d::T_MULT,d::T_DIV, T_INT_DIV};
   auto res= factor(ps);
   while (s__contains(ops,ps->cur())) {
@@ -497,9 +497,9 @@ d::DslAst term(SimplePascalParser* ps) {
 }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst expr(SimplePascalParser* ps) {
+d::DAst expr(SimplePascalParser* ps) {
   static std::set<int> ops {d::T_PLUS, d::T_MINUS};
-  d::DslAst res= term(ps);
+  d::DAst res= term(ps);
   while (s__contains(ops,ps->cur())) {
     res= BinOp::make(res, ps->eat(), term(ps));
   }
@@ -507,7 +507,7 @@ d::DslAst expr(SimplePascalParser* ps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst type_spec(SimplePascalParser* ps) {
+d::DAst type_spec(SimplePascalParser* ps) {
   auto t = ps->token();
   switch (t->type()) {
     case T_STR:
@@ -539,7 +539,7 @@ d::AstVec variable_declaration(SimplePascalParser* ps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst assignment_statement(SimplePascalParser* ps) {
+d::DAst assignment_statement(SimplePascalParser* ps) {
   auto left = variable(ps);
   auto t= ps->eat(T_ASSIGN);
   auto right = expr(ps);
@@ -547,12 +547,12 @@ d::DslAst assignment_statement(SimplePascalParser* ps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst empty(SimplePascalParser* ps) {
+d::DAst empty(SimplePascalParser* ps) {
   return NoOp::make();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst proccall_statement(SimplePascalParser* ps) {
+d::DAst proccall_statement(SimplePascalParser* ps) {
   auto token = ps->token();
   auto pn = token->getStr();
   d::AstVec pms;
@@ -574,8 +574,8 @@ d::DslAst proccall_statement(SimplePascalParser* ps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst statement(SimplePascalParser* ps) {
-  d::DslAst node;
+d::DAst statement(SimplePascalParser* ps) {
+  d::DAst node;
   switch (ps->cur()) {
     case T_BEGIN:
       node = compound_statement(ps);
@@ -621,7 +621,7 @@ d::AstVec statement_list(SimplePascalParser* ps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst compound_statement(SimplePascalParser* ps) {
+d::DAst compound_statement(SimplePascalParser* ps) {
   auto nodes = (ps->eat(T_BEGIN),statement_list(ps));
   auto root= (ps->eat(T_END), Compound::make());
   auto pr= DCAST(Compound,root);
@@ -669,7 +669,7 @@ d::AstVec formal_parameter_list(SimplePascalParser* ps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst procedure_declaration(SimplePascalParser* ps) {
+d::DAst procedure_declaration(SimplePascalParser* ps) {
 
   auto pn = (ps->eat(T_PROCEDURE), ps->eat(d::T_IDENT));
   d::AstVec params;
@@ -707,13 +707,13 @@ d::AstVec declarations(SimplePascalParser* ps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst block(SimplePascalParser* ps) {
+d::DAst block(SimplePascalParser* ps) {
   auto decls=declarations(ps);
   return Block::make(decls, compound_statement(ps));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst program(SimplePascalParser* ps) {
+d::DAst program(SimplePascalParser* ps) {
   auto var_node = (ps->eat(T_PROGRAM),variable(ps));
   auto pn= DCAST(Ast,var_node)->name();
   auto prog = Program::make(pn, (ps->eat(d::T_SEMI),block(ps)));
@@ -737,7 +737,7 @@ bool SimplePascalParser::isEof() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst SimplePascalParser::parse() {
+d::DAst SimplePascalParser::parse() {
   return program(this);
 }
 
@@ -757,19 +757,19 @@ bool SimplePascalParser::isCur(int type) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken SimplePascalParser::token() {
+d::DToken SimplePascalParser::token() {
   return lex->ctx().cur;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken SimplePascalParser::eat() {
+d::DToken SimplePascalParser::eat() {
   auto t= lex->ctx().cur;
   lex->ctx().cur=lex->getNextToken();
   return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken SimplePascalParser::eat(int wanted) {
+d::DToken SimplePascalParser::eat(int wanted) {
   auto t= lex->ctx().cur;
   if (t->type() != wanted) {
     auto i=t->marker();

@@ -59,28 +59,32 @@ enum TokenType {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BToken : public d::Token {
+struct BToken : public d::Lexeme {
 
-  static d::DslToken make(int t, cstdstr& s, d::Mark m) {
-    return WRAP_TKN(new BToken(t, s, m));
+  static d::DToken make(int t, cstdstr& s, d::Mark m) {
+    return WRAP_TKN(BToken, t, s, m);
   }
-
-  static d::DslToken make(int t, Tchar c, d::Mark m) {
-    return WRAP_TKN(new BToken(t, c, m));
+  static d::DToken make(int t, Tchar c, d::Mark m) {
+    return WRAP_TKN(BToken, t, c, m);
   }
-
-  virtual stdstr getStr() const;
-  virtual ~BToken() {}
 
   void setLiteral(double d) { number.r= d;}
   void setLiteral(llong n) { number.n=n; }
   void setLiteral(int n) { number.n=n; }
 
+  virtual double getFloat() const;
+  virtual stdstr getStr() const;
+  virtual llong getInt() const;
+  virtual stdstr pr_str() const;
+  virtual ~BToken() {}
+
   private:
 
-  BToken(int t, cstdstr& s, d::Mark m) : d::Token(t,s,m) {}
-  BToken(int t, Tchar c, d::Mark m) : d::Token(t,c,m) {}
+  stdstr lexeme;
+  union { llong n; double r; } number;
 
+  BToken(int t, Tchar c, d::Mark m);
+  BToken(int t, cstdstr& s, d::Mark m);
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -91,29 +95,25 @@ struct Lexer : public d::IScanner {
 
   virtual bool isKeyword(cstdstr&) const;
 
-  virtual d::DslToken getNextToken();
-  virtual d::DslToken number();
-  virtual d::DslToken id();
-  virtual d::DslToken string();
-  virtual d::DslToken skipComment();
+  virtual d::DToken getNextToken();
+  virtual d::DToken skipComment();
+  virtual d::DToken number();
+  virtual d::DToken id();
+  virtual d::DToken string();
+
+  d::Context& ctx() { return _ctx; }
 
   Lexer(const Tchar* src);
   virtual ~Lexer() {}
-
-  d::Context& ctx() { return _ctx; }
 
   private:
 
   d::Context _ctx;
 };
 
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int, Tchar, d::Mark);
-d::DslToken token(int, cstdstr&, d::Mark);
-d::DslToken token(int, cstdstr&, d::Mark, llong n);
-d::DslToken token(int, cstdstr&, d::Mark, double d);
-
+d::DToken token(int, Tchar, d::Mark);
+d::DToken token(int, cstdstr&, d::Mark);
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

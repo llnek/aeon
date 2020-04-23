@@ -24,6 +24,8 @@
 #include <set>
 #include <stack>
 #include <string>
+#include <tuple>
+#include <utility>
 #include <cmath>
 #include <cassert>
 #include <cstdio>
@@ -35,27 +37,27 @@
 namespace czlab::aeon {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Exception {
+struct Error {
   const stdstr what() const { return msg; }
   protected:
-  Exception(const stdstr& s) { msg=s; }
+  Error(cstdstr& s) { msg=s; }
   stdstr msg;
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct FileNotFound : public Exception {
-  FileNotFound(const stdstr&);
+struct FileNotFound : public Error {
+  FileNotFound(cstdstr&);
 };
-struct FileError : public Exception {
-  FileError(const stdstr&);
+struct FileError : public Error {
+  FileError(cstdstr&);
 };
-struct NPError : public Exception {
-  NPError(const stdstr&);
+struct NPError : public Error {
+  NPError(cstdstr&);
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct CString {
 
-  void copy(const char* src);
-  const char* get();
+  void copy(const Tchar* src);
+  const Tchar* get();
 
   CString(size_t z);
   CString();
@@ -68,11 +70,11 @@ struct CString {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-StrVec tokenize(const stdstr& src, Tchar delim);
+StrVec tokenize(cstdstr& src, Tchar delim);
 Tchar unescape_char(Tchar c);
 stdstr escape_char(Tchar c);
-stdstr to_upper(const stdstr&);
-stdstr to_lower(const stdstr&);
+stdstr to_upper(cstdstr&);
+stdstr to_lower(cstdstr&);
 bool fuzzy_equals(double d1, double d2);
 bool fuzzy_zero(double d2);
 int modulo(int, int);
@@ -80,7 +82,7 @@ template <typename T> bool is_even(T x) {
   return (x % 2) == 0;
 }
 void rand_seed();
-stdstr read_file(const char* filepath);
+stdstr read_file(const Tchar* filepath);
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

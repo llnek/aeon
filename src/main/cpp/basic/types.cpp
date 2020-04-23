@@ -27,7 +27,7 @@ namespace d = czlab::dsl;
   return P_NIL; } while (0)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue expected(cstdstr& m, d::DslValue v) {
+d::DValue expected(cstdstr& m, d::DValue v) {
   RAISE(d::BadArg,
         "Expected `%s`, got %s.", C_STR(m), C_STR(v->pr_str()));
 }
@@ -36,6 +36,7 @@ d::DslValue expected(cstdstr& m, d::DslValue v) {
 // globals used to test typeids
 BNumber A_NUM;
 BStr A_STR;
+BChar A_CHAR;
 BArray A_ARRAY;
 LibFunc A_FUNC;
 Lambda A_DEFN;
@@ -57,7 +58,7 @@ BArray::BArray(const IntVec& szs) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue BArray::set(d::VSlice pms, d::DslValue v) {
+d::DValue BArray::set(d::VSlice pms, d::DValue v) {
   int pos = index(pms);
   ASSERT(pos >=0 && pos < value->size(),
          "Array::set, index out of bound, got %d.", pos);
@@ -66,7 +67,7 @@ d::DslValue BArray::set(d::VSlice pms, d::DslValue v) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue BArray::get(d::VSlice pms) {
+d::DValue BArray::get(d::VSlice pms) {
   int pos= index(pms);
   ASSERT(pos >=0 && pos < value->size(),
          "Array::get, index out of bound, got %d.", pos);
@@ -108,7 +109,7 @@ stdstr BArray::pr_str(bool p) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool BArray::eq(d::DslValue rhs) const {
+bool BArray::eq(d::DValue rhs) const {
   bool ok=0;
   if (d::is_same(rhs, this)) {
     auto p= DCAST(BArray, rhs);
@@ -127,7 +128,7 @@ bool BArray::eq(d::DslValue rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int BArray::cmp(d::DslValue rhs) const {
+int BArray::cmp(d::DValue rhs) const {
   if (d::is_same(rhs, this)) {
     auto p= DCAST(BArray, rhs);
     auto len = value->size();
@@ -142,32 +143,37 @@ int BArray::cmp(d::DslValue rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LibFunc* cast_native(d::DslValue v, int panic) {
+LibFunc* cast_native(d::DValue v, int panic) {
   CASTXXX(LibFunc,v,panic,A_FUNC,"native");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Lambda* cast_lambda(d::DslValue v, int panic) {
+Lambda* cast_lambda(d::DValue v, int panic) {
   CASTXXX(Lambda,v,panic,A_DEFN,"lambda");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BArray* cast_array(d::DslValue v, int panic) {
+BArray* cast_array(d::DValue v, int panic) {
   CASTXXX(BArray,v,panic,A_ARRAY,"array");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BNumber* cast_number(d::DslValue v, int panic) {
+BNumber* cast_number(d::DValue v, int panic) {
   CASTXXX(BNumber,v,panic,A_NUM,"number");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BStr* cast_string(d::DslValue v, int panic) {
+BStr* cast_string(d::DValue v, int panic) {
   CASTXXX(BStr,v,panic,A_STR,"string");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue op_math(d::DslValue left, int op, d::DslValue right) {
+BChar* cast_char(d::DValue v, int panic) {
+  CASTXXX(BChar,v,panic,A_CHAR,"char");
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DValue op_math(d::DValue left, int op, d::DValue right) {
   auto rhs = cast_number(right,1);
   auto lhs = cast_number(left,1);
   bool ints = lhs->isInt() && rhs->isInt();
@@ -223,7 +229,7 @@ d::DslValue op_math(d::DslValue left, int op, d::DslValue right) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void ensure_data_type(cstdstr& n, d::DslValue v) {
+void ensure_data_type(cstdstr& n, d::DValue v) {
   auto cz= n[n.size()-1];
   auto s= cast_string(v,0);
   switch (cz) {
@@ -241,13 +247,13 @@ void ensure_data_type(cstdstr& n, d::DslValue v) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Lambda::Lambda(cstdstr& name, StrVec& pms, d::DslAst e) : Function(name) {
+Lambda::Lambda(cstdstr& name, StrVec& pms, d::DAst e) : Function(name) {
   body=e;
   s__ccat(params, pms);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Lambda::invoke(d::IEvaluator* e, d::VSlice args) {
+d::DValue Lambda::invoke(d::IEvaluator* e, d::VSlice args) {
   ASSERT(args.size() == params.size(),
       "Arity error, expecting %d got %d.", (int)params.size(), (int)args.size());
   // we need to create a new frame to process this defn.
@@ -263,7 +269,7 @@ d::DslValue Lambda::invoke(d::IEvaluator* e, d::VSlice args) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Lambda::invoke(d::IEvaluator* e) {
+d::DValue Lambda::invoke(d::IEvaluator* e) {
   d::ValVec vs;
   return invoke(e, d::VSlice(vs));
 }
@@ -274,13 +280,13 @@ stdstr Lambda::pr_str(bool p) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Lambda::eq(d::DslValue rhs) const {
+bool Lambda::eq(d::DValue rhs) const {
   return d::is_same(rhs, this) &&
          DCAST(Lambda, rhs)->name() == name();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int Lambda::cmp(d::DslValue rhs) const {
+int Lambda::cmp(d::DValue rhs) const {
   if (d::is_same(rhs, this)) {
     return eq(rhs) ? 0 : pr_str().compare(rhs->pr_str());
   } else {
@@ -294,12 +300,12 @@ LibFunc::LibFunc(cstdstr& name, Invoker k) : Function(name) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LibFunc::invoke(d::IEvaluator* e, d::VSlice args) {
+d::DValue LibFunc::invoke(d::IEvaluator* e, d::VSlice args) {
   return fn(e, args);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue LibFunc::invoke(d::IEvaluator* e) {
+d::DValue LibFunc::invoke(d::IEvaluator* e) {
   d::ValVec vs;
   return invoke(e, d::VSlice(vs));
 }
@@ -310,12 +316,12 @@ stdstr LibFunc::pr_str(bool p) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool LibFunc::eq(d::DslValue rhs) const {
+bool LibFunc::eq(d::DValue rhs) const {
   return d::is_same(rhs, this) && DCAST(LibFunc, rhs)->fn == fn;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int LibFunc::cmp(d::DslValue rhs) const {
+int LibFunc::cmp(d::DValue rhs) const {
   if (d::is_same(rhs, this)) {
     return DCAST(LibFunc, rhs)->fn == fn
            ? 0 : pr_str().compare(rhs->pr_str());
@@ -332,12 +338,12 @@ bool BNumber::match(const BNumber* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool BNumber::eq(d::DslValue rhs) const {
+bool BNumber::eq(d::DValue rhs) const {
   return d::is_same(rhs, this) && match(DCAST(BNumber, rhs));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int BNumber::cmp(d::DslValue rhs) const {
+int BNumber::cmp(d::DValue rhs) const {
   if (d::is_same(rhs, this)) {
     auto p= DCAST(BNumber, rhs);
     return match(p) ? 0 : (getFloat() > p->getFloat() ? 1 : -1);
@@ -347,12 +353,12 @@ int BNumber::cmp(d::DslValue rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool BStr::eq(d::DslValue rhs) const {
+bool BStr::eq(d::DValue rhs) const {
   return d::is_same(rhs, this) && DCAST(BStr,rhs)->value == value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int BStr::cmp(d::DslValue rhs) const {
+int BStr::cmp(d::DValue rhs) const {
   if (d::is_same(rhs, this)) {
     return value.compare(DCAST(BStr,rhs)->value);
   } else {
@@ -360,7 +366,20 @@ int BStr::cmp(d::DslValue rhs) const {
   }
 }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool BChar::eq(d::DValue rhs) const {
+  return d::is_same(rhs, this) && DCAST(BChar,rhs)->value == value;
+}
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int BChar::cmp(d::DValue rhs) const {
+  if (d::is_same(rhs, this)) {
+    auto p = DCAST(BChar,rhs);
+    return value==p->value ? 0 : (value > p->value ? 1 : -1);
+  } else {
+    return pr_str().compare(rhs->pr_str());
+  }
+}
 
 
 

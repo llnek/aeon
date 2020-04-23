@@ -43,12 +43,12 @@ StrVec CORE_LISP {
 #define TO_VAL(x) DCAST(LValue,x)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Lisper::evalAst(d::DslValue ast, d::DslFrame env) {
+d::DValue Lisper::evalAst(d::DValue ast, d::DFrame env) {
   return TO_VAL(ast)->eval(this,env);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame lambda_env(LLambda* fn, d::VSlice args) {
+d::DFrame lambda_env(LLambda* fn, d::VSlice args) {
   auto fm= d::Frame::make("lambda", fn->env);
   auto z=fn->params.size();
   auto len= args.size();
@@ -77,7 +77,7 @@ d::DslFrame lambda_env(LLambda* fn, d::VSlice args) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LSeqable* is_pair(d::DslValue v, int panic) {
+LSeqable* is_pair(d::DValue v, int panic) {
   LSeqable* s = NULL;
   if (auto x = cast_list(v); X_NIL(x)) {
     s = s__cast(LSeqable,x);
@@ -89,12 +89,12 @@ LSeqable* is_pair(d::DslValue v, int panic) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Lisper::PRINT(d::DslValue v) {
+stdstr Lisper::PRINT(d::DValue v) {
   return TO_VAL(v)->pr_str(1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Lisper::syntaxQuote(d::DslValue ast, d::DslFrame env) {
+d::DValue Lisper::syntaxQuote(d::DValue ast, d::DFrame env) {
   auto seq = is_pair(ast,0);
   if (E_NIL(seq)) {
     // `a => 'a
@@ -137,7 +137,7 @@ d::DslValue Lisper::syntaxQuote(d::DslValue ast, d::DslFrame env) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LMacro* maybeMacro(Lisper* p, d::DslValue ast, d::DslFrame env) {
+LMacro* maybeMacro(Lisper* p, d::DValue ast, d::DFrame env) {
   auto s = is_pair(ast,0);
   auto sym = s ? cast_symbol(s->first()) : P_NIL;
   auto f= sym ? env->search(sym->impl(),env) : P_NIL;
@@ -145,7 +145,7 @@ LMacro* maybeMacro(Lisper* p, d::DslValue ast, d::DslFrame env) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-StrVec cast_params(d::DslValue v) {
+StrVec cast_params(d::DValue v) {
   auto pms = cast_vec(v, 1);
   StrVec vs;
   for (auto i = 0, e=pms->count(); i < e; ++i) {
@@ -164,7 +164,7 @@ StrVec cast_params(d::DslValue v) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Lisper::macroExpand(d::DslValue ast, d::DslFrame env) {
+d::DValue Lisper::macroExpand(d::DValue ast, d::DFrame env) {
   for (auto m = maybeMacro(this, ast, env); X_NIL(m);) {
     auto seq= is_pair(ast,1);
     d::ValVec args;
@@ -178,7 +178,7 @@ d::DslValue Lisper::macroExpand(d::DslValue ast, d::DslFrame env) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue wrapAsDo(LList* form, int from) {
+d::DValue wrapAsDo(LList* form, int from) {
   auto end= form->count();
   auto diff= end-from;
   switch (diff) {
@@ -194,7 +194,7 @@ d::DslValue wrapAsDo(LList* form, int from) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue wrapAsDo(d::ValVec& v) {
+d::DValue wrapAsDo(d::ValVec& v) {
   switch (v.size()) {
     case 0: return NIL_VAL();
     case 1: return v[0];
@@ -206,7 +206,7 @@ d::DslValue wrapAsDo(d::ValVec& v) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
+d::DValue Lisper::EVAL(d::DValue ast, d::DFrame env) {
   while (true) {
     DEBUG("eval(ast)=%s.\n", C_STR(ast->pr_str(1)));
     auto list = cast_list(ast, 0);
@@ -277,9 +277,9 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
 
       if (code == "try") {
         // (try a b c (catch e 1 2 3))
-        d::DslValue error;
+        d::DValue error;
         stdstr errorVar;
-        d::DslValue cbody;
+        d::DValue cbody;
         d::ValVec tbody;
         for (auto j=1; j < len; ++j) {
           auto n= list->nth(j);
@@ -302,7 +302,7 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
         catch(stdstr& exp) {
           error = STRING_VAL(exp);
         }
-        catch(d::DslValue& exp) {
+        catch(d::DValue& exp) {
           error = exp;
         }
         if (cbody && error) {
@@ -353,7 +353,7 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
     if (auto len=vs->count(); len==0) {
       return NIL_VAL();
     }
-    d::DslValue op= vs->nth(0);
+    d::DValue op= vs->nth(0);
     d::ValVec args;
     appendAll(vs,1,args);
 //    auto func= cast_function(op,1);
@@ -370,12 +370,12 @@ d::DslValue Lisper::EVAL(d::DslValue ast, d::DslFrame env) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::pair<int,d::DslValue> Lisper::READ(const stdstr& s) {
+std::pair<int,d::DValue> Lisper::READ(const stdstr& s) {
   return SExprParser(s.c_str()).parse();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr repl(const stdstr& s, d::DslFrame env) {
+stdstr repl(const stdstr& s, d::DFrame env) {
   Lisper lisp;
   stdstr out;
   auto ret= lisp.READ(s);
@@ -394,7 +394,7 @@ stdstr repl(const stdstr& s, d::DslFrame env) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame root_env() {
+d::DFrame root_env() {
   auto f= init_natives();
   Lisper ls;
   for (auto& s : CORE_LISP) {

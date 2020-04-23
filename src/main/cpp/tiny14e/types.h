@@ -24,8 +24,8 @@ namespace a = czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SValue : public d::Data {
 
-  virtual int compare(d::DslValue rhs) const { ASSERT1(rhs); return cmp(rhs); }
-  virtual bool equals(d::DslValue rhs) const { ASSERT1(rhs); return eq(rhs); }
+  virtual int compare(d::DValue rhs) const { ASSERT1(rhs); return cmp(rhs); }
+  virtual bool equals(d::DValue rhs) const { ASSERT1(rhs); return eq(rhs); }
   virtual stdstr pr_str(bool p = 0) const = 0;
   virtual ~SValue() {}
 
@@ -33,17 +33,18 @@ struct SValue : public d::Data {
 
   SValue() {}
 
-  virtual bool eq(d::DslValue) const=0;
-  virtual int cmp(d::DslValue) const=0;
+  virtual bool eq(d::DValue) const=0;
+  virtual int cmp(d::DValue) const=0;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SNumber : public SValue {
 
-  static d::DslValue make(double d) { return WRAP_VAL(new SNumber(d)); }
-  static d::DslValue make(int n) { return WRAP_VAL(new SNumber(n)); }
-  static d::DslValue make(llong n) { return WRAP_VAL(new SNumber(n)); }
-  static d::DslValue make() { return WRAP_VAL(new SNumber()); }
+  static d::DValue make(double d) {
+    return WRAP_VAL(SNumber,d); }
+  static d::DValue make(int n) { return WRAP_VAL( SNumber,n); }
+  static d::DValue make(llong n) { return WRAP_VAL( SNumber,n); }
+  static d::DValue make() { return WRAP_VAL( SNumber); }
 
   double getFloat() const { return isInt() ? (double)num.n : num.r; }
   llong getInt() const { return isInt() ? num.n : (llong) num.r; }
@@ -76,8 +77,8 @@ struct SNumber : public SValue {
 
   bool match(const SNumber* rhs) const;
 
-  virtual bool eq(d::DslValue) const;
-  virtual int cmp(d::DslValue) const;
+  virtual bool eq(d::DValue) const;
+  virtual int cmp(d::DValue) const;
 
   int type;
   union {
@@ -89,12 +90,12 @@ struct SStr : public SValue {
 
   virtual stdstr pr_str(bool p=0) const { return value; }
 
-  static d::DslValue make(cstdstr& s) {
-    return WRAP_VAL(new SStr(s));
+  static d::DValue make(cstdstr& s) {
+    return WRAP_VAL( SStr,s);
   }
 
-  static d::DslValue make(const char* s) {
-    return WRAP_VAL(new SStr(s));
+  static d::DValue make(const Tchar* s) {
+    return WRAP_VAL( SStr,s);
   }
 
   SStr() {}
@@ -103,8 +104,8 @@ struct SStr : public SValue {
 
   private:
 
-  virtual bool eq(d::DslValue) const;
-  virtual int cmp(d::DslValue) const;
+  virtual bool eq(d::DValue) const;
+  virtual int cmp(d::DValue) const;
 
   SStr(cstdstr& s) : value(s) {}
   SStr(const char* s) : value(s) {}
@@ -112,11 +113,11 @@ struct SStr : public SValue {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue expected(cstdstr& m, d::DslValue v);
+d::DValue expected(cstdstr& m, d::DValue v);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SNumber* cast_number(d::DslValue, int panic=0);
-SStr* cast_string(d::DslValue, int panic=0);
+SNumber* cast_number(d::DValue, int panic=0);
+SStr* cast_string(d::DValue, int panic=0);
 
 
 

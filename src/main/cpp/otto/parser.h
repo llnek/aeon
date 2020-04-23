@@ -25,7 +25,7 @@ stdstr gensym(cstdstr& prefix);
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct SExprParser : public d::IParser {
   // S-Expression parser.
-  std::pair<int,d::DslValue> parse();
+  std::pair<int,d::DValue> parse();
   SExprParser(const Tchar* src);
   virtual ~SExprParser();
   int cur() const;
@@ -33,9 +33,9 @@ struct SExprParser : public d::IParser {
   bool isCur(int) const;
   bool isEof() const;
 
-  d::DslToken token() const;
-  d::DslToken eat();
-  d::DslToken eat(int wanted);
+  d::DToken token() const;
+  d::DToken eat();
+  d::DToken eat(int wanted);
 
   Reader* rdr() { return lexer; }
 

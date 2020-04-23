@@ -33,8 +33,11 @@ int main(int argc, char* argv[]) {
     Basic p(f.c_str());
     p.interpret();
     std::cout << "done." << "\n";
-  } catch (const a::Exception& e) {
+  } catch (const a::Error& e) {
     std::cout << e.what() << "\n";
+  } catch (...) {
+    std::exception_ptr p = std::current_exception();
+    std::cout << "Error!!!" << "\n";
   }
   return 0;
 }

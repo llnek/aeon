@@ -55,7 +55,7 @@ std::map<int, stdstr> TOKENS {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::map<stdstr,int> KEYWORDS {
+std::map<stdstr,int> KWDS {
   {map__val(TOKENS,T_ARRAYINDEX), T_ARRAYINDEX},
   {map__val(TOKENS,T_ON), T_ON},
   {map__val(TOKENS,T_DEF), T_DEF},
@@ -92,46 +92,77 @@ std::map<stdstr,int> KEYWORDS {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr typeToString(int t) {
   return s__contains(TOKENS, t)
-         ? map__val(TOKENS, t) : ("token=" + N_STR(t));
+         ? map__val(TOKENS, t) : ("token#" + N_STR(t));
 }
 
-////;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//static void error(cstdstr& expected, const BToken* tkn) {
-//  auto i= tkn->marker();
-//  RAISE(d::SyntaxError,
-//        "Expecting %s, got token#%d, near line %d(%d).",
-//        C_STR(expected), tkn->type(), i.first, i.second);
-//}
-//
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+BToken::BToken(int type, cstdstr& s, d::Mark info) : d::Lexeme(type, info) {
+  lexeme= s;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+BToken::BToken(int type, Tchar ch, d::Mark info) : d::Lexeme(type, info) {
+  lexeme= stdstr { ch };
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+double BToken::getFloat() const {
+  return type() == d::T_REAL ? number.r : number.n;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+llong BToken::getInt() const {
+  return type() == d::T_INTEGER ? number.n : number.r;
+}
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr BToken::getStr() const {
-  return (type() == d::T_IDENT ||
-          type() == d::T_STRING)
-    ? lexeme
-    : (s__contains(TOKENS,type()) ? TOKENS.at(type()) : lexeme);
+  auto t=type();
+  return (t == d::T_IDENT ||
+          t == d::T_STRING)
+    ? lexeme : (s__contains(TOKENS,t) ? TOKENS.at(t) : lexeme);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& x, d::Mark info) {
+stdstr BToken::pr_str() const { return lexeme; }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DToken token(int t, cstdstr& x, d::Mark info) {
   return BToken::make(t, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, Tchar c, d::Mark info) {
+d::DToken token(int t, Tchar c, d::Mark info) {
   return BToken::make(t, c, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& s, d::Mark info, llong n) {
-  auto b= BToken::make(t, s, info);
-  DCAST(BToken, b)->setLiteral(n);
-  //std::cout << "token num = " << i.num.getInt() << "\n";
+d::DToken token(d::Context& ctx) {
+  return token(d::T_EOF, "<EOF>", ctx.mark());
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DToken token_eol(d::Mark m) {
+  return token(T_EOL, "<EOL>", m);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DToken token_str(cstdstr& x, d::Mark info) {
+  return BToken::make(d::T_STRING, x, info);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DToken token_long(cstdstr& s, d::Mark info) {
+  auto b= BToken::make(d::T_INTEGER, s, info);
+  auto n= ::atol(s.c_str());
+  DCAST(BToken, b)->setLiteral((llong)n);
   return b;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& s, d::Mark info, double d) {
-  auto b= BToken::make(t,s, info);
+d::DToken token_real(cstdstr& s, d::Mark info) {
+  auto b= BToken::make(d::T_REAL,s, info);
+  auto d= ::atof(s.c_str());
   DCAST(BToken,b)->setLiteral(d);
   return b;
 }
@@ -139,21 +170,17 @@ d::DslToken token(int t, cstdstr& s, d::Mark info, double d) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Lexer::Lexer(const Tchar* src) {
   _ctx.len= ::strlen(src);
-  _ctx.eof=false;
   _ctx.src=src;
-  _ctx.line=0;
-  _ctx.col=0;
-  _ctx.pos=0;
   _ctx.cur= getNextToken();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool Lexer::isKeyword(cstdstr& k) const {
-  return s__contains(KEYWORDS, k);
+  return s__contains(KWDS, k);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::skipComment() {
+d::DToken Lexer::skipComment() {
   auto m= _ctx.mark();
   stdstr out;
   while (!_ctx.eof) {
@@ -167,27 +194,23 @@ d::DslToken Lexer::skipComment() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::number() {
-  auto m= _ctx.mark();
-  auto s = C_STR(d::numeric(_ctx));
-  return ::strchr(s, '.')
-    ? token(d::T_REAL, s, m, ::atof(s))
-    : token(d::T_INTEGER, s, m, (llong) ::atol(s));
+d::DToken Lexer::number() {
+  auto res = d::numeric(_ctx);
+  return ::strchr(res.first.c_str(), '.')
+         ? token_real(res.first, res.second) : token_long(res.first, res.second);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::string() {
-  auto m= _ctx.mark();
-  return token(d::T_STRING, d::str(_ctx), m);
+d::DToken Lexer::string() {
+  auto res= d::str(_ctx);
+  return token_str(res.first, res.second);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool filter(Tchar ch, bool first) {
-  if (first) {
-    return (ch == '_' || ::isalpha(ch));
-  } else {
-    return (ch == '_' || ch == '$' || ::isalpha(ch) || ::isdigit(ch));
-  }
+  return first
+    ? (ch == '_' || ::isalpha(ch))
+    : (ch == '_' || ch == '$' || ::isalpha(ch) || ::isdigit(ch));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -200,38 +223,45 @@ void skip_wspace(d::Context& ctx) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::id() {
-  auto m= _ctx.mark();
-  auto s= d::identifier(_ctx, &filter);
-  auto S= a::to_upper(s);
-  if (isKeyword(S)) {
-    return token(KEYWORDS.at(S), S, m);
-  } else {
-    auto p= ::strchr(S.c_str(), '$');
-    if (p) {
-      ASSERT(*(p+1)=='\0',
-             "Malformed var name %s.", C_STR(s));
-    }
-    return token(d::T_IDENT, S, m);
+void checkid(cstdstr& src, d::Mark m) {
+  auto cs= src.c_str();
+  auto s= ::strchr(cs, '$');// string var
+  auto i= ::strchr(cs, '%');// integer var
+  auto d= ::strchr(cs, '#');// double var
+  auto f= ::strchr(cs, '!');// float var
+  if ((s && *(s+1) != '\0') ||
+      (i && *(i+1) != '\0') ||
+      (f && *(f+1) != '\0') ||
+      (d && *(d+1) != '\0')) {
+    E_SYNTAX("Naming error: `%s` near line %d:%d.", cs, m.first,m.second);
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::getNextToken() {
-  Tchar ch;
+d::DToken Lexer::id() {
+  auto res = d::identifier(_ctx, &filter);
+  auto S= a::to_upper(res.first);
+
+  if (isKeyword(S)) {
+    return token(KWDS.at(S), S, res.second);
+  } else {
+    checkid(S.c_str(), res.second);
+    return token(d::T_IDENT, S, res.second);
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DToken Lexer::getNextToken() {
   while (!_ctx.eof) {
-    ch= d::peek(_ctx);
-    if (ch == '\r' &&
-        d::peekAhead(_ctx) == '\n') {
-      auto m= _ctx.mark();
-      d::advance(_ctx,2);
-      return token(T_EOL, "<EOL>", m);
+    auto ch= d::peek(_ctx);
+    // ORDER IS IMPORTANT !!!!
+    if (ch == '\n') {
+      return token_eol(d::mark_advance(_ctx));
     }
     else
-    if (ch == '\n') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(T_EOL, "<EOL>", m);
+    if (ch == '\r' &&
+        d::peekAhead(_ctx) == '\n') {
+      return token_eol(d::mark_advance(_ctx,2));
     }
     else
     if (::isspace(ch)) {
@@ -247,39 +277,27 @@ d::DslToken Lexer::getNextToken() {
     }
     else
     if (ch == '*') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_MULT, ch, m);
+      return token(d::T_MULT, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == '/') {
-      auto m= _ctx.mark();
-      d::advance( _ctx);
-      return token(d::T_DIV, ch, m);
+      return token(d::T_DIV, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == '+') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_PLUS, ch, m);
+      return token(d::T_PLUS, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == '-') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_MINUS, ch, m);
+      return token(d::T_MINUS, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == '(') {
-      auto m= _ctx.mark();
-      d::advance( _ctx);
-      return token(d::T_LPAREN, ch, m);
+      return token(d::T_LPAREN, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == ')') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_RPAREN, ch, m);
+      return token(d::T_RPAREN, ch, d::mark_advance(_ctx));
     }
     else
     if (filter(ch,true)) {
@@ -287,95 +305,69 @@ d::DslToken Lexer::getNextToken() {
     }
     else
     if (ch == '^') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(T_POWER, ch, m);
+      return token(T_POWER, ch, d::mark_advance(_ctx));
     }
     else
     if ((ch == '=' && d::peekAhead(_ctx)== '>') ||
         (ch == '>' && d::peekAhead(_ctx)== '=')) {
-      auto m= _ctx.mark();
-      d::advance(_ctx,2);
-      return token(T_GTEQ, ch, m);
+      return token(T_GTEQ, ">=", d::mark_advance(_ctx,2));
     }
     else
     if ((ch == '=' && d::peekAhead(_ctx)== '<') ||
         (ch == '<' && d::peekAhead(_ctx)== '=')) {
-      auto m= _ctx.mark();
-      d::advance(_ctx,2);
-      return token(T_LTEQ, ch, m);
+      return token(T_LTEQ, "<=", d::mark_advance(_ctx,2));
     }
     else
     if ((ch == '>' && d::peekAhead(_ctx)== '<') ||
         (ch == '<' && d::peekAhead(_ctx)== '>')) {
-      auto m= _ctx.mark();
-      d::advance(_ctx,2);
-      return token(T_NOTEQ, ch, m);
+      return token(T_NOTEQ, "<>", d::mark_advance(_ctx,2));
     }
     else
     if (ch == '>') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_GT, ch, m);
+      return token(d::T_GT, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == '<') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_LT, ch, m);
+      return token(d::T_LT, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == '=') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_EQ, ch, m);
+      return token(d::T_EQ, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == '{') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_LBRACE, ch, m);
+      return token(d::T_LBRACE, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == '}') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_RBRACE, ch, m);
+      return token(d::T_RBRACE, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == ';') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_SEMI, ch, m);
+      return token(d::T_SEMI, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == ':') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_COLON, ch, m);
+      return token(d::T_COLON, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == ',') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_COMMA, ch, m);
+      return token(d::T_COMMA, ch, d::mark_advance(_ctx));
     }
     else
     if (ch == '.') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_DOT, ch, m);
+      return token(d::T_DOT, ch, d::mark_advance(_ctx));
+    }
+    else
+    if (ch == '\'') {
+      // quote is short-hand for comment
+      return token(T_REM, "REM", d::mark_advance(_ctx));
     }
     else {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
-      return token(d::T_ROGUE, ch, m);
-      //RAISE(d::SyntaxError,
-            //"Unexpected char %c near line %d(%d).", ch, _ctx.line, _ctx.col);
+      return token(d::T_ROGUE, ch, d::mark_advance(_ctx));
     }
   }
-
-  return token(d::T_EOF, "<EOF>", _ctx.mark());
+  return token(_ctx);
 }
 
 

@@ -122,6 +122,7 @@ typedef int64_t llong;
 //#define F__LOOP(x,c) for (auto x=c.begin(); x != c.end(); ++x)
 #define s__ccat(x,y) ((x).insert((x).end(),(y).begin(),(y).end()))
 #define s__pair(T1,T2,v1,v2) std::pair<T1,T2>(v1,v2)
+#define s__tuple2(a,b) std::make_tuple(a,b)
 #define s__conj(c,n) (c).push_back(n)
 #define s__nil(x) (x = nullptr)
 #define s__mix(c) std::random_shuffle(c.begin(),c.end())

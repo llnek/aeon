@@ -42,15 +42,33 @@ std::map<stdstr,int> KEYWORDS {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr typeToString(int type) {
   return s__contains(TOKENS,type)
-         ? map__val(TOKENS,type)
-         : stdstr("token-type=") + N_STR(type);
+         ? map__val(TOKENS,type) : ("token-type=" + N_STR(type));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LToken::LToken(int t, cstdstr& s, d::Mark m) : d::Token(t,s,m) { }
+LToken::LToken(int t, cstdstr& s, d::Mark m) : d::Lexeme(t,m) {
+  lexeme=s;
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-LToken::LToken(int t, Tchar c, d::Mark m) : d::Token(t,c,m) { }
+LToken::LToken(int t, Tchar c, d::Mark m) : d::Lexeme(t,m) {
+  lexeme= stdstr { c };
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr LToken::pr_str() const {
+  return lexeme;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+double LToken::getFloat() const {
+  return type() == d::T_REAL ? number.r : number.n;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+llong LToken::getInt() const {
+  return type() == d::T_INTEGER ? number.n : number.r;
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LToken::getStr() const {
@@ -58,82 +76,86 @@ stdstr LToken::getStr() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& x, d::Mark info) {
+d::DToken token(int t, cstdstr& x, d::Mark info) {
   return LToken::make(t, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, Tchar x, d::Mark info) {
+d::DToken token(int t, Tchar x, d::Mark info) {
   return LToken::make(t, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& x, d::Mark info, cstdstr&) {
-  return LToken::make(t, x, info);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& s, d::Mark info, llong n) {
-  auto k= LToken::make(t, s, info);
+d::DToken token_long(cstdstr& s, d::Mark info) {
+  auto k= LToken::make(d::T_INTEGER, s, info);
+  llong n= ::atol(s.c_str());
   DCAST(LToken,k)->setLiteral(n);
   return k;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& s, d::Mark info, double d) {
-  auto k= LToken::make(t, s, info);
+d::DToken token_real(cstdstr& s, d::Mark info) {
+  auto k= LToken::make(d::T_REAL, s, info);
+  auto d= ::atof(s.c_str());
   DCAST(LToken,k)->setLiteral(d);
   return k;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DToken token(d::Context& ctx) {
+  return LToken::make(d::T_EOF, "<EOF>", ctx.mark());
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Reader::Reader(const Tchar* src) {
   _ctx.len= ::strlen(src);
-  _ctx.eof=false;
   _ctx.src=src;
-  _ctx.line=0;
-  _ctx.col=0;
-  _ctx.pos=0;
   _ctx.cur= getNextToken();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Reader::isKeyword(cstdstr& k) const {
-  throw d::Unsupported("not allowed!");
+bool Reader::isKeyword(cstdstr&) const {
+  throw d::Unsupported("isKeyword() not allowed!");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Reader::skipComment() {
+d::DToken Reader::skipComment() {
   auto m= _ctx.mark();
   stdstr s;
-  Tchar c;
-
   while (!_ctx.eof) {
     d::advance(_ctx);
-    c= d::peek(_ctx);
-    if (c == '\n') {
-      break;
-    }
+    auto c= d::peek(_ctx);
+    if (c == '\n') { break; }
     s += c;
   }
-
   return token(d::T_COMMENT, s, m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Reader::number() {
-  auto m= _ctx.mark();
-  auto s= C_STR(d::numeric(_ctx));
-  return ::strchr(s, '.')
-    ? token(d::T_REAL, s, m, ::atof(s))
-    : token(d::T_INTEGER, s, m, (llong) ::atol(s));
+d::DToken Reader::number() {
+  auto ch= d::peek(_ctx);
+  bool minus=0;
+
+  if (ch == '-' ||
+      ch == '+') {
+    minus= (ch == '-');
+    d::advance(_ctx); }
+
+  auto res= d::numeric(_ctx);
+  auto ds= res.first;
+
+  if (minus)
+    ds = "-" + ds;
+
+  return ::strchr(ds.c_str(), '.')
+    ? token_real(ds, res.second)
+    : token_long(ds, res.second);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Reader::string() {
-  auto m= _ctx.mark();
-  auto s= d::str(_ctx);
-  return token(d::T_STRING, s, m, s);
+d::DToken Reader::string() {
+  auto res= d::str(_ctx);
+  return token(d::T_STRING, res.first, res.second);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -144,21 +166,19 @@ bool isKeywdChar(Tchar ch)  {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Reader::keywd() {
-  auto m= _ctx.mark();
+d::DToken Reader::keywd() {
+  auto m= d::mark_advance(_ctx); // skip the colon
   stdstr res;
-  d::advance(_ctx); // skip the colon
   while (!_ctx.eof) {
     auto ch=peek(_ctx);
     if (isKeywdChar(ch)) {
       res += ch;
-      advance(_ctx); } else { break; }
-  }
-  return token(T_KEYWORD, res, m, res);
+      advance(_ctx); } else { break; } }
+  return token(T_KEYWORD, res, m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Reader::id() {
+d::DToken Reader::id() {
   static stdstr bad("{}[]()'\"\\`@~^,.;");
   auto m= _ctx.mark();
   stdstr res;
@@ -177,7 +197,7 @@ d::DslToken Reader::id() {
   if (res == "nil") {
     return token(T_NIL, res, m); }
   DEBUG("::id = %s.\n", C_STR(res));
-  return token(d::T_IDENT, res, m, res);
+  return token(d::T_IDENT, res, m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -187,10 +207,9 @@ void Reader::skipCommas() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Reader::getNextToken() {
-  Tchar ch;
+d::DToken Reader::getNextToken() {
   while (!_ctx.eof) {
-    ch= d::peek(_ctx);
+    auto ch= d::peek(_ctx);
     if (::isspace(ch)) {
       d::skipWhitespace(_ctx);
     }
@@ -205,45 +224,37 @@ d::DslToken Reader::getNextToken() {
     else
     if (ch == '~' &&
         d::peekAhead(_ctx) == '@') {
-      auto m= _ctx.mark();
-      d::advance(_ctx, 2);
+      auto m= d::mark_advance(_ctx, 2);
       return token(T_SPLICE_UNQUOTE, "~@", m);
     }
     else
     if (ch == '\'') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_QUOTE, ch, m);
     }
     else
     if (ch == '`') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_BACKTICK, ch, m);
     }
     else
     if (ch == '~') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_TILDA, ch, m);
     }
     else
     if (ch == '^') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_HAT, ch, m);
     }
     else
     if (ch == '@') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_AT, ch, m);
     }
     else
     if ((ch == '-' || ch == '+') &&
         ::isdigit(d::peekAhead(_ctx))) {
-      //skip the pointless + sign
-      if (ch=='+') { d::advance(_ctx); }
       return number();
     }
     else
@@ -257,51 +268,43 @@ d::DslToken Reader::getNextToken() {
     else
     if (ch == '#' &&
         d::peekAhead(_ctx) == '{') {
-      auto m=_ctx.mark();
-      d::advance(_ctx, 2);
+      auto m= d::mark_advance(_ctx, 2);
       return token(T_SET, "#{", m);
     }
     else
     if (ch == '#' &&
         d::peekAhead(_ctx) == '(') {
-      auto m=_ctx.mark();
-      d::advance(_ctx, 2);
+      auto m= d::mark_advance(_ctx, 2);
       return token(T_ANONFN, "#(", m);
     }
     else
     if (ch == '(') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_LPAREN, ch, m);
     }
     else
     if (ch == ')') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_RPAREN, ch, m);
     }
     else
     if (ch == '{') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_LBRACE, ch, m);
     }
     else
     if (ch == '}') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_RBRACE, ch, m);
     }
     else
     if (ch == '[') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_LBRACKET, ch, m);
     }
     else
     if (ch == ']') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_RBRACKET, ch, m);
     }
     else
@@ -310,15 +313,13 @@ d::DslToken Reader::getNextToken() {
       if (isKeywdChar(nx)) {
         return keywd();
       } else {
-        auto m=_ctx.mark();
-        d::advance(_ctx);
+        auto m= d::mark_advance(_ctx);
         return token(d::T_COLON, ch, m);
       }
     }
     else
     if (ch == '.') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_DOT, ch, m);
     }
     else
@@ -326,15 +327,13 @@ d::DslToken Reader::getNextToken() {
       return id();
     }
     else {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_ROGUE, ch,m);
     }
   }
 
-  return token(d::T_EOF, "<EOF>", _ctx.mark());
+  return token(_ctx);
 }
-
 
 
 

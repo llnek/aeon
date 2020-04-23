@@ -24,9 +24,9 @@ namespace d = czlab::dsl;
 #define ACAST(x) DCAST(Ast,x)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst expr(BasicParser*);
-d::DslAst b_expr(BasicParser*);
-d::DslAst statement(BasicParser*);
+d::DAst expr(BasicParser*);
+d::DAst b_expr(BasicParser*);
+d::DAst statement(BasicParser*);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Ast::Ast() {
@@ -36,7 +36,7 @@ Ast::Ast() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Program::Program(const std::map<int,d::DslAst>& lines) {
+Program::Program(const std::map<int,d::DAst>& lines) {
   // lines are sorted, so we get the ordering
   // now store them into a array for fast access.
   auto pos=0;
@@ -47,10 +47,10 @@ Program::Program(const std::map<int,d::DslAst>& lines) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Program::eval(d::IEvaluator* e) {
+d::DValue Program::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto len=vlines.size();
-  d::DslValue last;
+  d::DValue last;
   //std::cout << "len = " << len << "\n" << pr_str() << "\n";
   while (_e->isOn() &&
          _e->incr_pc() < len) {
@@ -97,7 +97,7 @@ Compound::Compound(int ln, const d::AstVec& vs) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Compound::eval(d::IEvaluator* e) {
+d::DValue Compound::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto len= stmts.size();
   auto pos= _e->poffset();
@@ -129,21 +129,21 @@ stdstr Compound::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-OnXXX::OnXXX(d::DslToken t, d::DslAst v, d::TokenVec& vs) : Ast(t) {
+OnXXX::OnXXX(d::DToken t, d::DAst v, d::TokenVec& vs) : Ast(t) {
   var=v;
   for (auto& t : vs) {
     s__conj(targets, (int)t->getInt()); }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue OnXXX::eval(d::IEvaluator* e) {
+d::DValue OnXXX::eval(d::IEvaluator* e) {
   auto _e= s__cast(Basic,e);
   auto t= token()->type();
   auto v= var->eval(e);
   auto n= cast_number(v,1);
   auto x= n->getInt();
   auto tz= targets.size();
-  auto res= WRAP_VAL(P_NIL);
+  auto res= DVAL_NIL;
 
   //if x is 1, it jumps to the first line in the list;
   //if x is 2, it jumps to the second line, and so on.
@@ -167,15 +167,15 @@ void OnXXX::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ForNext::ForNext(d::DslToken t, d::DslAst var) : Ast(t) {
+ForNext::ForNext(d::DToken t, d::DAst var) : Ast(t) {
   this->var=var;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ForNext::ForNext(d::DslToken t) : Ast(t) { }
+ForNext::ForNext(d::DToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue ForNext::eval(d::IEvaluator* e) {
+d::DValue ForNext::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   return _e->jumpFor(_e->getForLoop(_e->pc())), P_NIL;
 }
@@ -192,7 +192,7 @@ void ForNext::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ForLoop::ForLoop(d::DslAst var, d::DslAst init, d::DslAst term, d::DslAst step) {
+ForLoop::ForLoop(d::DAst var, d::DAst init, d::DAst term, d::DAst step) {
   this->var=var;
   this->init= init;
   this->term= term;
@@ -200,7 +200,7 @@ ForLoop::ForLoop(d::DslAst var, d::DslAst init, d::DslAst term, d::DslAst step) 
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue ForLoop::eval(d::IEvaluator* e) {
+d::DValue ForLoop::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto P = _e->pc();
   bool quit=1;
@@ -265,20 +265,20 @@ stdstr ForLoop::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-IfThen::IfThen(d::DslToken _t, d::DslAst c, d::DslAst t, d::DslAst z) : Ast(_t) {
+IfThen::IfThen(d::DToken _t, d::DAst c, d::DAst t, d::DAst z) : Ast(_t) {
   cond=c;
   then=t;
   elze=z;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-IfThen::IfThen(d::DslToken _t, d::DslAst c, d::DslAst t) : Ast(_t) {
+IfThen::IfThen(d::DToken _t, d::DAst c, d::DAst t) : Ast(_t) {
   cond=c;
   then=t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue IfThen::eval(d::IEvaluator* e) {
+d::DValue IfThen::eval(d::IEvaluator* e) {
   auto c= cond->eval(e);
   auto n= cast_number(c,1);
   return !n->isZero() ? then->eval(e) : (elze ? elze->eval(e) : P_NIL);
@@ -299,31 +299,31 @@ stdstr IfThen::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Run::Run(d::DslToken t) : Ast(t) { }
+Run::Run(d::DToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Run::eval(d::IEvaluator*) { return P_NIL; }
+d::DValue Run::eval(d::IEvaluator*) { return P_NIL; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Run::visit(d::IAnalyzer* a) { }
 //
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Restore::Restore(d::DslToken t) : Ast(t) { }
+Restore::Restore(d::DToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Restore::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Restore::eval(d::IEvaluator* e) {
+d::DValue Restore::eval(d::IEvaluator* e) {
   s__cast(Basic,e)->restore();
   return P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-End::End(d::DslToken t) : Ast(t) { }
+End::End(d::DToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue End::eval(d::IEvaluator* e) {
+d::DValue End::eval(d::IEvaluator* e) {
   s__cast(Basic,e)->halt();
   return P_NIL;
 }
@@ -332,12 +332,12 @@ d::DslValue End::eval(d::IEvaluator* e) {
 void End::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Data::Data(d::DslToken t, const d::AstVec& vs) : Ast(t) {
+Data::Data(d::DToken t, const d::AstVec& vs) : Ast(t) {
   s__ccat(data,vs);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Data::eval(d::IEvaluator* e) {
+d::DValue Data::eval(d::IEvaluator* e) {
   return P_NIL;
 }
 
@@ -363,10 +363,10 @@ stdstr Data::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-GoSubReturn::GoSubReturn(d::DslToken t) : Ast(t) { }
+GoSubReturn::GoSubReturn(d::DToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue GoSubReturn::eval(d::IEvaluator* e) {
+d::DValue GoSubReturn::eval(d::IEvaluator* e) {
   s__cast(Basic,e)->retSub();
   return NUMBER_VAL(0);
 }
@@ -375,12 +375,12 @@ d::DslValue GoSubReturn::eval(d::IEvaluator* e) {
 void GoSubReturn::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-GoSub::GoSub(d::DslToken t, d::DslAst e) : Ast(t) {
+GoSub::GoSub(d::DToken t, d::DAst e) : Ast(t) {
   expr=e;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue GoSub::eval(d::IEvaluator* e) {
+d::DValue GoSub::eval(d::IEvaluator* e) {
   //std::cout << "Jumping to subroutine: " << "\n";
   auto _e= s__cast(Basic,e);
   auto res= expr->eval(e);
@@ -401,12 +401,12 @@ stdstr GoSub::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Goto::Goto(d::DslToken t, d::DslAst e) : Ast(t) {
+Goto::Goto(d::DToken t, d::DAst e) : Ast(t) {
   expr=e;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Goto::eval(d::IEvaluator* e) {
+d::DValue Goto::eval(d::IEvaluator* e) {
   auto _e= s__cast(Basic,e);
   auto res= expr->eval(e);
   auto line= cast_number(res,1);
@@ -426,13 +426,13 @@ stdstr Goto::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-FuncCall::FuncCall(d::DslAst var, const d::AstVec& pms) {
+FuncCall::FuncCall(d::DAst var, const d::AstVec& pms) {
   fn=var;
   s__ccat(args,pms);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue FuncCall::eval(d::IEvaluator* e) {
+d::DValue FuncCall::eval(d::IEvaluator* e) {
   auto n= DCAST(Var,fn)->name();
   auto f= e->getValue(n);
 
@@ -484,7 +484,7 @@ BoolTerm::BoolTerm(const d::AstVec& ts) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue BoolTerm::eval(d::IEvaluator* e) {
+d::DValue BoolTerm::eval(d::IEvaluator* e) {
   ASSERT(terms.size() > 0,
          "Malformed expr, got %d terms.", (int)terms.size());
   auto i=0;
@@ -547,7 +547,7 @@ stdstr BoolExpr::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue BoolExpr::eval(d::IEvaluator* e) {
+d::DValue BoolExpr::eval(d::IEvaluator* e) {
   int z1= terms.size();
   int t1= ops.size();
   ASSERT(z1 == (t1+1),
@@ -581,7 +581,7 @@ void BoolExpr::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-RelationOp::RelationOp(d::DslAst left, d::DslToken op, d::DslAst right) : Ast(op) {
+RelationOp::RelationOp(d::DAst left, d::DToken op, d::DAst right) : Ast(op) {
   lhs= left;
   rhs= right;
 }
@@ -597,7 +597,7 @@ stdstr RelationOp::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue RelationOp::eval(d::IEvaluator* e) {
+d::DValue RelationOp::eval(d::IEvaluator* e) {
   auto x = lhs->eval(e);
   auto y = rhs->eval(e);
   auto xn= cast_number(x,1);
@@ -643,7 +643,7 @@ void RelationOp::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Read::eval(d::IEvaluator* e) {
+d::DValue Read::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic, e);
   for (auto& v : vars) {
     auto vn= DCAST(Var,v)->name();
@@ -663,12 +663,12 @@ void Read::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Read::Read(d::DslToken t, const d::AstVec& v) : Ast(t) {
+Read::Read(d::DToken t, const d::AstVec& v) : Ast(t) {
   s__ccat(vars, v);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NotFactor::NotFactor(d::DslAst e) {
+NotFactor::NotFactor(d::DAst e) {
   expr=e;
 }
 
@@ -678,7 +678,7 @@ stdstr NotFactor::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue NotFactor::eval(d::IEvaluator* e) {
+d::DValue NotFactor::eval(d::IEvaluator* e) {
   auto res= expr->eval(e);
   auto i= cast_number(res,1);
   return i->isZero() ? FALSE_VAL() : TRUE_VAL();
@@ -690,13 +690,13 @@ void NotFactor::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BinOp::BinOp(d::DslAst left, d::DslToken op, d::DslAst right) : Ast(op) {
+BinOp::BinOp(d::DAst left, d::DToken op, d::DAst right) : Ast(op) {
   lhs=left;
   rhs=right;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue BinOp::eval(d::IEvaluator* e) {
+d::DValue BinOp::eval(d::IEvaluator* e) {
   auto lf= lhs->eval(e);
   auto rt= rhs->eval(e);
   return op_math(lf, token()->type(), rt);
@@ -715,14 +715,14 @@ void BinOp::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Defun::Defun(d::DslToken t, d::DslAst var, d::AstVec& pms, d::DslAst body) : Ast(t) {
+Defun::Defun(d::DToken t, d::DAst var, d::AstVec& pms, d::DAst body) : Ast(t) {
   this->var=var;
   this->body=body;
   s__ccat(params,pms);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Defun::eval(d::IEvaluator* e) {
+d::DValue Defun::eval(d::IEvaluator* e) {
   return P_NIL;
 }
 
@@ -741,10 +741,10 @@ void Defun::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Num::Num(d::DslToken t) : Ast(t) { }
+Num::Num(d::DToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Num::eval(d::IEvaluator* e) {
+d::DValue Num::eval(d::IEvaluator* e) {
   if (token()->type() == d::T_INTEGER) {
     return NUMBER_VAL(token()->getInt());
   } else {
@@ -756,7 +756,7 @@ d::DslValue Num::eval(d::IEvaluator* e) {
 void Num::visit(d::IAnalyzer* a) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-String::String(d::DslToken t) : Ast(t) { }
+String::String(d::DToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr String::pr_str() const {
@@ -764,7 +764,7 @@ stdstr String::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue String::eval(d::IEvaluator*) {
+d::DValue String::eval(d::IEvaluator*) {
   return STRING_VAL(token()->getStr());
 }
 
@@ -772,10 +772,10 @@ d::DslValue String::eval(d::IEvaluator*) {
 void String::visit(d::IAnalyzer*) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Var::Var(d::DslToken t) : Ast(t) {}
+Var::Var(d::DToken t) : Ast(t) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Var::eval(d::IEvaluator* e) {
+d::DValue Var::eval(d::IEvaluator* e) {
   return e->getValue(token()->getStr());
 }
 
@@ -783,7 +783,7 @@ d::DslValue Var::eval(d::IEvaluator* e) {
 void Var::visit(d::IAnalyzer*) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-UnaryOp::UnaryOp(d::DslToken t, d::DslAst e) : Ast(t) {
+UnaryOp::UnaryOp(d::DToken t, d::DAst e) : Ast(t) {
   expr=e;
 }
 
@@ -793,7 +793,7 @@ stdstr UnaryOp::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue UnaryOp::eval(d::IEvaluator* e) {
+d::DValue UnaryOp::eval(d::IEvaluator* e) {
   auto res = expr->eval(e);
   auto n = cast_number(res,1);
   if (token()->type() == d::T_MINUS) {
@@ -810,12 +810,12 @@ void UnaryOp::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Print::Print(d::DslToken t, const d::AstVec& es) : Ast(t) {
+Print::Print(d::DToken t, const d::AstVec& es) : Ast(t) {
   s__ccat(exprs, es);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Print::eval(d::IEvaluator* e) {
+d::DValue Print::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto lastSemi=false;
   for (auto& i : exprs) {
@@ -861,10 +861,10 @@ stdstr Print::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-PrintSep::PrintSep(d::DslToken t) : Ast(t) {  }
+PrintSep::PrintSep(d::DToken t) : Ast(t) {  }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue PrintSep::eval(d::IEvaluator* e) {
+d::DValue PrintSep::eval(d::IEvaluator* e) {
   return NUMBER_VAL(token()->type());
 }
 
@@ -872,13 +872,13 @@ d::DslValue PrintSep::eval(d::IEvaluator* e) {
 void PrintSep::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Assignment::Assignment(d::DslAst left, d::DslToken op, d::DslAst right) : Ast(op) {
+Assignment::Assignment(d::DAst left, d::DToken op, d::DAst right) : Ast(op) {
   lhs=left;
   rhs=right;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Assignment::eval(d::IEvaluator* e) {
+d::DValue Assignment::eval(d::IEvaluator* e) {
   auto t= token()->type();
   auto res= rhs->eval(e);
   if (t == T_ARRAYINDEX) {
@@ -924,7 +924,7 @@ void Assignment::visit(d::IAnalyzer* a) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ArrayDecl::ArrayDecl(d::DslToken t, d::DslAst v, const IntVec& sizes) : Ast(t) {
+ArrayDecl::ArrayDecl(d::DToken t, d::DAst v, const IntVec& sizes) : Ast(t) {
   auto n= DCAST(Var,v)->name();
   stringType =(n[n.length()-1] == '$');
   var=v;
@@ -943,7 +943,7 @@ stdstr ArrayDecl::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue ArrayDecl::eval(d::IEvaluator* e) {
+d::DValue ArrayDecl::eval(d::IEvaluator* e) {
   auto n= DCAST(Var,var)->name();
   return e->setValue(n, BArray::make(ranges));
 }
@@ -963,7 +963,7 @@ Comment::Comment(const d::TokenVec& ts) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Comment::eval(d::IEvaluator*) { return P_NIL; }
+d::DValue Comment::eval(d::IEvaluator*) { return P_NIL; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Comment::visit(d::IAnalyzer*) {}
@@ -979,18 +979,18 @@ stdstr Comment::pr_str() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Input::Input(d::DslToken t, d::DslAst var, d::DslAst prompt) : Ast(t) {
+Input::Input(d::DToken t, d::DAst var, d::DAst prompt) : Ast(t) {
   this->var=var;
   this->prompt=prompt;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Input::eval(d::IEvaluator* e) {
+d::DValue Input::eval(d::IEvaluator* e) {
   auto vn= DCAST(Var,var)->name();
   auto _e= s__cast(Basic,e);
   auto res= _e->readString();
   auto cs= res.c_str();
-  d::DslValue v;
+  d::DValue v;
   if (vn[vn.size()-1]=='$') {
     v= STRING_VAL(res); }
   else
@@ -1026,7 +1026,7 @@ BasicParser::BasicParser(const Tchar* src) {
 BasicParser::~BasicParser() { DEL_PTR(lex); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken BasicParser::eat(int wanted) {
+d::DToken BasicParser::eat(int wanted) {
   auto t= lex->ctx().cur;
   if (t->type() != wanted) {
     auto i=t->marker();
@@ -1040,7 +1040,7 @@ d::DslToken BasicParser::eat(int wanted) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken BasicParser::eat() {
+d::DToken BasicParser::eat() {
   auto t= lex->ctx().cur;
   lex->ctx().cur=lex->getNextToken();
   return t;
@@ -1052,7 +1052,7 @@ bool BasicParser::isEof() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst assignment(BasicParser* bp, d::DslAst lhs) {
+d::DAst assignment(BasicParser* bp, d::DAst lhs) {
   auto t= bp->eat(d::T_EQ);
   auto n= T_ARRAYINDEX;
   auto val= expr(bp);
@@ -1060,14 +1060,14 @@ d::DslAst assignment(BasicParser* bp, d::DslAst lhs) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst assignment(BasicParser* bp, d::DslToken name) {
+d::DAst assignment(BasicParser* bp, d::DToken name) {
   auto t= bp->eat(d::T_EQ);
   auto val= expr(bp);
   return Assignment::make(Var::make(name), t, val);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst funcall(BasicParser* bp, d::DslToken name) {
+d::DAst funcall(BasicParser* bp, d::DToken name) {
   d::AstVec pms;
 
   bp->eat(d::T_LPAREN);
@@ -1084,7 +1084,7 @@ d::DslAst funcall(BasicParser* bp, d::DslToken name) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst skipComment(BasicParser* bp) {
+d::DAst skipComment(BasicParser* bp) {
   d::TokenVec tkns;
   bp->eat(T_REM);
   while (1) {
@@ -1096,9 +1096,9 @@ d::DslAst skipComment(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst input(BasicParser* bp) {
+d::DAst input(BasicParser* bp) {
   auto t= bp->eat(T_INPUT);
-  d::DslAst prompt;
+  d::DAst prompt;
   if (bp->isCur(d::T_STRING)) {
     prompt= String::make(bp->eat());
     bp->eat(d::T_SEMI);
@@ -1107,7 +1107,7 @@ d::DslAst input(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst defun(BasicParser* bp) {
+d::DAst defun(BasicParser* bp) {
   auto t= bp->eat(T_DEF);
   auto fn= bp->eat(d::T_IDENT);
   d::AstVec vs;
@@ -1132,7 +1132,7 @@ d::DslAst defun(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst onXXX(BasicParser* bp) {
+d::DAst onXXX(BasicParser* bp) {
   auto c= (bp->eat(T_ON), bp->eat(d::T_IDENT));
   auto m= c->marker();
   if (bp->isCur(T_GOTO) ||
@@ -1151,7 +1151,7 @@ d::DslAst onXXX(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst ifThen(BasicParser* bp) {
+d::DAst ifThen(BasicParser* bp) {
   auto _t= bp->eat(T_IF);
   auto c= b_expr(bp);
   auto t= (bp->eat(T_THEN), statement(bp));
@@ -1164,7 +1164,7 @@ d::DslAst ifThen(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst forNext(BasicParser* bp) {
+d::DAst forNext(BasicParser* bp) {
   auto t = bp->eat(T_NEXT);
   if (bp->isCur(d::T_IDENT)) {
     auto v = bp->eat(d::T_IDENT);
@@ -1175,7 +1175,7 @@ d::DslAst forNext(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst forLoop(BasicParser* bp) {
+d::DAst forLoop(BasicParser* bp) {
   auto ft= bp->eat(T_FOR);
   auto v= bp->eat(d::T_IDENT);
   bp->eat(d::T_EQ);
@@ -1193,7 +1193,7 @@ d::DslAst forLoop(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst print(BasicParser* bp) {
+d::DAst print(BasicParser* bp) {
   auto pt= bp->eat(T_PRINT);
   d::AstVec out;
   while (1) {
@@ -1211,17 +1211,17 @@ d::DslAst print(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst gotoLine(BasicParser* bp) {
+d::DAst gotoLine(BasicParser* bp) {
   return Goto::make(bp->eat(T_GOTO), expr(bp));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst restore(BasicParser* bp) {
+d::DAst restore(BasicParser* bp) {
   return Restore::make(bp->eat(T_RESTORE));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst read(BasicParser* bp) {
+d::DAst read(BasicParser* bp) {
   auto t= bp->eat(T_READ);
   d::AstVec v;
 
@@ -1235,7 +1235,7 @@ d::DslAst read(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst data(BasicParser* bp) {
+d::DAst data(BasicParser* bp) {
   auto t= bp->eat(T_DATA);
   d::AstVec vs;
   while (1) {
@@ -1253,27 +1253,27 @@ d::DslAst data(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst gosub(BasicParser* bp) {
+d::DAst gosub(BasicParser* bp) {
   return GoSub::make(bp->eat(T_GOSUB), expr(bp));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst returnSub(BasicParser* bp) {
+d::DAst returnSub(BasicParser* bp) {
   return GoSubReturn::make(bp->eat(T_RETURN));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst runProg(BasicParser* bp) {
+d::DAst runProg(BasicParser* bp) {
   return Run::make(bp->eat(T_RUN));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst endProg(BasicParser* bp) {
+d::DAst endProg(BasicParser* bp) {
   return End::make( bp->eat(T_END));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst relation(BasicParser* bp) {
+d::DAst relation(BasicParser* bp) {
   static std::set<int> ops1 { d::T_GT, d::T_LT, T_GTEQ };
   static std::set<int> ops2 { T_LTEQ, d::T_EQ, T_NOTEQ };
   auto res = expr(bp);
@@ -1286,10 +1286,10 @@ d::DslAst relation(BasicParser* bp) {
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst b_factor(BasicParser* bp) { return relation(bp); }
+d::DAst b_factor(BasicParser* bp) { return relation(bp); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst not_factor(BasicParser* bp) {
+d::DAst not_factor(BasicParser* bp) {
   if (bp->isCur(T_NOT)) {
     bp->eat();
     return NotFactor::make(b_factor(bp));
@@ -1299,7 +1299,7 @@ d::DslAst not_factor(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst b_term(BasicParser* bp) {
+d::DAst b_term(BasicParser* bp) {
   d::AstVec res { not_factor(bp) };
   while (bp->isCur(T_AND)) {
     bp->eat();
@@ -1309,7 +1309,7 @@ d::DslAst b_term(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst b_expr(BasicParser* bp) {
+d::DAst b_expr(BasicParser* bp) {
   static std::set<int> ops {T_OR, T_XOR};
   d::AstVec res { b_term(bp) };
   d::TokenVec ts;
@@ -1322,9 +1322,9 @@ d::DslAst b_expr(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst factor(BasicParser* bp) {
+d::DAst factor(BasicParser* bp) {
   auto t= bp->token();
-  d::DslAst res;
+  d::DAst res;
   switch (t->type()) {
   case d::T_PLUS:
   case d::T_MINUS:
@@ -1356,11 +1356,11 @@ d::DslAst factor(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst term2(BasicParser* bp) {
+d::DAst term2(BasicParser* bp) {
   static std::set<int> ops { T_POWER };
   auto res= factor(bp);
   while (s__contains(ops,bp->cur())) {
-    //res = d::DslAst(new BinOp(res, bp->eat(), factor(bp)));
+    //res = d::DAst(new BinOp(res, bp->eat(), factor(bp)));
     //handles right associativity
     res = BinOp::make(res, bp->eat(), term2(bp));
   }
@@ -1368,7 +1368,7 @@ d::DslAst term2(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst term(BasicParser* bp) {
+d::DAst term(BasicParser* bp) {
   static std::set<int> ops {d::T_MULT,d::T_DIV, T_INT_DIV, T_MOD};
   auto res= term2(bp);
   while (s__contains(ops,bp->cur())) {
@@ -1378,7 +1378,7 @@ d::DslAst term(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst expr(BasicParser* bp) {
+d::DAst expr(BasicParser* bp) {
   static std::set<int> ops {d::T_PLUS, d::T_MINUS};
   auto res= term(bp);
   while (s__contains(ops,bp->cur())) {
@@ -1388,7 +1388,7 @@ d::DslAst expr(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst declArray(BasicParser* bp) {
+d::DAst declArray(BasicParser* bp) {
   auto _t = bp->eat(T_DIM);
   auto t= bp->eat(d::T_IDENT);
   IntVec sizes;
@@ -1403,8 +1403,8 @@ d::DslAst declArray(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst statement(BasicParser* bp) {
-  d::DslAst res;
+d::DAst statement(BasicParser* bp) {
+  d::DAst res;
   switch (bp->cur()) {
   case T_DEF:
     res= defun(bp);
@@ -1482,7 +1482,7 @@ d::DslAst statement(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst compound_statements(BasicParser* bp) {
+d::DAst compound_statements(BasicParser* bp) {
   d::AstVec out;
   bool loop=1;
   while (loop && !bp->isEof()) {
@@ -1504,10 +1504,10 @@ d::DslAst compound_statements(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst parse_line(BasicParser* bp) {
+d::DAst parse_line(BasicParser* bp) {
 
   auto t= bp->token();
-  d::DslAst res;
+  d::DAst res;
   auto line= -1;
 
   // usually line number, but can be none.
@@ -1529,8 +1529,8 @@ d::DslAst parse_line(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst program(BasicParser* bp) {
-  std::map<int,d::DslAst> lines;
+d::DAst program(BasicParser* bp) {
+  std::map<int,d::DAst> lines;
   d::AstVec raws;
   do {
     if (auto res= parse_line(bp); res) {
@@ -1546,7 +1546,7 @@ d::DslAst program(BasicParser* bp) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslAst BasicParser::parse() {
+d::DAst BasicParser::parse() {
   return program(this);
 }
 
@@ -1566,7 +1566,7 @@ bool BasicParser::isCur(int type) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken BasicParser::token() {
+d::DToken BasicParser::token() {
   return lex->ctx().cur;
 }
 

@@ -20,70 +20,83 @@ namespace czlab::dsl {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define DMARK(l,p) s__pair(int,int,l,p)
+#define DMARK(l,c) s__pair(int,int,l,c)
 #define DCAST(T,x) s__cast(T,x.get())
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#define WRAP_SYM(T,...) czlab::dsl::DSymbol(new T(__VA_ARGS__))
+#define WRAP_VAL(T,...) czlab::dsl::DValue(new T(__VA_ARGS__))
+#define WRAP_AST(T,...) czlab::dsl::DAst(new T(__VA_ARGS__))
+#define WRAP_TKN(T,...) czlab::dsl::DToken(new T(__VA_ARGS__))
+#define WRAP_ENV(T,...) czlab::dsl::DFrame(new T(__VA_ARGS__))
+#define DVAL_NIL czlab::dsl::DValue(P_NIL)
+#define DTKN_NIL czlab::dsl::DToken(P_NIL)
+#define DENV_NIL czlab::dsl::DFrame(P_NIL)
+#define DSYM_NIL czlab::dsl::DSymbol(P_NIL)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define WRAP_SYM(x) czlab::dsl::DslSymbol(x)
-#define WRAP_VAL(x) czlab::dsl::DslValue(x)
-#define WRAP_AST(x) czlab::dsl::DslAst(x)
-#define WRAP_TKN(x) czlab::dsl::DslToken(x)
-#define WRAP_ENV(x) czlab::dsl::DslFrame(x)
-
+#define E_SEMANTIC(fmt,...) RAISE(czlab::dsl::SemanticError, fmt, __VA_ARGS__)
+#define E_SYNTAX(fmt,...) RAISE(czlab::dsl::SyntaxError, fmt, __VA_ARGS__)
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 typedef bool (*IdPredicate)(Tchar, bool); // for tokenizeing an identifier
 typedef std::pair<int,int> Mark; // line & col info
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct NoSuchVar : public a::Exception {
-  NoSuchVar(cstdstr& m) : a::Exception (m) {}
+struct NoSuchVar : public a::Error {
+  NoSuchVar(cstdstr& m) : a::Error (m) {}
 };
-struct BadArg : public a::Exception {
-  BadArg(cstdstr& m) : a::Exception(m) {}
+
+struct BadArg : public a::Error {
+  BadArg(cstdstr& m) : a::Error(m) {}
 };
-struct DivByZero : public a::Exception {
-  DivByZero(cstdstr& m) : a::Exception(m) {}
+
+struct DivByZero : public a::Error {
+  DivByZero(cstdstr& m) : a::Error(m) {}
 };
-struct BadArity : public a::Exception {
-  BadArity(cstdstr& m) : a::Exception(m) {}
+
+struct BadArity : public a::Error {
+  BadArity(cstdstr& m) : a::Error(m) {}
   BadArity(int wanted, int got)
-    : a::Exception("Expected " + N_STR(wanted) +
+    : a::Error("Expected " + N_STR(wanted) +
                    " args, got " + N_STR(got) + ".") {}
 };
-struct BadEval : public a::Exception {
-  BadEval(cstdstr& m) : a::Exception(m) {}
+
+struct BadEval : public a::Error {
+  BadEval(cstdstr& m) : a::Error(m) {}
 };
-struct IndexOOB : public a::Exception {
-  IndexOOB(cstdstr& m) : a::Exception(m) {}
+
+struct IndexOOB : public a::Error {
+  IndexOOB(cstdstr& m) : a::Error(m) {}
 };
-struct Unsupported : public a::Exception {
-  Unsupported(cstdstr& m) : a::Exception(m) {}
+
+struct Unsupported : public a::Error {
+  Unsupported(cstdstr& m) : a::Error(m) {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Table;
 struct Symbol;
+struct Table;
 struct Node;
 struct Data;
 struct Frame;
 struct Lexeme;
-typedef std::shared_ptr<Data> DslValue;
-typedef std::shared_ptr<Node> DslAst;
-typedef std::shared_ptr<Frame> DslFrame;
-typedef std::shared_ptr<Symbol> DslSymbol;
-typedef std::shared_ptr<Table> DslTable;
-typedef std::shared_ptr<Lexeme> DslToken;
+typedef std::shared_ptr<Lexeme> DToken;
+typedef std::shared_ptr<Data> DValue;
+typedef std::shared_ptr<Node> DAst;
+typedef std::shared_ptr<Frame> DFrame;
+typedef std::shared_ptr<Table> DTable;
+typedef std::shared_ptr<Symbol> DSymbol;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-typedef std::vector<DslSymbol> SymbolVec;
-typedef std::vector<DslToken> TokenVec;
-typedef std::vector<DslAst> AstVec;
-typedef std::vector<DslValue> ValVec;
+typedef std::vector<DSymbol> SymbolVec;
+typedef std::vector<DToken> TokenVec;
+typedef std::vector<DAst> AstVec;
+typedef std::vector<DValue> ValVec;
 
 typedef TokenVec::iterator TokenIter;
 typedef AstVec::iterator AstIter;
 typedef ValVec::iterator ValIter;
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct VSlice {
   VSlice(ValVec& v) { begin=v.begin(); end=v.end(); }
   VSlice(ValIter b, ValIter e) : begin(b), end(e) {}
@@ -95,8 +108,8 @@ struct VSlice {
 int preEqual(int wanted, int got, cstdstr&);
 int preMin(int min, int got, cstdstr&);
 int preMax(int max, int got, cstdstr&);
-int preNonZero(int c, cstdstr& fn);
-int preEven(int c, cstdstr& fn);
+int preNonZero(int c, cstdstr&);
+int preEven(int c, cstdstr&);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
@@ -140,40 +153,45 @@ enum TokenType {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lexeme {
-
   // A chunk of text - a sequence of chars.
+
+  Mark marker() const { return info; }
+  int type() const { return ttype;}
+
   virtual double getFloat() const =0;
   virtual stdstr getStr() const =0;
   virtual llong getInt() const =0;
   virtual stdstr pr_str() const =0;
   virtual ~Lexeme() {}
 
-  Mark marker() const { return info; }
-  int type() const { return ttype;}
-
   protected:
 
-  Lexeme(int t) { ttype=t; }
   Mark info;
   int ttype;
 
+  Lexeme(int t) { ttype=t; }
+  Lexeme(int t, Mark m) { ttype=t;  info=m; }
 };
-
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IScanner {
+
   // Interface for a Lexical scanner.
   virtual bool isKeyword(cstdstr&) const = 0;
-  virtual DslToken getNextToken()=0;
-  virtual DslToken number()=0;
-  virtual DslToken id()=0;
-  virtual DslToken string()=0;
-  virtual DslToken skipComment() = 0;
+  virtual DToken skipComment() = 0;
+  virtual DToken getNextToken()=0;
+
+  virtual DToken number()=0;
+  virtual DToken id()=0;
+  virtual DToken string()=0;
+
   virtual ~IScanner() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+/*
 struct Number {
+
   // A gnerialized number object.
   explicit Number(double d) : type(T_REAL) { u.r=d; }
   explicit Number(llong n) : type(T_INTEGER) { u.n=n; }
@@ -195,7 +213,7 @@ struct Number {
   int type;
   union { llong n; double r; } u;
 };
-
+*/
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Context {
   /////////////////////////////////////////////
@@ -208,94 +226,93 @@ struct Context {
   const Tchar* src;
   size_t len;
   bool eof;
-  DslToken cur;
+  DToken cur;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SemanticError : public a::Exception { SemanticError(cstdstr&); };
+struct SemanticError : public a::Error {
+  SemanticError(cstdstr& m) : a::Error(m) {}
+};
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SyntaxError : public a::Exception { SyntaxError(cstdstr&); };
+struct SyntaxError : public a::Error {
+  SyntaxError(cstdstr& m) : a::Error(m) {}
+};
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool is_same(const Data* x, const Data* y);
-bool is_same(DslValue, const Data* y);
+bool is_same(DValue, const Data* y);
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+std::pair<stdstr,Mark> identifier(Context&, IdPredicate);
+std::pair<stdstr,Mark> numeric(Context&);
+std::pair<stdstr,Mark> str(Context&);
 Tchar peekAhead(Context&, int offset=1);
+Tchar peek(Context&);
 void skipWhitespace(Context&);
 bool advance(Context&, int steps=1);
-Tchar peek(Context&);
-stdstr str(Context&);
-stdstr numeric(Context&);
-stdstr line(Context&);
-Data* nothing();
-stdstr identifier(Context& ctx, IdPredicate pred);
+Mark mark_advance(Context&, int steps=1);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Symbol {
-
   // int a = 3; a is a symbol, int is a symbol(type), 3 is a value
-
-  static DslSymbol make(cstdstr& n, DslSymbol t) {
-    return WRAP_SYM(new Symbol(n, t));
+  static DSymbol make(cstdstr& n, DSymbol t) {
+    return WRAP_SYM(Symbol, n, t);
   }
-
-  static DslSymbol make(cstdstr& n) {
-    return WRAP_SYM(new Symbol(n));
+  static DSymbol make(cstdstr& n) {
+    return WRAP_SYM(Symbol, n);
   }
-
-  DslSymbol type() const { return _type; }
+  DSymbol type() const { return _type; }
   stdstr name() const { return _name; }
 
   ~Symbol() {}
 
   protected:
 
-  Symbol(cstdstr& n, DslSymbol t) : Symbol(n) { _type=t; }
+  Symbol(cstdstr& n, DSymbol t) : Symbol(n) { _type=t; }
   Symbol(cstdstr& n) : _name(n) { }
 
   private:
 
   stdstr _name;
-  DslSymbol _type;
+  DSymbol _type;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-typedef std::map<stdstr,DslSymbol> SymbolMap;
+typedef std::map<stdstr,DSymbol> SymbolMap;
 struct Table {
   // A symbol table (with hierarchy)
 
-  static DslTable make(cstdstr&, const SymbolMap&);
-  static DslTable make(cstdstr&, DslTable);
-  static DslTable make(cstdstr&);
+  static DTable make(cstdstr&, const SymbolMap&);
+  static DTable make(cstdstr&, DTable);
+  static DTable make(cstdstr&);
 
-  DslSymbol search(cstdstr&) const;
-  DslSymbol find(cstdstr&) const;
-
-  DslTable outer() const { return enclosing; }
+  DTable outer() const { return enclosing; }
   stdstr name() const { return _name; }
-  void insert(DslSymbol);
+  void insert(DSymbol);
+
+  DSymbol search(cstdstr&) const;
+  DSymbol find(cstdstr&) const;
 
   ~Table() {}
 
   protected:
 
   Table(cstdstr&, const SymbolMap&);
-  Table(cstdstr&, DslTable);
+  Table(cstdstr&, DTable);
   Table(cstdstr&);
 
   stdstr _name;
   SymbolMap symbols;
-  DslTable enclosing;
-
+  DTable enclosing;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Data {
   // Abstract class to store data value in parsers.
   virtual stdstr pr_str(bool p = 0) const = 0;
-  virtual bool equals(DslValue) const = 0;
-  virtual int compare(DslValue) const = 0;
+  virtual bool equals(DValue) const = 0;
+  virtual int compare(DValue) const = 0;
   virtual ~Data() {}
 
   protected:
@@ -306,18 +323,17 @@ struct Data {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Nothing : public Data {
 
-  static DslValue make() { return WRAP_VAL(new Nothing()); }
-
+  static DValue make() { return WRAP_VAL(Nothing); }
   stdstr pr_str(bool b=0) const { return "nothing"; }
 
-  virtual bool equals(DslValue rhs) const {
+  virtual bool equals(DValue rhs) const {
     ASSERT1(rhs);
-    return is_same(rhs.get(),this);
+    return is_same(rhs,this);
   }
 
-  virtual int compare(DslValue rhs) const {
+  virtual int compare(DValue rhs) const {
     ASSERT1(rhs);
-    return is_same(rhs.get(),this)
+    return is_same(rhs,this)
            ? 0 : pr_str().compare(rhs->pr_str());
   }
 
@@ -332,24 +348,24 @@ struct Nothing : public Data {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IEvaluator {
   // Interface support for parser evaluation.
-  virtual DslValue setValueEx(cstdstr&, DslValue) = 0;
-  virtual DslValue setValue(cstdstr&, DslValue) = 0;
-  virtual DslValue getValue(cstdstr&) const = 0;
-  virtual DslFrame pushFrame(cstdstr&)=0;
-  virtual DslFrame popFrame()=0;
-  virtual DslFrame peekFrame() const =0;
+  virtual DValue setValueEx(cstdstr&, DValue) = 0;
+  virtual DValue setValue(cstdstr&, DValue) = 0;
+  virtual DValue getValue(cstdstr&) const = 0;
+  virtual DFrame pushFrame(cstdstr&)=0;
+  virtual DFrame popFrame()=0;
+  virtual DFrame peekFrame() const =0;
   virtual ~IEvaluator() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IAnalyzer {
   // Interface support for abstract syntax tax analysis.
-  virtual DslSymbol search(cstdstr&) const = 0;
-  virtual DslSymbol find(cstdstr&) const = 0;
+  virtual DSymbol search(cstdstr&) const = 0;
+  virtual DSymbol find(cstdstr&) const = 0;
 
-  virtual DslTable pushScope(cstdstr&) = 0;
-  virtual DslTable popScope()=0;
-  virtual DslSymbol define(DslSymbol)=0;
+  virtual DTable pushScope(cstdstr&) = 0;
+  virtual DTable popScope()=0;
+  virtual DSymbol define(DSymbol)=0;
 
   virtual ~IAnalyzer() {}
 };
@@ -357,7 +373,7 @@ struct IAnalyzer {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Node {
   // Abstract node used in the building of a syntax tree.
-  virtual DslValue eval(IEvaluator*)=0;
+  virtual DValue eval(IEvaluator*)=0;
   virtual void visit(IAnalyzer*)=0;
   virtual ~Node() {}
   protected:
@@ -368,42 +384,42 @@ struct Node {
 struct Frame {
   // A stack frame used during language evaluation.
 
-  static DslFrame search(cstdstr&, DslFrame);
-  static DslFrame make(cstdstr&, DslFrame);
-  static DslFrame make(cstdstr&);
-  static DslFrame getRoot(DslFrame);
+  static DFrame search(cstdstr&, DFrame);
+  static DFrame make(cstdstr&, DFrame);
+  static DFrame make(cstdstr&);
+  static DFrame getRoot(DFrame);
 
   ~Frame() {}
 
   stdstr name() const { return _name; }
   stdstr pr_str() const;
 
-  DslValue setEx(cstdstr&, DslValue);
-  DslValue set(cstdstr&, DslValue);
-  DslValue get(cstdstr&) const;
+  DValue setEx(cstdstr&, DValue);
+  DValue set(cstdstr&, DValue);
+  DValue get(cstdstr&) const;
 
   bool contains(cstdstr&) const;
   std::set<stdstr> keys() const;
 
-  DslFrame getOuter() const;
+  DFrame getOuter() const;
 
   protected:
 
-  Frame(cstdstr&, DslFrame);
+  Frame(cstdstr&, DFrame);
   Frame(cstdstr&);
 
   private:
 
-  std::map<stdstr,DslValue> slots;
   stdstr _name;
-  DslFrame prev;
+  DFrame prev;
+  std::map<stdstr,DValue> slots;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct TypeSymbol : public Symbol {
 
-  static DslSymbol make(cstdstr& n) {
-    return WRAP_SYM(new TypeSymbol(n));
+  static DSymbol make(cstdstr& n) {
+    return WRAP_SYM(TypeSymbol, n);
   }
 
   ~TypeSymbol() {}
@@ -416,56 +432,56 @@ struct TypeSymbol : public Symbol {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct VarSymbol : public Symbol {
 
-  static DslSymbol make(cstdstr& n, DslSymbol t) {
-    return WRAP_SYM(new VarSymbol(n,t));
+  static DSymbol make(cstdstr& n, DSymbol t) {
+    return WRAP_SYM(VarSymbol, n,t);
   }
 
   ~VarSymbol() {}
 
   protected:
 
-  VarSymbol(cstdstr& n, DslSymbol t) : Symbol(n,t) {}
-
+  VarSymbol(cstdstr& n, DSymbol t) : Symbol(n,t) {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct FnSymbol : public Symbol {
 
-  static DslSymbol make(cstdstr& name, DslSymbol t) {
-    return WRAP_SYM(new FnSymbol(name, t));
+  static DSymbol make(cstdstr& name, DSymbol t) {
+    return WRAP_SYM(FnSymbol, name, t);
   }
 
-  static DslSymbol make(cstdstr& name) {
-    return WRAP_SYM(new FnSymbol(name));
+  static DSymbol make(cstdstr& name) {
+    return WRAP_SYM(FnSymbol, name);
   }
 
-  DslSymbol returnType() const { return result; }
+  DSymbol returnType() const { return result; }
   SymbolVec& params() { return _params; }
-  DslAst body() const { return block; }
-  void setBody(DslAst b) { block=b;}
+  DAst body() const { return block; }
+  void setBody(DAst b) { block=b;}
 
   ~FnSymbol() {}
 
   protected:
 
-  FnSymbol(cstdstr& name, DslSymbol t) : FnSymbol(name) { result=t; }
+  FnSymbol(cstdstr& name, DSymbol t) : FnSymbol(name) { result=t; }
   FnSymbol(cstdstr& name) : Symbol(name) {}
 
-  DslSymbol result;
-  DslAst block;
+  DSymbol result;
+  DAst block;
   SymbolVec _params;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct IParser {
   // Interface for a parser.
-  virtual DslToken eat(int wantedToken)=0;
-  virtual DslToken eat()=0;
+  virtual DToken eat(int wantedToken)=0;
+  virtual DToken eat()=0;
   virtual bool isEof() const =0;
   virtual ~IParser() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+/*
 struct Token : public Lexeme {
 
   virtual double getFloat() const;
@@ -476,14 +492,13 @@ struct Token : public Lexeme {
 
   protected:
 
-  explicit Token(int, cstdstr&, Mark);
-  explicit Token(int, Tchar, Mark);
+  Token(int, cstdstr&, Mark);
+  Token(int, Tchar, Mark);
 
   stdstr lexeme;
-  union {
-    llong n; double r; } number;
+  union { llong n; double r; } number;
 };
-
+*/
 
 
 

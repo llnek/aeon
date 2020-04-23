@@ -61,25 +61,32 @@ stdstr SToken::getStr() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, Tchar c, d::Mark info) {
+d::DToken token(int type, Tchar c, d::Mark info) {
   return SToken::make(type, c, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, cstdstr& x, d::Mark info) {
+d::DToken token(int type, cstdstr& x, d::Mark info) {
   return SToken::make(type, x, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, cstdstr& s, d::Mark info, llong n) {
-  auto t= SToken::make(type, s, info);
+d::DToken token_long(cstdstr& s, d::Mark info) {
+  auto t= SToken::make(d::T_INTEGER, s, info);
+  llong n= ::atol(s.c_str());
   DCAST(SToken,t)->setLiteral(n);
   return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int type, cstdstr& s, d::Mark info, double d) {
-  auto t= SToken::make(type,s, info);
+d::DToken token(d::Context& ctx) {
+  return token(d::T_EOF, "<EOF>", ctx.mark());
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DToken token_real(cstdstr& s, d::Mark info) {
+  auto t= SToken::make(d::T_REAL,s, info);
+  auto d= ::atof(s.c_str());
   DCAST(SToken,t)->setLiteral(d);
   return t;
 }
@@ -87,11 +94,7 @@ d::DslToken token(int type, cstdstr& s, d::Mark info, double d) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Lexer::Lexer(const Tchar* src) {
   _ctx.len= ::strlen(src);
-  _ctx.eof=false;
   _ctx.src=src;
-  _ctx.line=0;
-  _ctx.col=0;
-  _ctx.pos=0;
   _ctx.cur= getNextToken();
 }
 
@@ -101,7 +104,7 @@ bool Lexer::isKeyword(cstdstr& k) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::skipComment() {
+d::DToken Lexer::skipComment() {
   auto m= _ctx.mark();
   stdstr out;
   while (!_ctx.eof) {
@@ -115,18 +118,17 @@ d::DslToken Lexer::skipComment() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::number() {
-  auto m= _ctx.mark();
-  auto s = C_STR(d::numeric(_ctx));
-  return ::strchr(s, '.')
-    ? token(d::T_REAL, s, m, ::atof(s))
-    : token(d::T_INTEGER, s, m, (llong) ::atol(s));
+d::DToken Lexer::number() {
+  auto res = d::numeric(_ctx);
+  return ::strchr(res.first.c_str(), '.')
+    ? token_real(res.first, res.second)
+    : token_long(res.first, res.second);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::string() {
-  auto m= _ctx.mark();
-  return token(d::T_STRING, d::str(_ctx), m);
+d::DToken Lexer::string() {
+  auto res= d::str(_ctx);
+  return token(d::T_STRING, res.first, res.second);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -139,20 +141,18 @@ bool filter(Tchar ch, bool first) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::id() {
-  auto m= _ctx.mark();
-  auto s= d::identifier(_ctx, &filter);
-  auto S= a::to_upper(s);
+d::DToken Lexer::id() {
+  auto res= d::identifier(_ctx, &filter);
+  auto S= a::to_upper(res.first);
   return !isKeyword(S)
-    ? token(d::T_IDENT, s, m)
-    : token(KEYWORDS.at(S), S, m);
+    ? token(d::T_IDENT, res.first, res.second)
+    : token(KEYWORDS.at(S), S, res.second);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::getNextToken() {
-  Tchar ch;
+d::DToken Lexer::getNextToken() {
   while (!_ctx.eof) {
-    ch= d::peek(_ctx);
+    auto ch= d::peek(_ctx);
     if (::isspace(ch)) {
       d::skipWhitespace(_ctx);
     }
@@ -166,38 +166,32 @@ d::DslToken Lexer::getNextToken() {
     }
     else
     if (ch == '*') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_MULT, ch, m);
     }
     else
     if (ch == '/') {
-      auto m= _ctx.mark();
-      d::advance( _ctx);
+      auto m= d::mark_advance( _ctx);
       return token(d::T_DIV, ch, m);
     }
     else
     if (ch == '+') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_PLUS, ch, m);
     }
     else
     if (ch == '-') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_MINUS, ch, m);
     }
     else
     if (ch == '(') {
-      auto m= _ctx.mark();
-      d::advance( _ctx);
+      auto m= d::mark_advance( _ctx);
       return token(d::T_LPAREN, ch, m);
     }
     else
     if (ch == ')') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_RPAREN, ch, m);
     }
     else
@@ -206,8 +200,7 @@ d::DslToken Lexer::getNextToken() {
     }
     else
     if (ch== ':' && '=' == d::peekAhead(_ctx)) {
-      auto m= _ctx.mark();
-      d::advance(_ctx,2);
+      auto m= d::mark_advance(_ctx,2);
       return token(T_ASSIGN, ":=", m);
     }
     else
@@ -217,36 +210,31 @@ d::DslToken Lexer::getNextToken() {
     }
     else
     if (ch == ';') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m = d::mark_advance(_ctx);
       return token(d::T_SEMI, ch, m);
     }
     else
     if (ch == ':') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_COLON, ch, m);
     }
     else
     if (ch == ',') {
-      auto m= _ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_COMMA, ch, m);
     }
     else
     if (ch == '.') {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_DOT, ch, m);
     }
     else {
-      auto m=_ctx.mark();
-      d::advance(_ctx);
+      auto m= d::mark_advance(_ctx);
       return token(d::T_ROGUE, ch, m);
     }
   }
 
-  return token(d::T_EOF, "<EOF>", _ctx.mark());
+  return token(_ctx);
 }
 
 

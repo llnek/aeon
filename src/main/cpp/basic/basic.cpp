@@ -30,12 +30,12 @@ Basic::Basic(const Tchar* src) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Basic::root_env() {
+d::DFrame Basic::root_env() {
   return init_natives(pushFrame("root"));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Basic::interpret() {
+d::DValue Basic::interpret() {
   BasicParser p(source);
   root_env();
   dataSlots.clear();
@@ -46,14 +46,14 @@ d::DslValue Basic::interpret() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::addData(d::DslValue v) {
+void Basic::addData(d::DValue v) {
   ASSERT1(v);
   //std::cout << "addData = " << v->pr_str(0) << "\n";
   s__conj(dataSlots,v);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Basic::readData() {
+d::DValue Basic::readData() {
   return (dataPtr >= 0 &&
       dataPtr < dataSlots.size()) ? dataSlots[dataPtr++] : P_NIL;
 }
@@ -64,26 +64,26 @@ void Basic::restore() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::addLambda(d::DslValue f) {
+void Basic::addLambda(d::DValue f) {
   auto func= DCAST(Lambda,f);
   defs[func->name()] = f;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Basic::eval(d::DslAst tree) {
+d::DValue Basic::eval(d::DAst tree) {
   init_counters();
   auto res= tree->eval(this);
   return (finz_counters(), res);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Basic::pushFrame(const stdstr& name) {
+d::DFrame Basic::pushFrame(const stdstr& name) {
   stack = d::Frame::make(name, stack);
   return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Basic::popFrame() {
+d::DFrame Basic::popFrame() {
   if (stack) {
     auto f= stack;
     //::printf("Frame pop'ed:=\n%s\n", f->pr_str().c_str());
@@ -95,67 +95,67 @@ d::DslFrame Basic::popFrame() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Basic::peekFrame() const {
+d::DFrame Basic::peekFrame() const {
   return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Basic::setValueEx(cstdstr& name, d::DslValue v) {
+d::DValue Basic::setValueEx(cstdstr& name, d::DValue v) {
   throw d::Unsupported("Can't call setValueEx.");
   //auto x = peekFrame();
   //return x ? x->setEx(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Basic::setValue(cstdstr& name, d::DslValue v) {
+d::DValue Basic::setValue(cstdstr& name, d::DValue v) {
   auto x = peekFrame();
   ensure_data_type(name,v);
   return x ? x->set(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Basic::getValue(const stdstr& name) const {
+d::DValue Basic::getValue(const stdstr& name) const {
   auto x = peekFrame();
   return x ? x->get(name) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::map<stdstr,d::DslSymbol> BITS {
+std::map<stdstr,d::DSymbol> BITS {
   {"INTEGER", d::Symbol::make("INTEGER")},
   {"REAL", d::Symbol::make("REAL")},
   {"STRING", d::Symbol::make("STRING")}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::check(d::DslAst tree) {
+void Basic::check(d::DAst tree) {
   symbols= d::Table::make("root", BITS);
   tree->visit(this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Basic::search(const stdstr& n) const {
+d::DSymbol Basic::search(const stdstr& n) const {
   return symbols ? symbols->search(n) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Basic::find(const stdstr& n) const {
+d::DSymbol Basic::find(const stdstr& n) const {
   return symbols ? symbols->find(n) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Basic::define(d::DslSymbol s) {
+d::DSymbol Basic::define(d::DSymbol s) {
   if (symbols) symbols->insert(s);
   return s;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslTable Basic::pushScope(const stdstr& name) {
+d::DTable Basic::pushScope(const stdstr& name) {
   symbols= d::Table::make(name, symbols);
   return symbols;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslTable Basic::popScope() {
+d::DTable Basic::popScope() {
   if (!symbols) {
     return P_NIL;
   }

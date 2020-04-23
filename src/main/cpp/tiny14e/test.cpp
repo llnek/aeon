@@ -110,7 +110,7 @@ int main(int argc, char* argv[]) {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
-#if 1
+#if 0
 using namespace czlab::aeon;
 using namespace czlab::tiny14e;
 namespace d=czlab::dsl;
@@ -121,11 +121,14 @@ int main(int argc, char* argv[]) {
     Interpreter i(src.c_str());
     i.interpret();
     //::printf("result = %s\n", r.get()->pr_str().c_str());
-  } catch ( const a::Exception& e) {
+  } catch ( const a::Error& e) {
     ::printf("%s", e.what().c_str());
   }
   catch (const std::exception& e) {
     ::printf("%s", e.what());
+  }
+  catch (...) {
+    std::cout << "Core Dumped!\n";
   }
   return 0;
 }

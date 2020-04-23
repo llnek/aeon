@@ -22,9 +22,9 @@ namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue readList(SExprParser*, int, stdstr);
-d::DslValue readForm(SExprParser*);
-d::DslValue readAtom(SExprParser*);
+d::DValue readList(SExprParser*, int, stdstr);
+d::DValue readForm(SExprParser*);
+d::DValue readAtom(SExprParser*);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr gensym(cstdstr& prefix) {
@@ -50,7 +50,7 @@ stdstr gensym(cstdstr& prefix) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue macro_func(SExprParser* p, stdstr op) {
+d::DValue macro_func(SExprParser* p, stdstr op) {
   if (auto f = readForm(p); f) {
     return LIST_VAL2(SYMBOL_VAL(op), f);
   }
@@ -69,7 +69,7 @@ SExprParser::SExprParser(const Tchar* src) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue readAtom(SExprParser* p) {
+d::DValue readAtom(SExprParser* p) {
   DEBUG("token = %d.\n", p->cur());
   switch (p->cur()) {
     case d::T_STRING:
@@ -197,7 +197,7 @@ void scanAnonFn(LSeqable* seq, const stdstr& gensym, int& high, bool& varArgs) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue readAnonFn(d::ValVec& res) {
+d::DValue readAnonFn(d::ValVec& res) {
   auto gs = gensym("G__");
   bool varArgs=false;
   int high=0;
@@ -218,7 +218,7 @@ d::DslValue readAnonFn(d::ValVec& res) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue readList(SExprParser* p, int ender, stdstr pairs) {
+d::DValue readList(SExprParser* p, int ender, stdstr pairs) {
   auto m= p->rdr()->ctx().mark();
   auto found=0;
   d::ValVec res;
@@ -242,7 +242,7 @@ d::DslValue readList(SExprParser* p, int ender, stdstr pairs) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue readForm(SExprParser* p) {
+d::DValue readForm(SExprParser* p) {
   switch (p->cur()) {
     case d::T_LPAREN:
       return (p->eat(), readList(p, d::T_RPAREN, "()"));
@@ -264,8 +264,8 @@ d::DslValue readForm(SExprParser* p) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::pair<int,d::DslValue> SExprParser::parse() {
-  d::DslValue ret;
+std::pair<int,d::DValue> SExprParser::parse() {
+  d::DValue ret;
   d::ValVec out;
   while (!isEof()) {
     if (auto f= readForm(this); f) {
@@ -278,7 +278,7 @@ std::pair<int,d::DslValue> SExprParser::parse() {
     case 1: ret= out[0]; break;
     default: ret= LIST_VAL(out); break;
   }
-  return s__pair(int,d::DslValue,cnt,ret);
+  return s__pair(int,d::DValue,cnt,ret);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -302,19 +302,19 @@ bool SExprParser::isCur(int type) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken SExprParser::token() const {
+d::DToken SExprParser::token() const {
   return lexer->ctx().cur;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken SExprParser::eat() {
+d::DToken SExprParser::eat() {
   auto t= lexer->ctx().cur;
   lexer->ctx().cur= lexer->getNextToken();
   return t;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken SExprParser::eat(int wanted) {
+d::DToken SExprParser::eat(int wanted) {
   auto t= token();
   if (t->type() != wanted) {
     auto i= t->marker();

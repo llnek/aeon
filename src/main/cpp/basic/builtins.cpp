@@ -14,6 +14,7 @@
 
 #include <iostream>
 #include <cmath>
+#include <random>
 #include "builtins.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -24,7 +25,7 @@ namespace d = czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static double PI= 3.141592653589793;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-static double deg_rad(double deg) {
+double deg_rad(double deg) {
   return (deg * 2 * PI) / 360;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -33,32 +34,327 @@ double rad_deg(double rad) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-static double to_dbl(d::DslValue arg) {
+static double to_dbl(d::DValue arg) {
   return cast_number(arg,1)->getFloat();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-static d::DslValue native_cos(d::IEvaluator* e, d::VSlice args) {
-  // cos(x)
+static d::DValue native_pi(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(0, args.size(), "pi");
+  return NUMBER_VAL(PI);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_cos(d::IEvaluator*, d::VSlice args) {
   d::preEqual(1, args.size(), "cos");
-  auto deg = to_dbl(*args.begin);
-  auto r= deg_rad(deg);
-  return NUMBER_VAL(::cos(r));
+  return NUMBER_VAL(::cos(to_dbl(*args.begin)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-static d::DslValue native_sin(d::IEvaluator* e, d::VSlice args) {
-  // sin(x)
+static d::DValue native_sin(d::IEvaluator*, d::VSlice args) {
   d::preEqual(1, args.size(), "sin");
-  auto deg = to_dbl(*args.begin);
-  auto r= deg_rad(deg);
-  return NUMBER_VAL(::sin(r));
+  return NUMBER_VAL(::sin(to_dbl(*args.begin)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame init_natives(d::DslFrame env) {
-  env->set("SIN", FN_VAL("SIN",&native_sin));
-  env->set("COS", FN_VAL("COS",&native_cos));
+static d::DValue native_tan(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "tan");
+  return NUMBER_VAL(::tan(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_acs(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "acs");
+  return NUMBER_VAL(::acos(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_asn(d::IEvaluator* e, d::VSlice args) {
+  d::preEqual(1, args.size(), "asn");
+  return NUMBER_VAL(::asin(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_atn(d::IEvaluator* e, d::VSlice args) {
+  d::preEqual(1, args.size(), "atn");
+  return NUMBER_VAL(::atan(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_sinh(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "sinh");
+  return NUMBER_VAL(::sinh(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_cosh(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "cosh");
+  return NUMBER_VAL(::cosh(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_tanh(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "tanh");
+  return NUMBER_VAL(::tanh(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_asinh(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "asinh");
+  return NUMBER_VAL(::asinh(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_acosh(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "acosh");
+  return NUMBER_VAL(::acosh(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_atanh(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "atanh");
+  return NUMBER_VAL(::atanh(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_exp(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "exp");
+  return NUMBER_VAL(::exp(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_log(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "log");
+  return NUMBER_VAL(::log(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+/*
+static d::DValue native_ln(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "ln");
+  return NUMBER_VAL(::log10(to_dbl(*args.begin)));
+}
+*/
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_abs(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "abs");
+  return NUMBER_VAL(::abs(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_sqrt(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "sqr");
+  return NUMBER_VAL(::sqrt(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_cbrt(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "cur");
+  return NUMBER_VAL(::cbrt(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_sign(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "sgn");
+  auto d = to_dbl(*args.begin);
+  return NUMBER_VAL(d > 0 ? 1 : (d < 0 ? -1 : 0));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_int(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "int");
+  auto d = ::floor(to_dbl(*args.begin));
+  return NUMBER_VAL((int)d);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_round(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "round");
+  return NUMBER_VAL(::round(to_dbl(*args.begin)));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_frac(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "frac");
+  auto d= to_dbl(*args.begin);
+  auto i=0.0;
+  return NUMBER_VAL(::modf(d, &i));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_fix(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "fix");
+  auto d= to_dbl(*args.begin);
+  double i;
+ ::modf(d, &i);
+  return NUMBER_VAL((int) i);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_rand(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(0, args.size(), "rnd");
+  std::random_device rd;
+  std::mt19937 gen(rd());
+  std::uniform_real_distribution<> dis(0, 1);
+  return NUMBER_VAL(dis(gen));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_chr(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "chr$");
+  int v= cast_number(*(args.begin),1)->getInt();
+  ASSERT(v>=0&&v<=255, "Bad arg value: %d.", v);
+  return CHAR_VAL((Tchar)v);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_asc(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "asc");
+  auto s= cast_string(*(args.begin),1)->impl();
+  ASSERT(s.size() > 0, "Bad string: %s.", C_STR(s));
+  return NUMBER_VAL((int) s[0]);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_val(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "val");
+  auto s= cast_string(*(args.begin),1)->impl().c_str();
+  if (::strchr(s, '.')) {
+    return NUMBER_VAL(::atof(s));
+  } else {
+    return NUMBER_VAL(::atoi(s));
+  }
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_right(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(2, args.size(), "right$");
+  auto s= cast_string(*(args.begin),1)->impl();
+  auto z= s.size();
+  auto w= cast_number(*(args.begin+1),1)->getInt();
+
+  if (w <= 0) {
+    return STRING_VAL(""); }
+
+  if (w >= z) {
+    return STRING_VAL(s); }
+
+  Tchar buf[z+1];
+  int cz= s.copy(buf,w, z-w);
+  buf[cz]='\0';
+  return STRING_VAL(buf);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_left(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(2, args.size(), "left$");
+  auto s= cast_string(*(args.begin),1)->impl();
+  auto z= s.size();
+  auto w= cast_number(*(args.begin+1),1)->getInt();
+
+  if (w <= 0) {
+    return STRING_VAL(""); }
+
+  if (w >= z) {
+    return STRING_VAL(s); }
+
+  Tchar buf[z+1];
+  int cz= s.copy(buf,w, 0);
+  buf[cz]='\0';
+  return STRING_VAL(buf);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_mid(d::IEvaluator*, d::VSlice args) {
+  auto len=d::preMin(2, args.size(), "mid$");
+  auto s= cast_string(*(args.begin),1)->impl();
+  auto z= s.size();
+  auto w=z;
+  auto pos= cast_number(*(args.begin+1),1)->getInt();
+  if (pos >=0 && pos < z) {} else {
+    return STRING_VAL("");
+  }
+  if (len > 2) {
+    w= cast_number(*(args.begin+2),1)->getInt(); }
+  ASSERT1(w >=0);
+  Tchar buf[z+1];
+  int cz= s.copy(buf,w,pos);
+  buf[cz]='\0';
+  return STRING_VAL(buf);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_len(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "len");
+  auto s= cast_string(*(args.begin),1)->impl();
+  return NUMBER_VAL((int)s.size());
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_str(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "str$");
+  auto n= cast_number(*(args.begin),1);
+  stdstr s;
+  if (n->isInt())
+    s= N_STR(n->getInt()); else s=N_STR(n->getFloat());
+  return STRING_VAL(s);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#define REG(env,fn,arg) env->set(fn, FN_VAL(fn, &arg))
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DFrame init_natives(d::DFrame env) {
+
+  //trig funcs
+  REG(env,"SIN", native_sin);
+  REG(env, "COS", native_cos);
+  REG(env, "TAN", native_tan);
+  REG(env, "ASN", native_asn);
+  REG(env, "ACS", native_acs);
+  REG(env, "ATN", native_atn);
+  REG(env, "PI", native_pi);
+  REG(env, "HYPSIN", native_sinh);
+  REG(env, "HYPCOS", native_cosh);
+  REG(env, "HYPTAN", native_tanh);
+  REG(env, "HYPASN", native_asinh);
+  REG(env, "HYPACS", native_acosh);
+  REG(env, "HYPATN", native_atanh);
+
+  REG(env, "EXP", native_exp);
+  //REG(env, "LN", native_ln);
+  REG(env, "LOG", native_log);
+  REG(env, "ABS", native_abs);
+  REG(env, "INT", native_int);
+  REG(env, "SQR", native_sqrt);
+  REG(env, "CUR", native_cbrt);
+  REG(env, "SGN", native_sign);
+
+  REG(env, "ROUND", native_round);
+  REG(env, "FRAC", native_frac);
+  REG(env, "FIX", native_fix);
+
+  REG(env, "RAN#", native_rand);
+  REG(env, "RND", native_rand);
+
+  // string funcs
+  REG(env, "RIGHT$", native_right);
+  REG(env, "LEFT$", native_left);
+  REG(env, "CHR$", native_chr);
+  REG(env, "STR$", native_str);
+  REG(env, "MID$", native_mid);
+  REG(env, "ASC", native_asc);
+  REG(env, "VAL", native_val);
+  REG(env, "LEN", native_len);
+
+
+
+
+
+
+
+
+
   return env;
 }
 

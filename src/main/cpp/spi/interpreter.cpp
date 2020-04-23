@@ -25,27 +25,27 @@ Interpreter::Interpreter(const Tchar* src) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::interpret() {
+d::DValue Interpreter::interpret() {
   SimplePascalParser p(source);
   auto tree= p.parse();
   return check(tree), eval(tree);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::eval(d::DslAst tree) {
+d::DValue Interpreter::eval(d::DAst tree) {
   auto res= (pushFrame("root"),tree->eval(this));
   popFrame();
   return res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::pushFrame(const std::string& name) {
+d::DFrame Interpreter::pushFrame(const std::string& name) {
   stack= d::Frame::make(name, stack);
   return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::popFrame() {
+d::DFrame Interpreter::popFrame() {
   if (stack) {
     auto f= stack;
     std::cout << f->pr_str() << "\n";
@@ -57,55 +57,55 @@ d::DslFrame Interpreter::popFrame() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslFrame Interpreter::peekFrame() const {
+d::DFrame Interpreter::peekFrame() const {
   return stack;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::setValueEx(cstdstr& name, d::DslValue v) {
+d::DValue Interpreter::setValueEx(cstdstr& name, d::DValue v) {
   return stack ? stack->setEx(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::setValue(cstdstr& name, d::DslValue v) {
+d::DValue Interpreter::setValue(cstdstr& name, d::DValue v) {
   return stack ? stack->set(name, v) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue Interpreter::getValue(cstdstr& name) const {
+d::DValue Interpreter::getValue(cstdstr& name) const {
   return stack ? stack->get(name) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::check(d::DslAst tree) {
+void Interpreter::check(d::DAst tree) {
   symbols= SymTable::make("root");
   tree->visit(this);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::search(cstdstr& n) const {
+d::DSymbol Interpreter::search(cstdstr& n) const {
   return s__cast(d::Table,symbols.get())->search(n);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::find(cstdstr& n) const {
+d::DSymbol Interpreter::find(cstdstr& n) const {
   return s__cast(d::Table,symbols.get())->find(n);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslSymbol Interpreter::define(d::DslSymbol s) {
+d::DSymbol Interpreter::define(d::DSymbol s) {
   symbols->insert(s);
   return s;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslTable Interpreter::pushScope(cstdstr& name) {
+d::DTable Interpreter::pushScope(cstdstr& name) {
   symbols = SymTable::make(name, symbols);
   return symbols;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslTable Interpreter::popScope() {
+d::DTable Interpreter::popScope() {
   auto cur= symbols;
   symbols = cur->outer();
   return cur;

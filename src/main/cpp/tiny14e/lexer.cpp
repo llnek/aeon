@@ -79,35 +79,42 @@ stdstr typeToString(int type) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+double SToken::getFloat() const {
+  return type() == d::T_REAL ? number.r : number.n;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+llong SToken::getInt() const {
+  return type() == d::T_INTEGER ? number.n : number.r;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr SToken::getStr() const {
   return s__contains(TOKENS,type())  ? TOKENS.at(type()) : lexeme;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& s, d::Mark info) {
+d::DToken token(int t, cstdstr& s, d::Mark info) {
   return SToken::make(t, s, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, Tchar c, d::Mark info) {
+d::DToken token(int t, Tchar c, d::Mark info) {
   return SToken::make(t, c, info);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& x, d::Mark info, cstdstr& s) {
-  return SToken::make(t, x, info);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& s, d::Mark info, llong n) {
-  auto k= SToken::make(t, s, info);
+d::DToken token_long(cstdstr& s, d::Mark info) {
+  auto k= SToken::make(d::T_INTEGER, s, info);
+  llong n = ::atol(s.c_str());
   DCAST(SToken,k)->setLiteral(n);
   return k;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken token(int t, cstdstr& s, d::Mark info, double d) {
-  auto k= SToken::make(t,s, info);
+d::DToken token_real(cstdstr& s, d::Mark info) {
+  auto k= SToken::make(d::T_REAL, s, info);
+  auto d= ::atof(s.c_str());
   DCAST(SToken,k)->setLiteral(d);
   return k;
 }
@@ -115,11 +122,7 @@ d::DslToken token(int t, cstdstr& s, d::Mark info, double d) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Lexer::Lexer(const Tchar* src) {
   _ctx.len= ::strlen(src);
-  _ctx.eof=false;
   _ctx.src=src;
-  _ctx.line=0;
-  _ctx.col=0;
-  _ctx.pos=0;
   _ctx.cur= getNextToken();
 }
 
@@ -129,7 +132,7 @@ bool Lexer::isKeyword(cstdstr& k) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::skipComment() {
+d::DToken Lexer::skipComment() {
   auto m= _ctx.mark();
   stdstr out;
   while (!_ctx.eof) {
@@ -143,18 +146,18 @@ d::DslToken Lexer::skipComment() {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::number() {
+d::DToken Lexer::number() {
   auto m= _ctx.mark();
-  auto s = C_STR(d::numeric(_ctx));
-  return ::strchr(s, '.')
-    ? token(d::T_REAL, s, m, ::atof(s))
-    : token(d::T_INTEGER, s, m, (llong) ::atol(s));
+  auto res = d::numeric(_ctx);
+  return ::strchr(res.first.c_str(), '.')
+    ? token_real(res.first, m)
+    : token_long(res.first, m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::string() {
-  auto m = _ctx.mark();
-  return token(d::T_STRING, d::str(_ctx), m);
+d::DToken Lexer::string() {
+  auto res = d::str(_ctx);
+  return token(d::T_STRING, res.first, res.second);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -167,17 +170,16 @@ bool lexer_id(Tchar ch, bool first) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::id() {
-  auto s= d::identifier(_ctx, &lexer_id);
-  auto S= a::to_upper(s);
-  auto m= _ctx.mark();
+d::DToken Lexer::id() {
+  auto res= d::identifier(_ctx, &lexer_id);
+  auto S= a::to_upper(res.first);
   return !isKeyword(S)
-         ? token(d::T_IDENT, s, m)
-         : token(KEYWORDS.at(S), S, m);
+         ? token(d::T_IDENT, res.first, res.second)
+         : token(KEYWORDS.at(S), S, res.second);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslToken Lexer::getNextToken() {
+d::DToken Lexer::getNextToken() {
   Tchar ch;
   while (!_ctx.eof) {
     ch= d::peek(_ctx);

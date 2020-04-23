@@ -35,17 +35,20 @@ enum TokenType {
 stdstr typeToString(int type);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct LToken : public d::Token {
+struct LToken : public d::Lexeme {
 
-  static d::DslToken make(int t, cstdstr& s, d::Mark i) {
-    return WRAP_TKN(new LToken(t, s, i));
+  static d::DToken make(int t, cstdstr& s, d::Mark i) {
+    return WRAP_TKN(LToken,t, s, i);
   }
 
-  static d::DslToken make(int t, Tchar c, d::Mark i) {
-    return WRAP_TKN(new LToken(t, c, i));
+  static d::DToken make(int t, Tchar c, d::Mark i) {
+    return WRAP_TKN(LToken,t, c, i);
   }
 
+  virtual double getFloat() const;
   virtual stdstr getStr() const;
+  virtual llong getInt() const;
+  virtual stdstr pr_str() const;
   virtual ~LToken() {}
 
   void setLiteral(double d) { number.r=d;}
@@ -56,7 +59,9 @@ struct LToken : public d::Token {
 
   LToken(int type, cstdstr&, d::Mark);
   LToken(int type, Tchar, d::Mark);
-  LToken();
+
+  stdstr lexeme;
+  union { llong n; double r; } number;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -64,14 +69,18 @@ struct Reader : public d::IScanner {
 
   // A Lexer.
 
-  bool isKeyword(cstdstr&) const;
-  d::DslToken getNextToken();
-  d::DslToken number();
-  d::DslToken id();
-  d::DslToken string();
+  virtual d::DToken popToken() { return DTKN_NIL; }
+  virtual void pushToken(d::DToken) {}
+  virtual void unwindTokens() {}
+
+  virtual bool isKeyword(cstdstr&) const;
+  virtual d::DToken getNextToken();
+  virtual d::DToken number();
+  virtual d::DToken id();
+  virtual d::DToken string();
 
   d::Context& ctx() { return _ctx; }
-  Reader(const char* src);
+  Reader(const Tchar* src);
   virtual ~Reader() {};
 
   private:
@@ -80,8 +89,8 @@ struct Reader : public d::IScanner {
 
   Reader();
   void skipCommas();
-  d::DslToken keywd();
-  d::DslToken skipComment();
+  d::DToken keywd();
+  d::DToken skipComment();
 };
 
 

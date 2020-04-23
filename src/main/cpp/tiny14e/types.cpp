@@ -24,12 +24,12 @@ namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool SStr::eq(d::DslValue rhs) const {
+bool SStr::eq(d::DValue rhs) const {
   return d::is_same(rhs, this) && DCAST(SStr,rhs)->value == value;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int SStr::cmp(d::DslValue rhs) const {
+int SStr::cmp(d::DValue rhs) const {
   if (d::is_same(rhs, this)) {
     auto p= DCAST(SStr,rhs);
     return value==p->value ? 0 : value.compare(p->value);
@@ -39,12 +39,12 @@ int SStr::cmp(d::DslValue rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool SNumber::eq(d::DslValue rhs) const {
+bool SNumber::eq(d::DValue rhs) const {
   return d::is_same(rhs, this) && match(DCAST(SNumber, rhs));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int SNumber::cmp(d::DslValue rhs) const {
+int SNumber::cmp(d::DValue rhs) const {
   if (d::is_same(rhs, this)) {
     auto p= DCAST(SNumber, rhs);
     return match(p) ? 0 : (getFloat() > p->getFloat() ? 1 : -1);
@@ -61,7 +61,7 @@ bool SNumber::match(const SNumber* rhs) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DslValue expected(cstdstr& m, d::DslValue v) {
+d::DValue expected(cstdstr& m, d::DValue v) {
   RAISE(d::BadArg,
         "Expected `%s`, got %s.", C_STR(m), C_STR(v->pr_str()));
 }
@@ -71,7 +71,7 @@ SNumber A_NUM;
 SStr A_STR;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SNumber* cast_number(d::DslValue v, int panic) {
+SNumber* cast_number(d::DValue v, int panic) {
   if (auto p= v.get(); p && typeid(A_NUM) == typeid(*p)) {
     return s__cast(SNumber,p);
   }
@@ -80,7 +80,7 @@ SNumber* cast_number(d::DslValue v, int panic) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SStr* cast_string(d::DslValue v,int panic) {
+SStr* cast_string(d::DValue v,int panic) {
   if (auto p= v.get(); p && typeid(A_STR) == typeid(*p)) {
     return s__cast(SStr, p);
   }

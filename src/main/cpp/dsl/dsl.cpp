@@ -20,8 +20,6 @@ namespace czlab::dsl {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-//Data* nothing() { return new Nothing(); }
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 std::map<int, stdstr> TOKENS {
   {T_INTEGER, "long"},
   {T_REAL, "double"},
@@ -56,27 +54,21 @@ std::map<int, stdstr> TOKENS {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SemanticError::SemanticError(cstdstr& x) : a::Exception(x) {}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SyntaxError::SyntaxError(cstdstr& x) : a::Exception(x) {}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool is_same(const Data* x, const Data* y) {
   return typeid(*x) == typeid(*y);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool is_same(DslValue x, const Data* y) {
-  auto p= x.get();
-  return typeid(*p) == typeid(*y);
+bool is_same(DValue x, const Data* y) {
+  if (auto p= x.get(); p)
+    return typeid(*p) == typeid(*y); else return false;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int preEqual(int wanted, int got, cstdstr& fn) {
   if (wanted != got)
     RAISE(BadArity,
-          "%s requires %d args, got %d.", C_STR(fn), wanted, got);
+          "%s expected %d args, got %d.", C_STR(fn), wanted, got);
   return got;
 }
 
@@ -84,7 +76,7 @@ int preEqual(int wanted, int got, cstdstr& fn) {
 int preMax(int max, int got, cstdstr& fn) {
   if (got > max)
     RAISE(BadArity,
-          "%s requires at most %d args, got %d.", C_STR(fn), max, got);
+          "%s expected at most %d args, got %d.", C_STR(fn), max, got);
   return got;
 }
 
@@ -92,7 +84,7 @@ int preMax(int max, int got, cstdstr& fn) {
 int preMin(int min, int got, cstdstr& fn) {
   if (got < min)
     RAISE(BadArity,
-          "%s requires at least %d args, got %d.", C_STR(fn), min, got);
+          "%s expected at least %d args, got %d.", C_STR(fn), min, got);
   return got;
 }
 
@@ -100,7 +92,7 @@ int preMin(int min, int got, cstdstr& fn) {
 int preNonZero(int c, cstdstr& fn) {
   if (c == 0)
     RAISE(BadArity,
-          "%s requires some args, got %d.", C_STR(fn), c);
+          "%s expected some args, got %d.", C_STR(fn), c);
   return c;
 }
 
@@ -108,7 +100,7 @@ int preNonZero(int c, cstdstr& fn) {
 int preEven(int c, cstdstr& fn) {
   if (!a::is_even(c))
     RAISE(BadArity,
-          "%s requires even args, got %d.", C_STR(fn), c);
+          "%s expected even args, got %d.", C_STR(fn), c);
   return c;
 }
 
@@ -126,15 +118,18 @@ Tchar peekAhead(Context& ctx, int offset) {
 bool forward(Context& ctx) {
   // move up one char, handling newline.
   if (ctx.eof) { return false; }
+
   if (peek(ctx) == '\n') {
     ++ctx.line;
-    ctx.col=0;
-  }
+    ctx.col=0; }
+
   ++ctx.pos;
+
   if (ctx.pos >= ctx.len) {
     ctx.eof=true; }
   else {
     ++ctx.col; }
+
   return !ctx.eof;
 }
 
@@ -145,45 +140,28 @@ bool advance(Context& ctx, int steps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Mark mark_advance(Context& ctx, int steps) {
+  auto m=ctx.mark(); advance(ctx, steps); return m;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void skipWhitespace(Context& ctx) {
   while (!ctx.eof &&
          ::isspace(peek(ctx))) advance(ctx);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr line(Context& ctx) {
-  stdstr res;
-  while (!ctx.eof) {
-    auto ch = peek(ctx);
-    advance(ctx);
-    if (ch == '\n')
-    break;
-    res += peek(ctx);
-  }
-  return res;
-}
-
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr digits(Context& ctx) {
+  // grab a sequence of digits
   stdstr res;
   while (!ctx.eof &&
-         ::isdigit(peek(ctx))) {
-    res += peek(ctx);
-    advance(ctx);
-  }
+         ::isdigit(peek(ctx))) { res += peek(ctx); advance(ctx); }
   return res;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr numeric(Context& ctx) {
-  // handles 'signed' and floating points.
-  auto ch= peek(ctx);
-  bool minus=0;
-  if (ch == '-' || ch== '+') {
-    minus= (ch=='-');
-    advance(ctx);
-  }
+std::pair<stdstr,Mark> numeric(Context& ctx) {
+  auto m= ctx.mark();
   auto res = digits(ctx);
   if (!ctx.eof &&
       peek(ctx) == '.') {
@@ -191,15 +169,14 @@ stdstr numeric(Context& ctx) {
     advance(ctx);
     res += digits(ctx);
   }
-  return minus ? "-"+res : res;
+  return s__pair(stdstr,Mark,res, m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr str(Context& ctx) {
-
+std::pair<stdstr,Mark> str(Context& ctx) {
+  auto m= ctx.mark();
   stdstr res;
-  Tchar ch;
-
+  auto ch= '\0';
   if (!ctx.eof &&
       peek(ctx) == '"') {
     advance(ctx);
@@ -222,57 +199,28 @@ stdstr str(Context& ctx) {
     advance(ctx);
   }
 
-  return res;
+  return s__pair(stdstr,Mark,res,m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr identifier(Context& ctx, IdPredicate pred) {
+std::pair<stdstr,Mark> identifier(Context& ctx, IdPredicate pred) {
+  auto m= ctx.mark();
   stdstr res;
   while (!ctx.eof) {
     auto ch=peek(ctx);
     if (res.empty()) {
-      if (pred(ch,true)) {
+      if (pred(ch,1)) {
         res += ch;
         advance(ctx); } else { break; }
     } else {
-      if (pred(ch,false)) {
+      if (pred(ch,0)) {
         res += ch;
         advance(ctx); } else { break; }
     }
   }
-  return res;
+  return s__pair(stdstr,Mark,res,m);
 }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, cstdstr& s, Mark info) : Lexeme(type) {
-  lexeme= s;
-  this->info = info;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Token::Token(int type, Tchar ch, Mark info) : Lexeme(type) {
-  this->info = info;
-  lexeme= stdstr { ch };
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-double Token::getFloat() const {
-  return type() == T_REAL ? number.r : number.n;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Token::getInt() const {
-  return type() == T_INTEGER ? number.n : number.r;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Token::getStr() const {
-  return lexeme;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr Token::pr_str() const { return lexeme; }
-
+/*
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool Number::isZero() const {
   return type==T_INTEGER ? u.n==0 : a::fuzzy_zero(u.r);
@@ -295,29 +243,23 @@ void Number::setInt(llong n) { u.n=n; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Number::setInt(int n) { u.n=n; }
-
+*/
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Context::Context() {
-  S_NIL(src);
-  len=0;
-  line=0;
-  col=0;
-  pos=0;
-  eof=false;
+  S_NIL(src); len=0; line=0; col=0; pos=0; eof=0; }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+DFrame Frame::make(cstdstr& n, DFrame outer) {
+  return WRAP_ENV(Frame, n, outer);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFrame Frame::make(cstdstr& n, DslFrame outer) {
-  return WRAP_ENV(new Frame(n, outer));
+DFrame Frame::make(cstdstr& n) {
+  return WRAP_ENV(Frame,n);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFrame Frame::make(cstdstr& n) {
-  return WRAP_ENV(new Frame(n));
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Frame::Frame(cstdstr& n, DslFrame outer) : _name(n) { prev=outer; }
+Frame::Frame(cstdstr& n, DFrame outer) : _name(n) { prev=outer; }
 Frame::Frame(cstdstr& n) : _name(n) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -352,12 +294,12 @@ std::set<stdstr> Frame::keys() const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslValue Frame::get(cstdstr& key) const {
+DValue Frame::get(cstdstr& key) const {
 
   auto x= slots.find(key);
   auto r= x != slots.end()
           ? x->second
-          : (prev ? prev->get(key) : WRAP_VAL(P_NIL));
+          : (prev ? prev->get(key) : DVAL_NIL);
 
   DEBUG("frame:get %s <- %s\n",
         C_STR(key), C_STR(r->pr_str()));
@@ -366,7 +308,7 @@ DslValue Frame::get(cstdstr& key) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslValue Frame::setEx(cstdstr& key, DslValue v) {
+DValue Frame::setEx(cstdstr& key, DValue v) {
 
   auto x= slots.find(key);
   if (x != slots.end()) {
@@ -377,12 +319,12 @@ DslValue Frame::setEx(cstdstr& key, DslValue v) {
   } else if (prev) {
     return prev->setEx(key,v);
   } else {
-    return WRAP_VAL(P_NIL);
+    return DVAL_NIL;
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslValue Frame::set(cstdstr& key, DslValue v) {
+DValue Frame::set(cstdstr& key, DValue v) {
   slots[key]=v;
   DEBUG("frame:set %s -> %s\n",
         C_STR(key), C_STR(v->pr_str(1)));
@@ -395,60 +337,60 @@ bool Frame::contains(cstdstr& key) const {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFrame Frame::search(cstdstr& key, DslFrame from) {
+DFrame Frame::search(cstdstr& key, DFrame from) {
   ASSERT1(from);
   return from->contains(key) ? from :
-         (from->prev ? search(key, from->prev) : WRAP_ENV(P_NIL));
+         (from->prev ? search(key, from->prev) : DENV_NIL);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFrame Frame::getRoot(DslFrame from) {
+DFrame Frame::getRoot(DFrame from) {
   ASSERT1(from);
   return from->prev ? getRoot(from->prev) : from;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFrame Frame::getOuter() const { return prev; }
+DFrame Frame::getOuter() const { return prev; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslTable Table::make(cstdstr& n, const SymbolMap& root) {
-  return DslTable(new Table(n,root));
+DTable Table::make(cstdstr& n, const SymbolMap& root) {
+  return DTable(new Table(n,root));
 }
-DslTable Table::make(cstdstr& n, DslTable outer) {
-  return DslTable(new Table(n, outer));
+DTable Table::make(cstdstr& n, DTable outer) {
+  return DTable(new Table(n, outer));
 }
-DslTable Table::make(cstdstr& n) {
-  return DslTable(new Table(n));
+DTable Table::make(cstdstr& n) {
+  return DTable(new Table(n));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Table::Table(cstdstr& n, DslTable outer) : Table(n) { enclosing=outer; }
+Table::Table(cstdstr& n, DTable outer) : Table(n) { enclosing=outer; }
 Table::Table(cstdstr& n, const SymbolMap& root) : Table(n) {
   for (auto& x : root) { symbols[x.first]=x.second; }
 }
 Table::Table(cstdstr& n) : _name(n) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Table::insert(DslSymbol s) {
+void Table::insert(DSymbol s) {
   if (s)
     symbols[s->name()] = s;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslSymbol Table::search(cstdstr& name) const {
+DSymbol Table::search(cstdstr& name) const {
   if (auto s = symbols.find(name); s != symbols.end()) {
     return s->second;
   } else {
-    return enclosing ? enclosing->search(name) : WRAP_SYM(P_NIL);
+    return enclosing ? enclosing->search(name) :  DSYM_NIL;
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslSymbol Table::find(cstdstr& name) const {
+DSymbol Table::find(cstdstr& name) const {
   if (auto s = symbols.find(name); s != symbols.end()) {
     return s->second;
   } else {
-    return WRAP_SYM(P_NIL);
+    return DSYM_NIL;
   }
 }
 
