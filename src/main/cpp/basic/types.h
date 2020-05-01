@@ -16,46 +16,30 @@
 #include "lexer.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::basic {
-namespace a= czlab::aeon;
-namespace d= czlab::dsl;
+#define PRV(a,x) DCAST(czlab::dsl::Data,a)->pr_str(x).c_str()
+#define PRN(a) DCAST(Ast,a)->pr_str().c_str()
+#define PSTR(a) (a)->pr_str().c_str()
+#define PNAME(T,a) DCAST(T,a)->name()
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define NUMBER_VAL(n) BNumber::make(n)
-#define STRING_VAL(s) BStr::make(s)
-#define CHAR_VAL(s) BChar::make(s)
-#define FALSE_VAL() BNumber::make(0)
-#define TRUE_VAL() BNumber::make(1)
+#define NUMBER_VAL(n) czlab::dsl::Number::make(n)
+#define STRING_VAL(s) czlab::dsl::String::make(s)
+#define FALSE_VAL() czlab::dsl::Number::make(0)
+#define TRUE_VAL() czlab::dsl::Number::make(1)
+//#define CHAR_VAL(s) BChar::make(s)
 #define FN_VAL(n, f) LibFunc::make(n, f)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BValue : public d::Data {
-
-  virtual bool equals(d::DValue rhs) const {
-    ASSERT1(rhs); return eq(rhs);
-  }
-
-  virtual int compare(d::DValue rhs) const {
-    ASSERT1(rhs); return cmp(rhs);
-  }
-
-  virtual stdstr pr_str(bool p = 0) const = 0;
-  virtual ~BValue() {}
-
-  protected:
-
-  BValue() {}
-
-  virtual bool eq(d::DValue) const=0;
-  virtual int cmp(d::DValue) const=0;
-};
+namespace czlab::basic {
+namespace a= czlab::aeon;
+namespace d= czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 typedef d::DValue (*Invoker) (d::IEvaluator*, d::VSlice);
 typedef std::pair<int,int> CheckPt;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Function : public BValue {
+struct Function : public d::Data {
 
   virtual d::DValue invoke(d::IEvaluator*, d::VSlice)=0;
   virtual d::DValue invoke(d::IEvaluator*)=0;
@@ -75,24 +59,26 @@ struct LibFunc : public Function {
 
   virtual d::DValue invoke(d::IEvaluator*, d::VSlice);
   virtual d::DValue invoke(d::IEvaluator*);
-  virtual stdstr pr_str(bool p=0) const;
-  virtual ~LibFunc() {}
 
-  static d::DValue make() {
-    return WRAP_VAL(LibFunc);
-  }
+  virtual stdstr rtti() const { return "LibFunc"; }
+
+  virtual stdstr pr_str(bool p=0) const;
+  virtual int compare(d::DValue) const;
+  virtual bool equals(d::DValue) const;
 
   static d::DValue make(cstdstr& name, Invoker f) {
     return WRAP_VAL(LibFunc,name,f);
   }
 
+  static d::DValue make() {
+    return WRAP_VAL(LibFunc);
+  }
+
   //internal use only
   LibFunc() {fn=P_NIL;}
+  virtual ~LibFunc() {}
 
   protected:
-
-  virtual bool eq(d::DValue) const;
-  virtual int cmp(d::DValue) const;
 
   LibFunc(cstdstr& name, Invoker);
   Invoker fn;
@@ -103,21 +89,23 @@ struct Lambda : public Function {
 
   virtual d::DValue invoke(d::IEvaluator*, d::VSlice);
   virtual d::DValue invoke(d::IEvaluator*);
-  virtual stdstr pr_str(bool p=0) const;
 
-  static d::DValue make(cstdstr& name, StrVec& pms, d::DAst body) {
+  virtual stdstr rtti() const { return "UserFunc"; }
+
+  static d::DValue make(cstdstr& name,
+                        StrVec& pms, d::DAst body) {
     return WRAP_VAL(Lambda, name,pms,body);
   }
 
-  virtual ~Lambda() {}
+  virtual stdstr pr_str(bool p=0) const;
+  virtual int compare(d::DValue) const;
+  virtual bool equals(d::DValue) const;
 
+  virtual ~Lambda() {}
   //internal use only
   Lambda() { }
 
   protected:
-
-  virtual bool eq(d::DValue) const;
-  virtual int cmp(d::DValue) const;
 
   StrVec params;
   d::DAst body;
@@ -125,7 +113,9 @@ struct Lambda : public Function {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BArray : public BValue {
+struct BArray : public d::Data {
+
+  virtual stdstr rtti() const { return "Array"; }
 
   static d::DValue make(const IntVec& v) {
     return WRAP_VAL(BArray,v);
@@ -139,16 +129,15 @@ struct BArray : public BValue {
   d::DValue get(d::VSlice);
 
   virtual stdstr pr_str(bool p=0) const;
-
-  virtual ~BArray();
+  virtual int compare(d::DValue) const;
+  virtual bool equals(d::DValue) const;
 
   // internal use only
   BArray() { value=P_NIL;}
+  virtual ~BArray();
 
   protected:
 
-  virtual bool eq(d::DValue) const;
-  virtual int cmp(d::DValue) const;
   BArray(const IntVec&);
   int index(d::VSlice);
 
@@ -157,73 +146,20 @@ struct BArray : public BValue {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BNumber : public BValue {
+struct BChar : public d::Data {
 
-  static d::DValue make(double d) {
-    return WRAP_VAL(BNumber,d);
-  }
-
-  static d::DValue make(int n) {
-    return WRAP_VAL(BNumber,n);
-  }
-
-  static d::DValue make(llong n) {
-    return WRAP_VAL(BNumber,n);
-  }
-
-  static d::DValue make() {
-    return WRAP_VAL(BNumber);
-  }
-
-  double getFloat() const { return isInt() ? (double)num.n : num.r; }
-  llong getInt() const { return isInt() ? num.n : (llong) num.r; }
-
-  void setFloat(double d) { num.r=d; }
-  void setInt(llong n) { num.n=n; }
-
-  bool isInt() const { return type== d::T_INTEGER;}
-
-  bool isZero() const {
-    return type==d::T_INTEGER ? getInt()==0 : a::fuzzy_zero(getFloat()); }
-
-  bool isNeg() const {
-    return type==d::T_INTEGER ? getInt() < 0 : getFloat() < 0.0; }
-
-  bool isPos() const {
-    return type==d::T_INTEGER ? getInt() > 0 : getFloat() > 0.0; }
-
-  virtual stdstr pr_str(bool p=0) const {
-    return isInt() ? N_STR(getInt()) : N_STR(getFloat());
-  }
-
-  BNumber() : type(d::T_INTEGER) { num.n=0; }
-
-  protected:
-
-  explicit BNumber(double d) : type(d::T_REAL) { num.r=d; }
-  explicit BNumber(int n) : type(d::T_INTEGER) { num.n=n; }
-  BNumber(llong n) : type(d::T_INTEGER) { num.n=n; }
-
-  virtual bool eq(d::DValue) const;
-  virtual int cmp(d::DValue) const;
-  bool match(const BNumber*) const;
-
-  int type;
-  union {
-    llong n; double r; } num;
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BChar : public BValue {
+  virtual stdstr rtti() const { return "Char"; }
 
   static d::DValue make(const Tchar c) {
     return WRAP_VAL(BChar,c);
   }
 
   virtual stdstr pr_str(bool p=0) const {
-    stdstr s;
-    return s + value;
+    return stdstr { value};
   }
+
+  virtual bool equals(d::DValue) const;
+  virtual int compare(d::DValue) const;
 
   Tchar impl() const { return value; }
 
@@ -232,43 +168,8 @@ struct BChar : public BValue {
 
   protected:
 
-  virtual bool eq(d::DValue) const;
-  virtual int cmp(d::DValue) const;
-
   BChar(const Tchar c) : value(c) {}
-
   Tchar value;
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BStr : public BValue {
-
-  static d::DValue make(const Tchar* s) {
-    return WRAP_VAL(BStr,s);
-  }
-
-  static d::DValue make(cstdstr& s) {
-    return WRAP_VAL(BStr,s);
-  }
-
-  virtual stdstr pr_str(bool p=0) const {
-    return p ? "\"" + value + "\"" : value;
-  }
-
-  stdstr impl() const { return value; }
-
-  // internal use only
-  BStr() {}
-
-  protected:
-
-  virtual bool eq(d::DValue) const;
-  virtual int cmp(d::DValue) const;
-
-  BStr(cstdstr& s) : value(s) {}
-  BStr(const Tchar* s) : value(s) {}
-
-  stdstr value;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -324,7 +225,7 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   virtual d::DTable popScope();
   virtual d::DSymbol define(d::DSymbol);
 
-  void installProgram(const std::map<int,int>&);
+  void install(const std::map<int,int>&);
   void uninstall();
 
   void addLambda(d::DValue);
@@ -350,21 +251,24 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   int incr_pc() { return ++progCounter; }
 
   DslFLInfo getCurForLoop() const { return forLoop; }
-  DslFLInfo getForLoop(int c) const;
+  DslFLInfo getForLoop(int c, int offset) const;
 
   // used during analysis
   void xrefForNext(cstdstr&, int n, int pos);
   void xrefForNext(int n, int pos);
   void addForLoop(DslFLInfo);
 
-  Basic(const Tchar* src);
+  //void addr(d::Addr m) { curMark=m; }
+  //d::Addr addr() { return curMark;}
+
+  Basic(const Tchar* src) : source(src) {}
   d::DValue interpret();
   virtual ~Basic() {}
 
   private:
 
-  std::map<int,DslFLInfo> forBegins;
-  std::map<int,DslFLInfo> forEnds;
+  std::map<stdstr,DslFLInfo> forBegins;
+  std::map<stdstr,DslFLInfo> forEnds;
 
   std::stack<CheckPt> gosubReturns;
   std::map<int,int> lines;
@@ -372,13 +276,14 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
   std::map<stdstr,d::DValue> defs;
 
   d::ValVec dataSlots;
-  int dataPtr;
+  int dataPtr=0;
+  //d::Addr curMark;
 
   const Tchar* source;
   DslFLInfo forLoop;
-  bool running;
-  int progCounter;
-  int progOffset;
+  bool running=0;
+  int progCounter=0;
+  int progOffset=0;
 
   d::DFrame stack;
   d::DTable symbols;
@@ -389,18 +294,32 @@ struct Basic : public d::IEvaluator, public d::IAnalyzer {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue op_math(d::DValue, int op, d::DValue);
+d::DValue expected(cstdstr&, d::DValue, d::Addr);
 d::DValue expected(cstdstr&, d::DValue);
+d::DValue op_math(d::DValue, int op, d::DValue);
 void ensure_data_type(cstdstr&, d::DValue);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BNumber* cast_number(d::DValue, int panic=0);
-BStr* cast_string(d::DValue, int panic=0);
-BChar* cast_char(d::DValue, int panic=0);
-BArray* cast_array(d::DValue, int panic=0);
-Lambda* cast_lambda(d::DValue, int panic=0);
-LibFunc* cast_native(d::DValue, int panic=0);
+template <typename T>
+T* vcast(d::DValue v) {
+  T obj;
+  if (auto p= v.get(); p &&
+      typeid(obj)==typeid(*p))
+    return s__cast(T,p); else return P_NIL;
+}
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+T* vcast(d::DValue v, d::Addr mark) {
+  T obj;
+  if (auto p= v.get(); p &&
+      typeid(obj)==typeid(*p)) return s__cast(T,p);
+  if (_1(mark) == 0 &&
+      _2(mark) == 0)
+    expected(obj.rtti(), v);
+  else expected(obj.rtti(), v,mark);
+  return P_NIL;
+}
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

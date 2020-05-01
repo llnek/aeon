@@ -68,17 +68,17 @@ struct Ast : public d::Node {
 
   d::DToken _token;
 
-  Ast();
-
   private:
+
+  Ast();
 
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BoolExpr : public Ast {
 
-  static d::DAst make(const d::AstVec& a, const d::TokenVec& v) {
-    return WRAP_AST( BoolExpr,a,v);
+  static d::DAst make(d::DToken k, const d::AstVec& a, const d::TokenVec& v) {
+    return WRAP_AST(BoolExpr,k,a,v);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
@@ -88,7 +88,7 @@ struct BoolExpr : public Ast {
 
   private:
 
-  BoolExpr(const d::AstVec&, const d::TokenVec&);
+  BoolExpr(d::DToken k, const d::AstVec&, const d::TokenVec&);
   d::TokenVec ops;
   d::AstVec terms;
 };
@@ -96,8 +96,8 @@ struct BoolExpr : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct BoolTerm : public Ast {
 
-  static d::DAst make(const d::AstVec& v) {
-    return WRAP_AST( BoolTerm,v);
+  static d::DAst make(d::DToken k,const d::AstVec& v) {
+    return WRAP_AST( BoolTerm,k,v);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
@@ -107,7 +107,7 @@ struct BoolTerm : public Ast {
 
   private:
 
-  BoolTerm(const d::AstVec&);
+  BoolTerm(d::DToken,const d::AstVec&);
   d::AstVec terms;
 };
 
@@ -226,8 +226,8 @@ struct Compound : public Ast {
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
-  static d::DAst make() {
-    return WRAP_AST( Compound);
+  static d::DAst make(d::DToken t) {
+    return WRAP_AST(Compound,t);
   }
 
   virtual stdstr name() const;
@@ -237,7 +237,7 @@ struct Compound : public Ast {
 
   private:
 
-  Compound();
+  Compound(d::DToken);
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -467,8 +467,8 @@ struct VarDecl : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Block : public Ast {
 
-  static d::DAst make(const d::AstVec& v, d::DAst b) {
-    return WRAP_AST( Block,v,b);
+  static d::DAst make(d::DToken k,const d::AstVec& v, d::DAst b) {
+    return WRAP_AST( Block,k,v,b);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
@@ -478,7 +478,7 @@ struct Block : public Ast {
 
   private:
 
-  Block(const d::AstVec& decls, d::DAst);
+  Block(d::DToken,const d::AstVec& decls, d::DAst);
   d::DAst compound;
   d::AstVec declarations;
 };

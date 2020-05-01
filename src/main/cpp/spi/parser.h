@@ -18,48 +18,6 @@
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::spi {
 namespace d = czlab::dsl;
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct EVal : public d::Data {
-
-  static d::DValue make(double d) {
-    return WRAP_VAL( EVal,d);
-  }
-  static d::DValue make(cstdstr& s) {
-    return WRAP_VAL( EVal,s);
-  }
-  static d::DValue make(const Tchar* s) {
-    return WRAP_VAL( EVal,s);
-  }
-  static d::DValue make(llong n) {
-    return WRAP_VAL( EVal,n);
-  }
-
-  virtual stdstr pr_str(bool p=0) const {
-    if (type==d::T_STRING) return str;
-    if (type==d::T_REAL) return N_STR(u.r);
-    if (type==d::T_INTEGER) return N_STR(u.n);
-    return "BIG TROUBLE!";
-  }
-
-  virtual bool equals(d::DValue) const {
-    return false;
-  }
-
-  virtual int compare(d::DValue) const {
-    return 0;
-  }
-
-  stdstr str;
-  int type;
-  union {
-    double r; llong n; } u;
-
-  private:
-  explicit EVal(double d) { u.r=d; type= d::T_REAL; }
-  EVal(cstdstr& s) { str=s; type=d::T_STRING; }
-  EVal(const Tchar* s) { str=s; type=d::T_STRING; }
-  EVal(llong n) { u.n=n; type= d::T_INTEGER; }
-};
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Ast : public d::Node {
@@ -70,10 +28,12 @@ struct Ast : public d::Node {
   virtual stdstr name() const { return _name; }
   virtual ~Ast() {}
   Ast(d::DToken);
-  Ast();
 
   d::DToken token;
   stdstr _name;
+
+  private:
+  Ast() {}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -151,14 +111,14 @@ struct Compound : public Ast {
   virtual void visit(d::IAnalyzer*);
   virtual ~Compound() {}
 
-  static d::DAst make() {
-    return WRAP_AST( Compound);
+  static d::DAst make(d::DToken k) {
+    return WRAP_AST( Compound,k);
   }
 
   d::AstVec  statements;
 
   private:
-  Compound();
+  Compound(d::DToken);
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -216,15 +176,15 @@ struct NoOp : public Ast {
     return DVAL_NIL;
   }
 
-  static d::DAst make() {
-    return WRAP_AST( NoOp);
+  static d::DAst make(d::DToken t) {
+    return WRAP_AST( NoOp,t);
   }
 
   virtual void visit(d::IAnalyzer*) {}
   virtual ~NoOp() {}
 
   private:
-  NoOp() { _name= "709394"; }
+  NoOp(d::DToken t) : Ast(t) { _name= "709394"; }
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -266,8 +226,8 @@ struct VarDecl : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Block : public Ast {
 
-  static d::DAst make(d::AstVec& decls, d::DAst c) {
-    return WRAP_AST( Block,decls, c);
+  static d::DAst make(d::DToken k,d::AstVec& decls, d::DAst c) {
+    return WRAP_AST( Block,k,decls, c);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
@@ -278,14 +238,14 @@ struct Block : public Ast {
   d::AstVec declarations;
 
   private:
-  Block(d::AstVec& decls, d::DAst compound);
+  Block(d::DToken,d::AstVec& decls, d::DAst compound);
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct ProcedureDecl : public Ast {
 
-  static d::DAst make(const stdstr& s, d::AstVec& v, d::DAst b) {
-    return WRAP_AST( ProcedureDecl,s,v,b);
+  static d::DAst make(d::DToken k,const stdstr& s, d::AstVec& v, d::DAst b) {
+    return WRAP_AST( ProcedureDecl,k,s,v,b);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
@@ -296,7 +256,7 @@ struct ProcedureDecl : public Ast {
   std::vector<d::DAst> params;
 
   private:
-  ProcedureDecl(const stdstr&, d::AstVec&, d::DAst block);
+  ProcedureDecl(d::DToken,const stdstr&, d::AstVec&, d::DAst block);
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -320,8 +280,8 @@ struct ProcedureCall : public Ast {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Program : public Ast {
 
-  static d::DAst make(const stdstr& s, d::DAst b) {
-    return WRAP_AST( Program,s,b);
+  static d::DAst make(d::DToken k,const stdstr& s, d::DAst b) {
+    return WRAP_AST( Program,k,s,b);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
@@ -331,7 +291,7 @@ struct Program : public Ast {
   d::DAst block;
 
   private:
-  Program(const stdstr&, d::DAst block);
+  Program(d::DToken,const stdstr&, d::DAst block);
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -385,7 +345,31 @@ struct SimplePascalParser : public d::IParser {
   Lexer* lex;
 };
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DValue expected(cstdstr&, d::DValue, d::Addr);
+d::DValue expected(cstdstr&, d::DValue);
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+T* vcast(d::DValue v) {
+  T obj;
+  if (auto p= v.get(); p &&
+      typeid(obj)==typeid(*p))
+    return s__cast(T,p); else return P_NIL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename T>
+T* vcast(d::DValue v, d::Addr mark) {
+  T obj;
+  if (auto p= v.get(); p &&
+      typeid(obj)==typeid(*p)) return s__cast(T,p);
+  if (_1(mark) == 0 &&
+      _2(mark) == 0)
+    expected(obj.rtti(), v);
+  else expected(obj.rtti(), v,mark);
+  return P_NIL;
+}
 
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

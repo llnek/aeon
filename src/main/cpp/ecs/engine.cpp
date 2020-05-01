@@ -49,7 +49,7 @@ EntVec Engine::getEnts(const std::vector<Cid>& cs) const {
   for (auto& cid : cs) {
     auto c= _types->getCache(cid);
     if (E_NIL(c)) {
-      DEBUG("cache missed on %s", C_STR(cid));
+      DEBUG("cache missed on %s", N_STR(cid).c_str());
       return out;
     }
     if (c->size() < pmin) {
@@ -59,7 +59,7 @@ EntVec Engine::getEnts(const std::vector<Cid>& cs) const {
     s__conj(ccs, c);
   }
 
-  DEBUG("intesection on %ud caches", ccs.size());
+  DEBUG("intesection on %d caches", (int)ccs.size());
 
   if (ccs.size() > 0) {
     //use the shortest cache as the baseline

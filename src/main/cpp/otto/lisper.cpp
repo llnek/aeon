@@ -79,7 +79,7 @@ d::DFrame lambda_env(LLambda* fn, d::VSlice args) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LSeqable* is_pair(d::DValue v, int panic) {
   LSeqable* s = NULL;
-  if (auto x = cast_list(v); X_NIL(x)) {
+  if (auto x = vcast<LList>(v); X_NIL(x)) {
     s = s__cast(LSeqable,x);
     if (s->count()==0) { S_NIL(s); }
   } else if (panic) {
@@ -106,7 +106,7 @@ d::DValue Lisper::syntaxQuote(d::DValue ast, d::DFrame env) {
 
   // deal with unquote => ~x or ~(a b c)
   auto ast0= seq->first();
-  if (auto s = cast_symbol(ast0);
+  if (auto s = vcast<LSymbol>(ast0);
            X_NIL(s) && s->impl() == "unquote") {
     // `~x or `~(a b c)
     ASSERT1(2==seq->count());
@@ -117,7 +117,7 @@ d::DValue Lisper::syntaxQuote(d::DValue ast, d::DFrame env) {
   d::ValVec out;
   LSymbol* b = NULL;
   if (s2)
-    b = cast_symbol(s2->first());
+    b = vcast<LSymbol>(s2->first());
 
   if (b && b->impl() == "splice-unquote") {
     // ~@x  or ~@(a b c)
@@ -139,17 +139,17 @@ d::DValue Lisper::syntaxQuote(d::DValue ast, d::DFrame env) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 LMacro* maybeMacro(Lisper* p, d::DValue ast, d::DFrame env) {
   auto s = is_pair(ast,0);
-  auto sym = s ? cast_symbol(s->first()) : P_NIL;
+  auto sym = s ? vcast<LSymbol>(s->first()) : P_NIL;
   auto f= sym ? env->search(sym->impl(),env) : P_NIL;
-  return f ? cast_macro(sym->eval(p, f)) : P_NIL;
+  return f ? vcast<LMacro>(sym->eval(p, f)) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 StrVec cast_params(d::DValue v) {
-  auto pms = cast_vec(v, 1);
+  auto pms = vcast<LVec>(v);
   StrVec vs;
   for (auto i = 0, e=pms->count(); i < e; ++i) {
-    auto s= cast_symbol(pms->nth(i),1);
+    auto s= vcast<LSymbol>(pms->nth(i));
     auto p= s->impl();
     ASSERT1(p.length() > 0);
     // handle case where param name is &xs,
@@ -209,13 +209,13 @@ d::DValue wrapAsDo(d::ValVec& v) {
 d::DValue Lisper::EVAL(d::DValue ast, d::DFrame env) {
   while (true) {
     DEBUG("eval(ast)=%s.\n", C_STR(ast->pr_str(1)));
-    auto list = cast_list(ast, 0);
+    auto list = vcast<LList>(ast);
 
     if (E_NIL(list)) {
       return evalAst(ast, env);
     } else {
       ast = macroExpand(ast, env);
-      list = cast_list(ast, 0);
+      list = vcast<LList>(ast);
     }
 
     if (E_NIL(list)) {
@@ -228,24 +228,24 @@ d::DValue Lisper::EVAL(d::DValue ast, d::DFrame env) {
 
     DEBUG("eval(2)=%s.\n", C_STR(list->pr_str(1)));
 
-    if (auto op = cast_symbol(list->nth(0), 0)) {
+    if (auto op = vcast<LSymbol>(list->nth(0))) {
       DEBUG("op = %s.\n", C_STR(op->impl()));
       auto len = list->count();
       auto code = op->impl();
 
       if (code == "def") {
         d::preEqual(3, len, "def");
-        auto var= cast_symbol(list->nth(1),1)->impl();
+        auto var= vcast<LSymbol>(list->nth(1))->impl();
         return env->set(var, EVAL(list->nth(2), env));
       }
 
       if (code == "let") {
         d::preMin(2, len, "let");
-        auto args= cast_vec(list->nth(1),1);
+        auto args= vcast<LVec>(list->nth(1));
         auto cnt= d::preEven(args->count(), "let bindings");
         auto f= d::Frame::make("let", env);
         for (auto i = 0; i < cnt; i += 2) {
-          f->set(cast_symbol(args->nth(i),1)->impl(), EVAL(args->nth(i+1), f));
+          f->set(vcast<LSymbol>(args->nth(i))->impl(), EVAL(args->nth(i+1), f));
         }
         ast = wrapAsDo(list,2);
         env = f;
@@ -265,7 +265,7 @@ d::DValue Lisper::EVAL(d::DValue ast, d::DFrame env) {
 
       if (code == "defmacro") {
         d::preEqual(4, len, "defmacro");
-        auto var = cast_symbol(list->nth(1),1)->impl();
+        auto var = vcast<LSymbol>(list->nth(1))->impl();
         auto pms= cast_params(list->nth(2));
         return env->set(var, MACRO_VAL(var, pms, list->nth(3), env));
       }
@@ -283,12 +283,12 @@ d::DValue Lisper::EVAL(d::DValue ast, d::DFrame env) {
         d::ValVec tbody;
         for (auto j=1; j < len; ++j) {
           auto n= list->nth(j);
-          if (auto c= cast_list(n); X_NIL(c) && c->count() > 0) {
-            if (auto s= cast_symbol(c->nth(0)); X_NIL(s) && s->impl() == "catch") {
+          if (auto c= vcast<LList>(n); X_NIL(c) && c->count() > 0) {
+            if (auto s= vcast<LSymbol>(c->nth(0)); X_NIL(s) && s->impl() == "catch") {
               ASSERT(j==(len-1),
                      "catch must be last form: %s.\n", C_STR(list->pr_str(1)));
               d::preMin(2,c->count(), "catch");
-              errorVar = cast_symbol(c->nth(1),1)->impl();
+              errorVar = vcast<LSymbol>(c->nth(1))->impl();
               cbody=wrapAsDo(c,2);
               break;
             }
@@ -334,7 +334,7 @@ d::DValue Lisper::EVAL(d::DValue ast, d::DFrame env) {
 
       if (code == "defn") {
         d::preMin(3,len,"defn");
-        auto var = cast_symbol(list->nth(1),1)->impl();
+        auto var = vcast<LSymbol>(list->nth(1))->impl();
         auto pms= cast_params(list->nth(2));
         return env->set(var, LAMBDA_VAL(var, pms, wrapAsDo(list,3), env));
       }
@@ -349,7 +349,7 @@ d::DValue Lisper::EVAL(d::DValue ast, d::DFrame env) {
 
     auto ret = list->eval(this, env);
     DEBUG("ret=%s.\n", C_STR(ret->pr_str(1)));
-    auto vs = cast_seqable(ret,1);
+    auto vs = cast_seqable(ret);
     if (auto len=vs->count(); len==0) {
       return NIL_VAL();
     }
@@ -358,12 +358,12 @@ d::DValue Lisper::EVAL(d::DValue ast, d::DFrame env) {
     appendAll(vs,1,args);
 //    auto func= cast_function(op,1);
 //    DEBUG("casted function = %s.\n", C_STR(func->name()));
-    if (auto lambda= cast_lambda(op); X_NIL(lambda)) {
+    if (auto lambda= vcast<LLambda>(op); X_NIL(lambda)) {
       ast = lambda->body;
       env = lambda->bindContext(d::VSlice(args));
       continue;
     }
-    if (auto native= cast_native(op); X_NIL(native)) {
+    if (auto native= vcast<LNative>(op); X_NIL(native)) {
       return native->invoke(this, d::VSlice(args));
     }
   }
@@ -384,7 +384,7 @@ stdstr repl(const stdstr& s, d::DFrame env) {
     case 0: out="nil"; break;
     case 1: out = lisp.PRINT(lisp.EVAL(ret.second, env)); break;
     default:
-      auto s= cast_list(ret.second,1);
+      auto s= vcast<LList>(ret.second);
       for (auto i = 0, e=s->count(); i < e; ++i) {
         out = lisp.PRINT(lisp.EVAL(s->nth(i), env));
       }

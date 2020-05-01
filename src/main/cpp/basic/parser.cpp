@@ -20,44 +20,38 @@ namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define PRSTR(a) DCAST(Ast,a)->pr_str()
-#define ACAST(x) DCAST(Ast,x)
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DAst variable(BasicParser*);
 d::DAst expr(BasicParser*);
 d::DAst b_expr(BasicParser*);
 d::DAst statement(BasicParser*);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast::Ast() {
-  _offset=0;
-  _line =0;
-  _token=BToken::make(d::T_ETHEREAL,"<?>", DMARK(0,0));
+d::DAst mkvar(BasicParser* bp) {
+  return Var::make(bp->eat(d::T_IDENT));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Program::Program(const std::map<int,d::DAst>& lines) {
+Program::Program(d::DToken k, const std::map<int,d::DAst>& lines) : Ast(k) {
   // lines are sorted, so we get the ordering
   // now store them into a array for fast access.
   auto pos=0;
   for (auto i=lines.begin(), e=lines.end(); i!=e; ++i) {
-    mlines[i->first] = pos++;
-    s__conj(vlines, i->second);
-  }
+    mlines[_1_(i)] = pos;
+    ++pos;
+    s__conj(vlines, _2_(i)); }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Program::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
-  auto len=vlines.size();
-  d::DValue last;
+  auto len= vlines.size();
+  auto last= DVAL_NIL;
+
   //std::cout << "len = " << len << "\n" << pr_str() << "\n";
   while (_e->isOn() &&
-         _e->incr_pc() < len) {
-    auto line= DCAST(Ast,vlines[_e->pc()]);
-    //std::cout << line->pr_str() << "\n";
-    last= line->eval(e);
-  }
+         _e->incr_pc() < len)
+    last = vlines[_e->pc()]->eval(e);
+
   return last;
 }
 
@@ -65,35 +59,33 @@ d::DValue Program::eval(d::IEvaluator* e) {
 void Program::visit(d::IAnalyzer* a) {
   //std::cout << "Program starting visit\n";
   auto _e = s__cast(Basic,a);
-  _e->installProgram(mlines);
-  for (auto& i : vlines) {
-    i->visit(a);
-  }
-  if (auto f= _e->getCurForLoop(); f) {
-    RAISE(d::SemanticError,
-          "Unmatched for-loop near line %d.", f->begin); }
+  _e->install(mlines);
+
+  for (auto& i : vlines)
+  i->visit(a);
+
+  if (auto f= _e->getCurForLoop(); f)
+    E_SEMANTIC("Unmatched for-loop at line#%d", f->begin);
   //std::cout << "Program ended visit\n";
 }
-
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Program::pr_str() const {
   stdstr buf;
-  for (auto& i : vlines) {
-    if (!buf.empty()) buf += "\n";
-    buf += N_STR(DCAST(Compound,i)->line()) + " " + PRSTR(i); }
+  for (auto& i : vlines)
+  { if (!buf.empty()) buf += "\n";
+    buf += N_STR(DCAST(Compound,i)->line()) + " " + PRN(i); }
   return buf;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Compound::Compound(int ln, const d::AstVec& vs) {
+Compound::Compound(d::DToken k, int ln, const d::AstVec& vs) : Ast(k) {
   s__ccat(stmts,vs);
   line(ln);
   auto pos=0;
-  for (auto& s : stmts) {
-    DCAST(Ast,s)->line(ln);
-    DCAST(Ast,s)->offset(pos++);
-  }
+  for (auto& s : stmts)
+  { DCAST(Ast,s)->line(ln);
+    DCAST(Ast,s)->offset(pos++); }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -101,46 +93,38 @@ d::DValue Compound::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
   auto len= stmts.size();
   auto pos= _e->poffset();
-  //std::cout << "line = " << line() << "\n";
-  for (; pos < len; ++pos) {
-    //std::cout << "offset = " << pos << "\n";
-    auto last= stmts[pos]->eval(e);
-    auto n= cast_number(last,0);
-    if (n && n->isZero()) { break; }
-  }
-  return P_NIL;
-}
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Compound::visit(d::IAnalyzer* a) {
-  for (auto& i : stmts) {
-    i->visit(a);
-  }
+  //std::cout << "line = " << line() << "\n";
+  for (; pos < len; ++pos)
+  { auto ps= DCAST(Ast,stmts[pos]);
+    auto res= ps->eval(e);
+    auto n= vcast<d::Number>(res);
+    if (n && n->isZero()) {break;} }
+
+  return DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Compound::pr_str() const {
   stdstr buf;
-  for (auto& i : stmts) {
-    if (!buf.empty()) buf += ":";
-    buf += PRSTR(i);
-  }
+  for (auto& i : stmts)
+    buf += stdstr(buf.empty()?"":":") + PRN(i);
   return buf;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 OnXXX::OnXXX(d::DToken t, d::DAst v, d::TokenVec& vs) : Ast(t) {
   var=v;
-  for (auto& t : vs) {
-    s__conj(targets, (int)t->getInt()); }
+  for (auto& t : vs)
+    s__conj(targets, (int) t->getInt());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue OnXXX::eval(d::IEvaluator* e) {
   auto _e= s__cast(Basic,e);
-  auto t= token()->type();
   auto v= var->eval(e);
-  auto n= cast_number(v,1);
+  auto _A=tok()->addr();
+  auto n= vcast<d::Number>(v,_A);
   auto x= n->getInt();
   auto tz= targets.size();
   auto res= DVAL_NIL;
@@ -149,12 +133,13 @@ d::DValue OnXXX::eval(d::IEvaluator* e) {
   //if x is 2, it jumps to the second line, and so on.
   if (x > 0 && x <= tz) {
     // get the selected target
+    auto t= tok()->type();
     x= targets[x-1];
-    if (t == T_GOTO) {
-      _e->jump(x); }
+    if (t == T_GOTO)
+      _e->jump(x);
     else
-    if (t== T_GOSUB) {
-      _e->jumpSub(x, line(), offset()); }
+    if (t== T_GOSUB)
+      _e->jumpSub(x, line(), offset());
     res=NUMBER_VAL(0);
   }
 
@@ -162,88 +147,72 @@ d::DValue OnXXX::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void OnXXX::visit(d::IAnalyzer* a) {
-  var->visit(a);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ForNext::ForNext(d::DToken t, d::DAst var) : Ast(t) {
-  this->var=var;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ForNext::ForNext(d::DToken t) : Ast(t) { }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue ForNext::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
-  return _e->jumpFor(_e->getForLoop(_e->pc())), P_NIL;
+  _e->jumpFor(_e->getForLoop(_e->pc(),offset()));
+  return NUMBER_VAL(0);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ForNext::visit(d::IAnalyzer* a) {
   auto _e = s__cast(Basic,a);
-  if (!var) {
+  if (!var)
     _e->xrefForNext(line(), offset());
-  } else {
-    var->visit(a);
-    _e->xrefForNext(DCAST(Var,var)->name(), line(), offset());
-  }
+  else
+  { var->visit(a);
+    _e->xrefForNext(PNAME(Var,var), line(), offset()); }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ForLoop::ForLoop(d::DAst var, d::DAst init, d::DAst term, d::DAst step) {
-  this->var=var;
-  this->init= init;
-  this->term= term;
-  this->step=step;
+stdstr ForNext::pr_str() const {
+  stdstr buf { tok()->pr_str() };
+  if (var)
+    buf += " " + PNAME(Var,var);
+  return buf;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue ForLoop::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
+  auto _A= tok()->addr();
   auto P = _e->pc();
   bool quit=1;
-  auto f= _e->getForLoop(P);
+  auto f= _e->getForLoop(P,offset());
 
   //calc step and term
   auto _t= term->eval(e);
   auto _s= step->eval(e);
-  auto s= cast_number(_s,1);
-  auto t= cast_number(_t,1);
+  auto s= vcast<d::Number>(_s,_A);
+  auto t= vcast<d::Number>(_t,_A);
   auto i=t;
   auto z= 0.0;
 
+  // first invoke
   if (!f->init) {
-    // first invoke
     f->init = init->eval(e);
-    i= cast_number(f->init,1);
+    i= vcast<d::Number>(f->init,_A);
     z= i->getFloat();
     e->setValue(f->var, f->init);
   } else {
     auto _v= e->getValue(f->var);
-    auto v= cast_number(_v,1);
+    auto v= vcast<d::Number>(_v,_A);
     // do var +/- step
-    if (s->isPos()) {
-      z = v->getFloat() + s->getFloat(); }
-    else
-    if (s->isNeg()) {
-      z = v->getFloat() - s->getFloat(); }
+    z = v->getFloat() + s->getFloat();
     // update the var
-    if (v->isInt()) {
-      e->setValue(f->var, NUMBER_VAL((llong)z)); }
-    else {
-      e->setValue(f->var, NUMBER_VAL(z)); }
-  }
+    e->setValue(f->var,
+                v->isInt()
+                ? NUMBER_VAL((llong) z) : NUMBER_VAL(z)); }
+
   // test for loop termination
-  if (s->isPos()) {
-    quit = z > t->getFloat(); }
-  else
-  if (s->isNeg()) {
-      quit = z < t->getFloat(); }
+  if (s->isPos())
+    quit = z > t->getFloat();
+  if (s->isNeg())
+    quit = z < t->getFloat();
+
   if (quit)
     _e->endFor(f);
-  return quit ? NUMBER_VAL(0) : P_NIL;
+
+  return quit ? NUMBER_VAL(0) : DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -259,124 +228,73 @@ void ForLoop::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr ForLoop::pr_str() const {
-  return "FOR " + PRSTR(var) +
-         " = " + PRSTR(init) +
-         " TO " + PRSTR(term) + " STEP " + PRSTR(step);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-IfThen::IfThen(d::DToken _t, d::DAst c, d::DAst t, d::DAst z) : Ast(_t) {
-  cond=c;
-  then=t;
-  elze=z;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-IfThen::IfThen(d::DToken _t, d::DAst c, d::DAst t) : Ast(_t) {
-  cond=c;
-  then=t;
+  return stdstr("FOR ") +
+         PRN(var) +
+         " = " +
+         PRN(init) +
+         " TO " +
+         PRN(term) +
+         " STEP " +
+         PRN(step);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue IfThen::eval(d::IEvaluator* e) {
   auto c= cond->eval(e);
-  auto n= cast_number(c,1);
-  return !n->isZero() ? then->eval(e) : (elze ? elze->eval(e) : P_NIL);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void IfThen::visit(d::IAnalyzer* a) {
-  cond->visit(a);
-  then->visit(a);
-  if (elze) elze->visit(a);
+  auto n= vcast<d::Number>(c,tok()->addr());
+  return !n->isZero()
+         ? then->eval(e) : (elze ? elze->eval(e) : DVAL_NIL);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr IfThen::pr_str() const {
   stdstr buf;
-  buf += "IF " + PRSTR(cond) + " THEN " + PRSTR(then);
-  return elze ? buf + " ELSE " + PRSTR(elze) : buf;
+  buf += stdstr("IF ") +
+         PRN(cond) +
+         " THEN " +
+         PRN(then);
+  return elze ? buf + " ELSE " + PRN(elze) : buf;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Run::Run(d::DToken t) : Ast(t) { }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue Run::eval(d::IEvaluator*) { return P_NIL; }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Run::visit(d::IAnalyzer* a) { }
-//
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Restore::Restore(d::DToken t) : Ast(t) { }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Restore::visit(d::IAnalyzer* a) { }
+d::DValue Run::eval(d::IEvaluator*) { return DVAL_NIL; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Restore::eval(d::IEvaluator* e) {
-  s__cast(Basic,e)->restore();
-  return P_NIL;
+  return s__cast(Basic,e)->restore(), DVAL_NIL;
 }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-End::End(d::DToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue End::eval(d::IEvaluator* e) {
-  s__cast(Basic,e)->halt();
-  return P_NIL;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void End::visit(d::IAnalyzer* a) { }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Data::Data(d::DToken t, const d::AstVec& vs) : Ast(t) {
-  s__ccat(data,vs);
+  return s__cast(Basic,e)->halt(), DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Data::eval(d::IEvaluator* e) {
-  return P_NIL;
+  return DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Data::visit(d::IAnalyzer* a) {
   auto _a = s__cast(Basic,a);
-  for (auto& x : data) {
-    x->visit(a);
-    _a->addData(x->eval(_a));
-  }
+  for (auto& x : data)
+  { x->visit(a);
+    _a->addData(x->eval(_a)); }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Data::pr_str() const {
-  stdstr b, buf { token()->getStr() };
+  stdstr b, buf { tok()->getStr() };
 
-  for (auto& x : data) {
-    if (!b.empty()) b += " , ";
-    b += DCAST(Ast,x)->pr_str();
-  }
+  for (auto& x : data)
+    b += stdstr(b.empty()?"":",") + PRN(x);
 
   return b.empty() ? buf : (buf + " " + b);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-GoSubReturn::GoSubReturn(d::DToken t) : Ast(t) { }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue GoSubReturn::eval(d::IEvaluator* e) {
-  s__cast(Basic,e)->retSub();
-  return NUMBER_VAL(0);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void GoSubReturn::visit(d::IAnalyzer* a) { }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-GoSub::GoSub(d::DToken t, d::DAst e) : Ast(t) {
-  expr=e;
+  return s__cast(Basic,e)->retSub(), NUMBER_VAL(0);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -384,72 +302,51 @@ d::DValue GoSub::eval(d::IEvaluator* e) {
   //std::cout << "Jumping to subroutine: " << "\n";
   auto _e= s__cast(Basic,e);
   auto res= expr->eval(e);
-  auto des= cast_number(res,1);
+  auto des= vcast<d::Number>(res,tok()->addr());
   //std::cout << "Jumping to subroutine: " << des << "\n";
-  _e->jumpSub(des->getInt(), line(), offset());
-  return NUMBER_VAL(0);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void GoSub::visit(d::IAnalyzer* a) {
-  expr->visit(a);
+  return _e->jumpSub(des->getInt(), line(), offset()), NUMBER_VAL(0);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr GoSub::pr_str() const {
-  return token()->getStr() + " " + PRSTR(expr);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Goto::Goto(d::DToken t, d::DAst e) : Ast(t) {
-  expr=e;
+  return tok()->getStr() + " " + PRN(expr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Goto::eval(d::IEvaluator* e) {
   auto _e= s__cast(Basic,e);
   auto res= expr->eval(e);
-  auto line= cast_number(res,1);
+  auto line= vcast<d::Number>(res,tok()->addr());
   //std::cout << "Jumping to line: " << line << "\n";
-  _e->jump(line->getInt());
-  return NUMBER_VAL(0);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Goto::visit(d::IAnalyzer* a) {
-  expr->visit(a);
+  return _e->jump(line->getInt()), NUMBER_VAL(0);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Goto::pr_str() const {
-  return token()->getStr() + " " + PRSTR(expr);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-FuncCall::FuncCall(d::DAst var, const d::AstVec& pms) {
-  fn=var;
-  s__ccat(args,pms);
+  return tok()->getStr() + " " + PRN(expr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue FuncCall::eval(d::IEvaluator* e) {
-  auto n= DCAST(Var,fn)->name();
+  auto pvar= DCAST(Var,fn);
+  auto _A=tok()->addr();
+  auto n= pvar->name();
   auto f= e->getValue(n);
 
   if (!f)
-    RAISE(d::NoSuchVar, "Unknown function/array: %s.", C_STR(n));
-  auto fv = cast_native(f,0);
-  auto fd = cast_lambda(f,0);
-  auto fa = cast_array(f,0);
+    RAISE(d::NoSuchVar, "Unknown function/array: %s", n.c_str());
+
+  auto fv = vcast<LibFunc>(f);
+  auto fd = vcast<Lambda>(f);
+  auto fa = vcast<BArray>(f);
 
   if (E_NIL(fa) &&
-      E_NIL(fv) && E_NIL(fd)) {
-    expected("Array var or function", f); }
+      E_NIL(fv) && E_NIL(fd))
+    expected("Array var or function", f, _A);
 
-  //else
   d::ValVec pms;
-  for (auto& a : args) {
-    s__conj(pms, a->eval(e)); }
+  for (auto& a : args)
+    s__conj(pms, a->eval(e));
 
   d::VSlice _args(pms);
   auto ff = X_NIL(fd) ? (Function*) fd : (Function*) fv;
@@ -461,111 +358,76 @@ d::DValue FuncCall::eval(d::IEvaluator* e) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr FuncCall::pr_str() const {
-  stdstr pms, buf { PRSTR(fn) };
+  stdstr pms, buf { PRN(fn) };
   buf += "(";
-  for (auto& i : args) {
-    if (!pms.empty()) pms += " , ";
-    pms += PRSTR(i);
-  }
+  for (auto& i : args)
+    pms += stdstr(pms.empty()?"":",") + PRN(i);
   return buf + pms + ")";
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void FuncCall::visit(d::IAnalyzer* a) {
-  fn->visit(a);
-  for (auto& i : args) {
-    i->visit(a);
-  }
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BoolTerm::BoolTerm(const d::AstVec& ts) {
-  s__ccat(terms, ts);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue BoolTerm::eval(d::IEvaluator* e) {
-  ASSERT(terms.size() > 0,
-         "Malformed expr, got %d terms.", (int)terms.size());
-  auto i=0;
+  auto _A=tok()->addr();
   auto z=terms.size();
-  auto lhs = terms[i]->eval(e);
-  auto res= !cast_number(lhs,1)->isZero();
+  auto i=0;
+  auto ti= terms[i];
+  auto lhs = ti->eval(e);
+  auto res= !vcast<d::Number>(lhs,_A)->isZero();
   //just one term?
-  if (z==1) { return lhs; }
-  if (!res) { return FALSE_VAL(); }
+  if (z==1) return lhs;
+  if (!res) return FALSE_VAL();
   //
   ++i;
-  while (i < z) {
-    auto _t = terms[i]->eval(e);
-    auto rhs = !cast_number(_t,1)->isZero();
+  while (i < z)
+  { auto ti= terms[i];
+    auto _t = ti->eval(e);
+    auto rhs = !vcast<d::Number>(_t,_A)->isZero();
     res= (res && rhs);
-    if (res) break;
-    ++i;
-  }
+    if (res) break; else ++i; }
   return res ? TRUE_VAL() : FALSE_VAL();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr BoolTerm::pr_str() const {
   stdstr buf;
-  for (auto& i : terms) {
-    if (!buf.empty()) buf += " ";
-    buf += PRSTR(i);
-  }
+  for (auto& i : terms)
+    buf += stdstr(buf.empty() ? "" : " ") + PRN(i);
   return buf;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void BoolTerm::visit(d::IAnalyzer* a) {
-  for (auto& i : terms) {
-    i->visit(a);
-  }
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BoolExpr::BoolExpr(const d::AstVec& ts, const d::TokenVec& ops) {
-  ASSERT(ts.size() == (ops.size()+1),
-         "Malformed expr, got %d  terms, %d ops.", (int)ts.size(), (int)ops.size());
-  s__ccat(terms, ts);
-  s__ccat(this->ops, ops);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr BoolExpr::pr_str() const {
   stdstr buf;
-  if (terms.size() > 0) {
-    buf = PRSTR(terms[0]);
-    for (int i=0,pz=ops.size(); i<pz; ++i) {
+  if (terms.size() > 0)
+  { buf = PRN(terms[0]);
+    for (int i=0,pz=ops.size(); i<pz; ++i)
+    { buf += " ";
+      buf += PRK(ops[i]);
       buf += " ";
-      buf += DCAST(BToken,ops[i])->pr_str();
-      buf += " ";
-      buf += PRSTR(terms[i+1]);
-    }
-  }
+      buf += PRN(terms[i+1]); } }
   return buf;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue BoolExpr::eval(d::IEvaluator* e) {
+  auto _A=tok()->addr();
   int z1= terms.size();
   int t1= ops.size();
-  ASSERT(z1 == (t1+1),
-         "Malformed expr, got %d  terms, %d ops.", z1, t1);
   auto i=0;
-  auto lhs= terms[0]->eval(e);
-  auto res= !cast_number(lhs,1)->isZero();
+  auto ti= terms[i];
+  auto lhs= ti->eval(e);
+  auto res= !vcast<d::Number>(lhs,_A)->isZero();
   if (z1==1) { return lhs; }
   while (i < t1) {
     auto t= ops[i];
     if (t->type() == T_OR && res) {
       break;
     }
-    auto _r= terms[i+1]->eval(e);
-    auto rhs= !cast_number(_r,1)->isZero();
-    if (t->type() == T_XOR) {
+    auto ti=terms[i+1];
+    auto _r= ti->eval(e);
+    auto rhs= !vcast<d::Number>(_r,_A)->isZero();
+    if (t->type() == T_XOR)
       res= (res != rhs);
-    }
     else
     if (rhs) { res=true; }
     ++i;
@@ -574,358 +436,298 @@ d::DValue BoolExpr::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void BoolExpr::visit(d::IAnalyzer* a) {
-  for (auto& i : terms) {
-    i->visit(a);
-  }
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-RelationOp::RelationOp(d::DAst left, d::DToken op, d::DAst right) : Ast(op) {
-  lhs= left;
-  rhs= right;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr RelationOp::pr_str() const {
-  stdstr buf { PRSTR(lhs) };
+  stdstr buf { PRN(lhs) };
   buf += " ";
-  buf += DCAST(BToken,token())->pr_str();
+  buf += PRK(tok());
   buf += " ";
-  buf += PRSTR(rhs);
+  buf += PRN(rhs);
   return "(" + buf + ")";
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue RelationOp::eval(d::IEvaluator* e) {
+  auto _A= tok()->addr();
+  auto k= tok()->type();
   auto x = lhs->eval(e);
   auto y = rhs->eval(e);
-  auto xn= cast_number(x,1);
-  auto yn= cast_number(y,1);
+  auto s1= vcast<d::String>(x);
+  auto s2= vcast<d::String>(y);
+  if (s1 && s2) {
+    switch (k) {
+    case d::T_EQ: return NUMBER_VAL(s1->impl()==s2->impl()?1:0);
+    case T_NOTEQ: return NUMBER_VAL(s1->impl()==s2->impl()?0:1);
+    }
+    E_SEMANTIC("Bad op on strings near %s", d::pr_addr(_A).c_str()); }
+  // fall through to numbers
+  auto xn= vcast<d::Number>(x,_A);
+  auto yn= vcast<d::Number>(y,_A);
   auto ints = xn->isInt() && yn->isInt();
   bool b=0;
 
-  switch (token()->type()) {
-    case T_NOTEQ:
-      b= x->equals(y) ? 0 : 1;
-    break;
-    case d::T_EQ:
-      b= x->equals(y) ? 1 : 0;
-    break;
-    case T_GTEQ:
-      b= ints
-           ? xn->getInt() >= yn->getInt()
-           : xn->getFloat() >= yn->getFloat();
-    break;
-    case T_LTEQ:
-      b= ints
-           ? xn->getInt() <= yn->getInt()
-           : xn->getFloat() <= yn->getFloat();
-    break;
-    case d::T_GT:
-      b= ints
-           ? xn->getInt() > yn->getInt()
-           : xn->getFloat() > yn->getFloat();
-    break;
-    case d::T_LT:
+  switch (k) {
+  case T_NOTEQ:
+    b= x->equals(y) ? 0 : 1;
+  break;
+  case d::T_EQ:
+    b= x->equals(y) ? 1 : 0;
+  break;
+  case T_GTEQ:
     b= ints
-         ? xn->getInt() < yn->getInt()
-         : xn->getFloat() < yn->getFloat();
-    break;
+         ? xn->getInt() >= yn->getInt()
+         : xn->getFloat() >= yn->getFloat();
+  break;
+  case T_LTEQ:
+    b= ints
+         ? xn->getInt() <= yn->getInt()
+         : xn->getFloat() <= yn->getFloat();
+  break;
+  case d::T_GT:
+    b= ints
+         ? xn->getInt() > yn->getInt()
+         : xn->getFloat() > yn->getFloat();
+  break;
+  case d::T_LT:
+  b= ints
+       ? xn->getInt() < yn->getInt()
+       : xn->getFloat() < yn->getFloat();
+  break;
   }
   return b ? TRUE_VAL() : FALSE_VAL();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void RelationOp::visit(d::IAnalyzer* a) {
-  lhs->visit(a);
-  rhs->visit(a);
+stdstr Read::pr_str() const {
+  stdstr buf { PRK(tok()) };
+  stdstr b;
+  for (auto& v : vars)
+    b += stdstr(b.empty()?"":" , ") + PRN(v);
+  return buf + " " + b;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Read::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic, e);
-  for (auto& v : vars) {
-    auto vn= DCAST(Var,v)->name();
-    //std::cout << "reading var = " << vn << "\n";
+  auto _A= tok()->addr();
+  for (auto& v : vars)
+  { auto z= DCAST(Ast,v)->tok()->type();
     auto res= _e->readData();
-    ASSERT1(res);
-    e->setValue(vn, res);
-  }
-  return P_NIL;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Read::visit(d::IAnalyzer* a) {
-  for (auto& v : vars) {
-    v->visit(a);
-  }
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Read::Read(d::DToken t, const d::AstVec& v) : Ast(t) {
-  s__ccat(vars, v);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-NotFactor::NotFactor(d::DAst e) {
-  expr=e;
+    if (!res)
+      E_SEMANTIC("Can't read data near %s", d::pr_addr(_A).c_str());
+    stdstr pv;
+    if (z==T_ARRAYINDEX) {
+      auto fc= DCAST(FuncCall,v);
+      d::ValVec out;
+      auto& args= fc->funcArgs();
+      for (auto& x : args)
+        s__conj(out, x->eval(e));
+      auto fcn=fc->funcName();
+      pv=PNAME(Var,fcn);
+      auto vv= e->getValue(pv);
+      auto arr= vcast<BArray>(vv,_A);
+      ensure_data_type(pv,res);
+      arr->set(d::VSlice(out), res);
+    } else {
+      pv= PNAME(Var,v);
+      e->setValue(pv, res); } }
+  return DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr NotFactor::pr_str() const {
-  return PRSTR(expr);
+  return PRN(expr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue NotFactor::eval(d::IEvaluator* e) {
   auto res= expr->eval(e);
-  auto i= cast_number(res,1);
-  return i->isZero() ? FALSE_VAL() : TRUE_VAL();
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void NotFactor::visit(d::IAnalyzer* a) {
-  expr->visit(a);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BinOp::BinOp(d::DAst left, d::DToken op, d::DAst right) : Ast(op) {
-  lhs=left;
-  rhs=right;
+  auto i= vcast<d::Number>(res,tok()->addr());
+  return i->isZero() ? TRUE_VAL() : FALSE_VAL();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue BinOp::eval(d::IEvaluator* e) {
+  auto _A= tok()->addr();
+  auto t= tok()->type();
   auto lf= lhs->eval(e);
   auto rt= rhs->eval(e);
-  return op_math(lf, token()->type(), rt);
+  auto s1= vcast<d::String>(lf);
+  auto s2= vcast<d::String>(rt);
+  auto n1= vcast<d::Number>(lf);
+  auto n2= vcast<d::Number>(rt);
+
+  if (n1 && n2)
+    return op_math(lf, t, rt);
+
+  if (s1 && s2 && t==d::T_PLUS)
+    return STRING_VAL(s1->impl() + s2->impl());
+
+  E_SEMANTIC("Bad op `%s` near %s",
+               typeToString(t).c_str(), d::pr_addr(_A).c_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr BinOp::pr_str() const {
-  return "( " + PRSTR(lhs) + " " +
-         DCAST(BToken,token())->pr_str() + " " + PRSTR(rhs) + " )";
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void BinOp::visit(d::IAnalyzer* a) {
-  lhs->visit(a);
-  rhs->visit(a);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Defun::Defun(d::DToken t, d::DAst var, d::AstVec& pms, d::DAst body) : Ast(t) {
-  this->var=var;
-  this->body=body;
-  s__ccat(params,pms);
+  return stdstr("( ") +
+         PRN(lhs) +
+         " " +
+         PRK(tok()) +
+         " " +
+         PRN(rhs) + " )";
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Defun::eval(d::IEvaluator* e) {
-  return P_NIL;
+  return DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Defun::visit(d::IAnalyzer* a) {
   var->visit(a);
   StrVec vs;
-  for (auto& p : params) {
-    p->visit(a);
-    s__conj(vs, DCAST(Var,p)->name());
-  }
-  body->visit(a);
-  auto vn = DCAST(Var,var)->name();
+
+  for (auto& p : params)
+  { p->visit(a);
+    s__conj(vs, PNAME(Var,p)); }
+
+  auto vn = PNAME(Var,var);
   auto _a = s__cast(Basic, a);
+  body->visit(a);
   _a->addLambda(Lambda::make(vn, vs, body));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Num::Num(d::DToken t) : Ast(t) { }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Num::eval(d::IEvaluator* e) {
-  if (token()->type() == d::T_INTEGER) {
-    return NUMBER_VAL(token()->getInt());
-  } else {
-    return NUMBER_VAL(token()->getFloat());
-  }
+  if (tok()->type() == d::T_INT) {
+    return NUMBER_VAL(tok()->getInt()); }
+  else {
+    return NUMBER_VAL(tok()->getFloat()); }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Num::visit(d::IAnalyzer* a) {}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-String::String(d::DToken t) : Ast(t) { }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr String::pr_str() const {
-  return "\"" + token()->pr_str() + "\"";
+  return "\"" + tok()->pr_str() + "\"";
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue String::eval(d::IEvaluator*) {
-  return STRING_VAL(token()->getStr());
+  return STRING_VAL(tok()->getStr());
 }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void String::visit(d::IAnalyzer*) {}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Var::Var(d::DToken t) : Ast(t) {}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Var::eval(d::IEvaluator* e) {
-  return e->getValue(token()->getStr());
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Var::visit(d::IAnalyzer*) {}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-UnaryOp::UnaryOp(d::DToken t, d::DAst e) : Ast(t) {
-  expr=e;
+  return e->getValue(tok()->getStr());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr UnaryOp::pr_str() const {
-  return token()->pr_str() + PRSTR(expr);
+  return tok()->pr_str() + PRN(expr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue UnaryOp::eval(d::IEvaluator* e) {
   auto res = expr->eval(e);
-  auto n = cast_number(res,1);
-  if (token()->type() == d::T_MINUS) {
-    if (n->isInt()) {
-      res = NUMBER_VAL(- n->getInt()); }
-    else {
-      res = NUMBER_VAL(- n->getFloat()); } }
+  auto n = vcast<d::Number>(res,tok()->addr());
+  if (tok()->type() == d::T_MINUS)
+  { if (n->isInt())
+      res = NUMBER_VAL(- n->getInt());
+    else
+      res = NUMBER_VAL(- n->getFloat()); }
   return res;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void UnaryOp::visit(d::IAnalyzer* a) {
-  expr->visit(a);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Print::Print(d::DToken t, const d::AstVec& es) : Ast(t) {
-  s__ccat(exprs, es);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Print::eval(d::IEvaluator* e) {
   auto _e = s__cast(Basic,e);
+  auto k= tok()->type();
   auto lastSemi=false;
-  for (auto& i : exprs) {
-    auto t= DCAST(Ast,i)->token()->type();
+  for (auto& i : exprs)
+  { auto t= DCAST(Ast,i)->tok()->type();
     lastSemi=false;
-    if (t == d::T_COMMA) {
+    if (t == d::T_COMMA)
       _e->writeString(" ");
-    }
     else
-    if (t == d::T_SEMI) {
+    if (t == d::T_SEMI)
       lastSemi=true;
-    }
     else
-    if (auto res= i->eval(e); res) {
-      _e->writeString(res->pr_str(0));
-    }
-  }
+    if (auto res= i->eval(e); res)
+      _e->writeString(res->pr_str(0)); }
 
-  if (! lastSemi) {
-    _e->writeln();
-  }
+  if (k==T_PRINTLN || ! lastSemi) { _e->writeln(); }
 
-  return P_NIL;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Print::visit(d::IAnalyzer* a) {
-  for (auto& i : exprs) {
-    i->visit(a);
-  }
+  return DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Print::pr_str() const {
-  stdstr b, buf { token()->getStr() };
-
-  for (auto& i : exprs) {
-    if (!b.empty()) b += " ";
-    b += PRSTR(i);
-  }
-
+  stdstr b, buf { tok()->getStr() };
+  for (auto& i : exprs)
+    b += stdstr(b.empty()?"":" ") + PRN(i);
   return buf + " " + b;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-PrintSep::PrintSep(d::DToken t) : Ast(t) {  }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue PrintSep::eval(d::IEvaluator* e) {
-  return NUMBER_VAL(token()->type());
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void PrintSep::visit(d::IAnalyzer* a) { }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Assignment::Assignment(d::DAst left, d::DToken op, d::DAst right) : Ast(op) {
-  lhs=left;
-  rhs=right;
+  return NUMBER_VAL(tok()->type());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Assignment::eval(d::IEvaluator* e) {
-  auto t= token()->type();
+  auto t= DCAST(Ast,lhs)->tok()->type();
+  auto _A=tok()->addr();
   auto res= rhs->eval(e);
+
   if (t == T_ARRAYINDEX) {
     auto fc = DCAST(FuncCall,lhs);
     auto fn = fc->funcName();
-    auto args= fc->funcArgs();
+    auto& args= fc->funcArgs();
     d::ValVec out;
-    for (auto& x : args) {
-      s__conj(out, x->eval(e)); }
-    auto vn = DCAST(Var,fn)->name();
+
+    for (auto& x : args)
+      s__conj(out, x->eval(e));
+
+    auto vn = PNAME(Var,fn);
     auto vv= e->getValue(vn);
-    auto arr= cast_array(vv,1);
+    auto arr= vcast<BArray>(vv,_A);
     ensure_data_type(vn,res);
     arr->set(d::VSlice(out), res);
   } else {
-    auto vn = DCAST(Var,lhs)->name();
-    e->setValue(vn, res);
-  }
-  return P_NIL;
+    e->setValue(PNAME(Var,lhs), res); }
+
+  return DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Assignment::pr_str() const {
-  return PRSTR(lhs) + " = " + PRSTR(rhs);
+  return PRN(lhs) +
+         stdstr(" = ") + PRN(rhs);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Assignment::visit(d::IAnalyzer* a) {
-  auto t= token()->type();
-  auto v = t == T_ARRAYINDEX
-           ? DCAST(FuncCall,lhs)->funcName() : lhs;
-  auto vn= DCAST(Var,v)->name();
-  if (t == T_ARRAYINDEX) {
-    // array must have been defined.
+  auto t= DCAST(Ast,lhs)->tok()->type();
+  auto _A=tok()->addr();
+  auto v= t == T_ARRAYINDEX
+          ? DCAST(FuncCall,lhs)->funcName() : lhs;
+  auto vn= PNAME(Var,v);
+
+  if (t == T_ARRAYINDEX)
+  { // array must have been defined.
     auto x= a->find(vn);
-    ASSERT(x,
-           "Expected array var %s, but not found.", C_STR(vn));
-  }
+    if (!x)
+      E_SEMANTIC("Wanted array var %s near %s",
+                   vn.c_str(), d::pr_addr(_A).c_str()); }
+
   lhs->visit(a);
   rhs->visit(a);
-  if (t != T_ARRAYINDEX) {
-    a->define(d::Symbol::make(vn)); }
+
+  if (t != T_ARRAYINDEX)
+    a->define(d::Symbol::make(vn));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 ArrayDecl::ArrayDecl(d::DToken t, d::DAst v, const IntVec& sizes) : Ast(t) {
-  auto n= DCAST(Var,v)->name();
+  auto n= PNAME(Var,v);
   stringType =(n[n.length()-1] == '$');
   var=v;
   s__ccat(ranges,sizes);
@@ -934,86 +736,64 @@ ArrayDecl::ArrayDecl(d::DToken t, d::DAst v, const IntVec& sizes) : Ast(t) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr ArrayDecl::pr_str() const {
   stdstr b, buf;
-  buf = PRSTR(var) + "(";
-  for (auto& x : ranges) {
-    if (!b.empty()) b += ",";
-    b += N_STR(x);
-  }
+  buf = PRN(var) + stdstr("(");
+  for (auto& x : ranges)
+    b += stdstr(b.empty()?"":",") + N_STR(x);
   return buf + b + ")";
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue ArrayDecl::eval(d::IEvaluator* e) {
-  auto n= DCAST(Var,var)->name();
+  auto n= PNAME(Var,var);
   return e->setValue(n, BArray::make(ranges));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void ArrayDecl::visit(d::IAnalyzer* a) {
-  auto n= DCAST(Var,var)->name();
-  if (auto c= a->find(n); c) {
-    RAISE(d::SemanticError,
-          "Array var %s defined already.", C_STR(n)); }
+  auto n= PNAME(Var,var);
+  auto _A=tok()->addr();
+  if (auto c= a->find(n); c)
+    E_SEMANTIC("Duplicate array var %s near %s.",
+                 n.c_str(), d::pr_addr(_A).c_str());
   a->define(d::Symbol::make(n, d::Symbol::make("ARRAY")));
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Comment::Comment(const d::TokenVec& ts) {
-  s__ccat(tkns,ts);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Comment::eval(d::IEvaluator*) { return P_NIL; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Comment::visit(d::IAnalyzer*) {}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Comment::pr_str() const {
   stdstr buf;
-  for (auto& t : tkns) {
-    if (!buf.empty()) buf += " ";
-    buf += DCAST(BToken,t)->getStr();
-  }
-  return "REM " + buf;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Input::Input(d::DToken t, d::DAst var, d::DAst prompt) : Ast(t) {
-  this->var=var;
-  this->prompt=prompt;
+  for (auto& t : tkns)
+    buf += (buf.empty()?"":" ") + DCAST(d::Token,t)->getStr();
+  return stdstr(tok()->type()==d::T_QUOTE ? "'" : "REM") + " " + buf;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Input::eval(d::IEvaluator* e) {
-  auto vn= DCAST(Var,var)->name();
+  auto vn= PNAME(Var,var);
   auto _e= s__cast(Basic,e);
   auto res= _e->readString();
   auto cs= res.c_str();
-  d::DValue v;
-  if (vn[vn.size()-1]=='$') {
-    v= STRING_VAL(res); }
+  auto v= DVAL_NIL;
+
+  if (vn[vn.size()-1]=='$')
+    v= STRING_VAL(res);
   else
-  if (::strchr(cs, '.')) {
-    v= NUMBER_VAL(::atof(cs)); }
-  else {
-    v= NUMBER_VAL(::atoi(cs)); }
+  if (::strchr(cs, '.'))
+    v= NUMBER_VAL(::atof(cs));
+  else
+    v= NUMBER_VAL(::atoi(cs));
 
-  return e->setValue(vn,v), P_NIL;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Input::visit(d::IAnalyzer* a) {
-  var->visit(a);
+  return e->setValue(vn,v), DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Input::pr_str() const {
-  stdstr buf { token()->getStr() };
-  if (prompt) {
-    buf += " " + PRSTR(prompt); }
-  buf += " ; ";
-  return buf + PRSTR(var);
+  stdstr buf { tok()->getStr() };
+  if (prompt)
+    buf += stdstr(" ") + PRN(prompt) + ";";
+  return buf + " " + PRN(var);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1028,22 +808,17 @@ BasicParser::~BasicParser() { DEL_PTR(lex); }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DToken BasicParser::eat(int wanted) {
   auto t= lex->ctx().cur;
-  if (t->type() != wanted) {
-    auto i=t->marker();
-    RAISE(d::SyntaxError,
-          "Expected token %s, got token %s near line %d(%d).",
-          C_STR(typeToString(wanted)),
-          C_STR(t->pr_str()), i.first, i.second);
-  }
-  lex->ctx().cur=lex->getNextToken();
-  return t;
+  if (t->type() != wanted)
+  { auto _A=t->addr();
+    E_SYNTAX("Wanted token %s, got %s near %s",
+              typeToString(wanted).c_str(), PSTR(t), d::pr_addr(_A).c_str()); }
+  return (lex->ctx().cur=lex->getNextToken(), t);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DToken BasicParser::eat() {
   auto t= lex->ctx().cur;
-  lex->ctx().cur=lex->getNextToken();
-  return t;
+  return (lex->ctx().cur=lex->getNextToken(), t);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1053,57 +828,58 @@ bool BasicParser::isEof() const {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst assignment(BasicParser* bp, d::DAst lhs) {
+  auto z= DCAST(Ast,lhs)->tok();
   auto t= bp->eat(d::T_EQ);
-  auto n= T_ARRAYINDEX;
   auto val= expr(bp);
-  return Assignment::make(lhs, token(n, "[]", t->marker()), val);
+  if (z->type() != d::T_IDENT)
+    //array, mark it
+    DCAST(FuncCall,lhs)->setArray(z->addr());
+  return Assignment::make(lhs, t, val);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DAst assignment(BasicParser* bp, d::DToken name) {
-  auto t= bp->eat(d::T_EQ);
-  auto val= expr(bp);
-  return Assignment::make(Var::make(name), t, val);
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DAst funcall(BasicParser* bp, d::DToken name) {
+d::DAst funcall(BasicParser* bp, d::DAst name) {
+  auto t= bp->eat(d::T_LPAREN);
   d::AstVec pms;
 
-  bp->eat(d::T_LPAREN);
-  if (!bp->isCur(d::T_RPAREN)) {
+  if (!bp->isCur(d::T_RPAREN))
     s__conj(pms, expr(bp));
-  }
 
-  while (bp->isCur(d::T_COMMA)) {
-    bp->eat();
-    s__conj(pms, expr(bp));
-  }
+  while (bp->isCur(d::T_COMMA))
+  { bp->eat();
+    s__conj(pms, expr(bp)); }
 
-  return (bp->eat(d::T_RPAREN), FuncCall::make(Var::make(name), pms));
+  bp->eat(d::T_RPAREN);
+  return FuncCall::make(
+      d::Token::make(T_FUNCALL,"()",t->addr()),name, pms);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst skipComment(BasicParser* bp) {
+  auto k= bp->eat();
   d::TokenVec tkns;
-  bp->eat(T_REM);
-  while (1) {
-    if (bp->isEof() || bp->isCur(T_EOL))
+  while (1)
+  { if (bp->isEof() ||
+        bp->isCur(T_EOL))
     break;
-    s__conj(tkns, bp->eat());
-  }
-  return Comment::make(tkns);
+    s__conj(tkns, bp->eat()); }
+  return Comment::make(k, tkns);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst input(BasicParser* bp) {
   auto t= bp->eat(T_INPUT);
+  auto _A= t->addr();
   d::DAst prompt;
-  if (bp->isCur(d::T_STRING)) {
-    prompt= String::make(bp->eat());
-    bp->eat(d::T_SEMI);
+  if (bp->isCur(d::T_STRING))
+  { prompt= String::make(bp->eat());
+    if (bp->isCur(d::T_SEMI) ||
+        bp->isCur(d::T_COMMA))
+      bp->eat();
+    else
+      E_SYNTAX("Wanted semi-colon near %s", d::pr_addr(_A).c_str());
   }
-  return Input::make(t, Var::make(bp->eat(d::T_IDENT)),prompt);
+  return Input::make(t, mkvar(bp),prompt);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1114,18 +890,16 @@ d::DAst defun(BasicParser* bp) {
 
   if (bp->isCur(d::T_LPAREN)) {
     bp->eat();
-    if (!bp->isCur(d::T_RPAREN)) {
-      s__conj(vs, Var::make(bp->eat(d::T_IDENT)));
-      while (bp->isCur(d::T_COMMA)) {
-        bp->eat();
-        s__conj(vs, Var::make(bp->eat(d::T_IDENT))); } }
+    if (!bp->isCur(d::T_RPAREN))
+    { s__conj(vs, mkvar(bp));
+      while (bp->isCur(d::T_COMMA))
+      { bp->eat();
+        s__conj(vs, mkvar(bp)); } }
     bp->eat(d::T_RPAREN);
   } else if (bp->isCur(d::T_EQ)) {
   } else {
-    auto i= t->marker();
-    RAISE(d::SyntaxError,
-          "Malformed function defn near line %d(%d).", i.first, i.second);
-  }
+    auto _A= t->addr();
+    E_SYNTAX("Malformed def near %s", d::pr_addr(_A).c_str()); }
 
   bp->eat(d::T_EQ);
   return Defun::make(t, Var::make(fn), vs, expr(bp));
@@ -1134,44 +908,53 @@ d::DAst defun(BasicParser* bp) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst onXXX(BasicParser* bp) {
   auto c= (bp->eat(T_ON), bp->eat(d::T_IDENT));
-  auto m= c->marker();
+  auto _A= c->addr();
   if (bp->isCur(T_GOTO) ||
       bp->isCur(T_GOSUB)) {} else {
-    RAISE(d::SyntaxError,
-          "Expected keyword GOTO/GOSUB near line %d(%d).", m.first, m.second);
-  }
+    E_SYNTAX("Wanted GOTO/GOSUB near %s", d::pr_addr(_A).c_str()); }
   auto g= bp->eat();
   d::TokenVec ts;
-  s__conj(ts, bp->eat(d::T_INTEGER));
-  while (bp->isCur(d::T_COMMA)) {
-    bp->eat();
-    s__conj(ts, bp->eat(d::T_INTEGER));
-  }
+  s__conj(ts, bp->eat(d::T_INT));
+  while (bp->isCur(d::T_COMMA))
+  { bp->eat();
+    s__conj(ts, bp->eat(d::T_INT)); }
   return OnXXX::make(g,c,ts);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DAst gotoInt(BasicParser* bp) {
+  auto gs= typeToString(T_GOTO);
+  auto k= bp->eat(d::T_INT);
+  auto _A=k->addr();
+  auto g= d::Token::make(T_GOTO, gs,_A);
+  return Goto::make(g, Num::make(k));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst ifThen(BasicParser* bp) {
   auto _t= bp->eat(T_IF);
   auto c= b_expr(bp);
-  auto t= (bp->eat(T_THEN), statement(bp));
-  if (!bp->isCur(T_ELSE)) {
+  bp->eat(T_THEN);
+  auto t= bp->isCur(d::T_INT)
+          ? gotoInt(bp) : statement(bp);
+  if (!bp->isCur(T_ELSE))
     return IfThen::make(_t, c,t);
-  } else {
+  else {
     bp->eat();
-    return IfThen::make(_t, c, t, statement(bp));
-  }
+    auto e= bp->isCur(d::T_INT)
+            ? gotoInt(bp) : statement(bp);
+    return IfThen::make(_t, c, t, e); }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst forNext(BasicParser* bp) {
   auto t = bp->eat(T_NEXT);
-  if (bp->isCur(d::T_IDENT)) {
-    auto v = bp->eat(d::T_IDENT);
-    return ForNext::make(t,Var::make(v));
-  } else {
+  if (!bp->isCur(d::T_IDENT))
     return ForNext::make(t);
-  }
+  else {
+    auto v = bp->eat(d::T_IDENT);
+    //std::cout << "fornext var= " << v->pr_str() << "\n";
+    return ForNext::make(t,Var::make(v)); }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1183,30 +966,27 @@ d::DAst forLoop(BasicParser* bp) {
   bp->eat(T_TO);
   auto e= expr(bp);
   // force a step = 1 as default
-  auto t= BToken::make(d::T_INTEGER, "1", ft->marker());
-  DCAST(BToken,t)->setLiteral((llong)1);
+  auto t= d::Token::make("1", ft->addr(), (llong)1);
   //
   auto s= Num::make(t);
-  if (bp->isCur(T_STEP)) {
-    s = (bp->eat(), expr(bp)); }
-  return ForLoop::make(Var::make(v), b, e, s);
+  if (bp->isCur(T_STEP))
+    s = (bp->eat(), expr(bp));
+  return ForLoop::make(ft, Var::make(v), b, e, s);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DAst print(BasicParser* bp) {
-  auto pt= bp->eat(T_PRINT);
+d::DAst print(BasicParser* bp, bool newline) {
+  auto pt= bp->eat();
   d::AstVec out;
-  while (1) {
-    if (bp->isCur(d::T_COLON) ||
+  while (1)
+  { if (bp->isCur(d::T_COLON) ||
         bp->isCur(T_EOL) ||
         bp->isEof()) { break; }
     if (bp->isCur(d::T_SEMI) ||
-        bp->isCur(d::T_COMMA)) {
-      s__conj(out, PrintSep::make(bp->eat())); }
+        bp->isCur(d::T_COMMA))
+      s__conj(out, PrintSep::make(bp->eat()));
     else
-    if (auto e= expr(bp); e) {
-      s__conj(out,e); }
-  }
+    if (auto e= expr(bp); e) { s__conj(out,e); } }
   return Print::make(pt, out);
 }
 
@@ -1225,11 +1005,11 @@ d::DAst read(BasicParser* bp) {
   auto t= bp->eat(T_READ);
   d::AstVec v;
 
-  s__conj(v, Var::make(bp->eat(d::T_IDENT)));
-  while (bp->isCur(d::T_COMMA)) {
-    bp->eat();
-    s__conj(v, Var::make(bp->eat(d::T_IDENT)));
-  }
+  s__conj(v, variable(bp));
+
+  while (bp->isCur(d::T_COMMA))
+  { bp->eat();
+    s__conj(v, variable(bp)); }
 
   return Read::make(t, v);
 }
@@ -1238,17 +1018,13 @@ d::DAst read(BasicParser* bp) {
 d::DAst data(BasicParser* bp) {
   auto t= bp->eat(T_DATA);
   d::AstVec vs;
-  while (1) {
-    if (bp->isEof() ||
+  while (1)
+  { if (bp->isEof() ||
         bp->isCur(T_EOL) ||
         bp->isCur(d::T_COLON)) {break;}
     auto res= expr(bp);
     s__conj(vs, res);
-    if (bp->isCur(d::T_COMMA)) {
-      bp->eat();
-    }
-    //std::cout << "data == " << DCAST(Ast,res)->pr_str() << "\n";
-  }
+    if (bp->isCur(d::T_COMMA)) { bp->eat(); } }
   return Data::make(t, vs);
 }
 
@@ -1278,34 +1054,30 @@ d::DAst relation(BasicParser* bp) {
   static std::set<int> ops2 { T_LTEQ, d::T_EQ, T_NOTEQ };
   auto res = expr(bp);
   while (s__contains(ops1, bp->cur()) ||
-         s__contains(ops2, bp->cur()) ) {
+         s__contains(ops2, bp->cur()) )
     res= RelationOp::make(res, bp->eat(), expr(bp));
-  }
   return res;
 }
-
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst b_factor(BasicParser* bp) { return relation(bp); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst not_factor(BasicParser* bp) {
-  if (bp->isCur(T_NOT)) {
-    bp->eat();
-    return NotFactor::make(b_factor(bp));
-  } else {
+  if (!bp->isCur(T_NOT))
     return b_factor(bp);
-  }
+
+  return NotFactor::make(bp->eat(), b_factor(bp));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst b_term(BasicParser* bp) {
   d::AstVec res { not_factor(bp) };
-  while (bp->isCur(T_AND)) {
-    bp->eat();
-    s__conj(res, not_factor(bp));
-  }
-  return BoolTerm::make(res);
+  auto k= DCAST(Ast,res[0])->tok();
+  while (bp->isCur(T_AND))
+  { bp->eat();
+    s__conj(res, not_factor(bp)); }
+  return BoolTerm::make(k, res);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1313,17 +1085,31 @@ d::DAst b_expr(BasicParser* bp) {
   static std::set<int> ops {T_OR, T_XOR};
   d::AstVec res { b_term(bp) };
   d::TokenVec ts;
-  while (s__contains(ops, bp->cur())) {
-    s__conj(ts, bp->token());
+  auto k= DCAST(Ast,res[0])->tok();
+  while (s__contains(ops, bp->cur()))
+  { s__conj(ts, bp->tok());
     bp->eat();
-    s__conj(res, b_term(bp));
+    s__conj(res, b_term(bp)); }
+  return BoolExpr::make(k, res, ts);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DAst variable(BasicParser* bp) {
+  auto t= mkvar(bp);
+  // a func call, or array access
+  if (!bp->isCur(d::T_LPAREN)) {
+    return t;
+  } else {
+    auto m=DCAST(Ast,t)->tok()->addr();
+    auto fc= funcall(bp,t);
+    DCAST(FuncCall,fc)->setArray(m);
+    return fc;
   }
-  return BoolExpr::make(res, ts);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst factor(BasicParser* bp) {
-  auto t= bp->token();
+  auto t= bp->tok();
   d::DAst res;
   switch (t->type()) {
   case d::T_PLUS:
@@ -1331,7 +1117,7 @@ d::DAst factor(BasicParser* bp) {
     res= (bp->eat(), UnaryOp::make(t, factor(bp)));
   break;
   case d::T_REAL:
-  case d::T_INTEGER:
+  case d::T_INT:
     res= (bp->eat(), Num::make(t));
   break;
   case d::T_STRING:
@@ -1342,14 +1128,11 @@ d::DAst factor(BasicParser* bp) {
     bp->eat(d::T_RPAREN);
   break;
   case d::T_IDENT:
-    bp->eat();
-    // a func call, or array access
-    if (bp->isCur(d::T_LPAREN)) {
-      res = funcall(bp,t); }
-    else {
-      res= Var::make(t); }
+    res= variable(bp);
   break;
   default:
+    E_SYNTAX("Bad expression near %s",
+             d::pr_addr(t->addr()).c_str());
   break;
   }
   return res;
@@ -1359,11 +1142,12 @@ d::DAst factor(BasicParser* bp) {
 d::DAst term2(BasicParser* bp) {
   static std::set<int> ops { T_POWER };
   auto res= factor(bp);
-  while (s__contains(ops,bp->cur())) {
-    //res = d::DAst(new BinOp(res, bp->eat(), factor(bp)));
-    //handles right associativity
+
+  //res = d::DAst(new BinOp(res, bp->eat(), factor(bp)));
+  //handles right associativity
+  while (s__contains(ops,bp->cur()))
     res = BinOp::make(res, bp->eat(), term2(bp));
-  }
+
   return res;
 }
 
@@ -1371,9 +1155,8 @@ d::DAst term2(BasicParser* bp) {
 d::DAst term(BasicParser* bp) {
   static std::set<int> ops {d::T_MULT,d::T_DIV, T_INT_DIV, T_MOD};
   auto res= term2(bp);
-  while (s__contains(ops,bp->cur())) {
+  while (s__contains(ops,bp->cur()))
     res = BinOp::make(res, bp->eat(), term2(bp));
-  }
   return res;
 }
 
@@ -1381,9 +1164,8 @@ d::DAst term(BasicParser* bp) {
 d::DAst expr(BasicParser* bp) {
   static std::set<int> ops {d::T_PLUS, d::T_MINUS};
   auto res= term(bp);
-  while (s__contains(ops,bp->cur())) {
+  while (s__contains(ops,bp->cur()))
     res= BinOp::make(res, bp->eat(), term(bp));
-  }
   return res;
 }
 
@@ -1393,11 +1175,11 @@ d::DAst declArray(BasicParser* bp) {
   auto t= bp->eat(d::T_IDENT);
   IntVec sizes;
   bp->eat(d::T_LPAREN);
-  while (! bp->isEof()) {
-    s__conj(sizes, bp->eat(d::T_INTEGER)->getInt());
-    if (bp->isCur(d::T_RPAREN)) { break; }
-    bp->eat(d::T_COMMA);
-  }
+  while (! bp->isEof())
+  { s__conj(sizes, bp->eat(d::T_INT)->getInt());
+    if (bp->isCur(d::T_RPAREN))
+    break;
+    bp->eat(d::T_COMMA); }
   bp->eat(d::T_RPAREN);
   return ArrayDecl::make(_t, Var::make(t), sizes);
 }
@@ -1409,6 +1191,7 @@ d::DAst statement(BasicParser* bp) {
   case T_DEF:
     res= defun(bp);
   break;
+  case d::T_QUOTE:
   case T_REM:
     res= skipComment(bp);
   break;
@@ -1428,7 +1211,10 @@ d::DAst statement(BasicParser* bp) {
     res= forNext(bp);
   break;
   case T_PRINT:
-    res= print(bp);
+    res= print(bp,0);
+  break;
+  case T_PRINTLN:
+    res= print(bp,1);
   break;
   case T_GOTO:
     res= gotoLine(bp);
@@ -1457,25 +1243,35 @@ d::DAst statement(BasicParser* bp) {
   case T_DIM:
     res=declArray(bp);
   break;
-  case T_LET:
-    bp->eat();
-    res=assignment(bp, bp->eat(d::T_IDENT));
+  case T_LET: {
+    auto t= bp->eat();
+    auto _A=t->addr();
+    if (!bp->isCur(d::T_IDENT))
+      E_SYNTAX("Bad LET stmt near %s.", C_STR(d::pr_addr(_A)));
+    res=statement(bp);
+    if (!DCAST(Ast,res)->tok()->type(d::T_EQ))
+      E_SYNTAX("Bad LET stmt near %s.", C_STR(d::pr_addr(_A)));
+  }
   break;
-  case d::T_IDENT:
+  case d::T_IDENT: {
     auto n= bp->eat();
-    if (bp->isCur(d::T_EQ)) {
-      res=assignment(bp,n); }
+    if (bp->isCur(d::T_EQ))
+      res=assignment(bp, Var::make(n));
     else {
-      if (bp->isCur(d::T_LPAREN)) {
-        auto fc= funcall(bp, n);
-        if (!bp->isCur(d::T_EQ)) {
-          res=fc; }
-        else { // assignment
-          res = assignment(bp, fc); }}
+      if (bp->isCur(d::T_LPAREN))
+      { auto fc= funcall(bp, Var::make(n));
+        if (!bp->isCur(d::T_EQ))
+          res=fc;
+        else
+          res = assignment(bp, fc); }
       else {
-        RAISE(d::SyntaxError,
-              "Unexpected identifier %s.", C_STR(n->pr_str())); }
-    }
+        E_SYNTAX("Unexpected id %s.", C_STR(n->pr_str())); } }
+  }
+  break;
+  default: {
+    auto t= bp->tok();
+    E_SYNTAX("Bad statement near %s", d::pr_addr(t->addr()).c_str());
+  }
   break;
   }
   return res;
@@ -1500,29 +1296,29 @@ d::DAst compound_statements(BasicParser* bp) {
     break;
     }
   }
-  return Compound::make(bp->line(), out);
+  auto k=DCAST(Ast,out[0])->tok();
+  return Compound::make(k,bp->line(), out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst parse_line(BasicParser* bp) {
 
-  auto t= bp->token();
+  auto t= bp->tok();
   d::DAst res;
   auto line= -1;
 
   // usually line number, but can be none.
-  if (t->type() == d::T_INTEGER) {
+  if (t->type() == d::T_INT) {
     line = t->getInt();
     bp->eat();
   }
 
-  if (!bp->isEof()) {
-    if (bp->isCur(T_EOL)) {
-      bp->eat(); }
+  if (!bp->isEof())
+  { if (bp->isCur(T_EOL))
+      bp->eat();
     else {
       bp->setLine(line);
-      res= compound_statements(bp); }
-  }
+      res= compound_statements(bp); } }
 
   //std::cout << "parsed line = " << line << "\n";
   return res;
@@ -1533,16 +1329,13 @@ d::DAst program(BasicParser* bp) {
   std::map<int,d::DAst> lines;
   d::AstVec raws;
   do {
-    if (auto res= parse_line(bp); res) {
-      auto n = bp->line();
+    if (auto res= parse_line(bp); res)
+    { auto n = bp->line();
       if (n < 0)
-        s__conj(raws,res);
-      else
-        lines[n]= res;
-    }
+        s__conj(raws,res); else lines[n]= res; }
   } while (!bp->isEof());
   //std::cout << "parsed ALL lines, total count = " << lines.size() << "\n";
-  return Program::make(lines);
+  return Program::make(d::Token::make(T_PROGRAM,"<>",DMARK(1,1)), lines);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1566,7 +1359,7 @@ bool BasicParser::isCur(int type) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DToken BasicParser::token() {
+d::DToken BasicParser::tok() {
   return lex->ctx().cur;
 }
 

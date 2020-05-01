@@ -22,7 +22,7 @@ namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue readList(SExprParser*, int, stdstr);
+d::DValue readList(SExprParser*, int, int, cstdstr&);
 d::DValue readForm(SExprParser*);
 d::DValue readAtom(SExprParser*);
 
@@ -51,10 +51,10 @@ stdstr gensym(cstdstr& prefix) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue macro_func(SExprParser* p, stdstr op) {
-  if (auto f = readForm(p); f) {
-    return LIST_VAL2(SYMBOL_VAL(op), f);
-  }
-  RAISE(d::SyntaxError, "Bad form: %s.\n", "macro");
+  auto _A= p->eat()->addr();
+  if (auto f = readForm(p); f)
+    return LList::make(_A, SYMBOL_VAL(op), f);
+  E_SYNTAX("Bad macro near %s", d::pr_addr(_A).c_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -70,60 +70,45 @@ SExprParser::SExprParser(const Tchar* src) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue readAtom(SExprParser* p) {
-  DEBUG("token = %d.\n", p->cur());
   switch (p->cur()) {
-    case d::T_STRING:
-      return STRING_VAL(p->eat()->getStr());
-    break;
-    case d::T_REAL:
-      return NUMBER_VAL(p->eat()->getFloat());
-    break;
-    case d::T_INTEGER:
-      return NUMBER_VAL(p->eat()->getInt());
-    break;
-    case T_KEYWORD:
-      return KEYWORD_VAL(p->eat()->getStr());
-    break;
-    case d::T_IDENT:
-      return SYMBOL_VAL(p->eat()->getStr());
-    break;
-    case T_TRUE:
-      return (p->eat(), TRUE_VAL());
-    break;
-    case T_FALSE:
-      return (p->eat(), FALSE_VAL());
-    break;
-    case T_NIL:
-      return (p->eat(), NIL_VAL());
-    break;
-    case d::T_AT:
-      return (p->eat(), macro_func(p, "deref"));
-    break;
-    case d::T_BACKTICK:
-      return (p->eat(), macro_func(p, "syntax-quote"));
-    break;
-    case d::T_QUOTE:
-      return (p->eat(), macro_func(p, "quote"));
-    break;
-    case T_SPLICE_UNQUOTE:
-      return (p->eat(), macro_func(p, "splice-unquote"));
-    break;
-    case d::T_TILDA:
-      return (p->eat(), macro_func(p, "unquote"));
-    break;
-
-    default:
-      if (p->isCur(d::T_HAT)) {
-        auto m = (p->eat(), readForm(p));
-        auto v = readForm(p);
-        if (!m)
-          RAISE(d::SyntaxError, "Bad form: %s.", "meta");
-        if (!v)
-          RAISE(d::SyntaxError, "Bad form: %s.", "value");
-        return LIST_VAL3(SYMBOL_VAL("with-meta"), v, m);
-      }
-      return SYMBOL_VAL(p->eat()->getStr());
-    break;
+  case d::T_STRING:
+    return LString::make(p->eat());
+  case d::T_REAL:
+  case d::T_INT:
+    return LNumber::make(p->eat());
+  case T_KEYWORD:
+    return LKeyword::make(p->eat());
+  case d::T_IDENT:
+    return LSymbol::make(p->eat());
+  case T_TRUE:
+    return LTrue::make(p->eat()->addr());
+  case T_FALSE:
+    return LFalse::make(p->eat()->addr());
+  case T_NIL:
+    return LNil::make(p->eat()->addr());
+  case d::T_AT:
+    return macro_func(p, "deref");
+  case d::T_BACKTICK:
+    return macro_func(p, "syntax-quote");
+  case d::T_QUOTE:
+    return macro_func(p, "quote");
+  case T_SPLICE_UNQUOTE:
+    return macro_func(p, "splice-unquote");
+  case d::T_TILDA:
+    return macro_func(p, "unquote");
+  default:
+    if (!p->isCur(d::T_HAT))
+      return LSymbol::make(p->eat());
+    else
+    { auto _A=p->eat()->addr();
+      auto m = readForm(p);
+      auto v = readForm(p);
+      if (!v)
+        E_SYNTAX("Bad form near %s", d::pr_addr(_A).c_str());
+      if (!m)
+        E_SYNTAX("Bad meta form near %s", d::pr_addr(_A).c_str());
+      //
+      return LList::make(_A, SYMBOL_VAL("with-meta"), v, m); }
   }
 }
 
@@ -186,58 +171,60 @@ void scanAnonFn(LSeqable* seq, const stdstr& gensym, int& high, bool& varArgs) {
   for (int i=0, e=seq->count(); i < e; ++i) {
     auto v= seq->nth(i);
     if (auto x= cast_seqable(v);
-        X_NIL(x) && E_NIL(cast_string(v))) {
+        X_NIL(x) && E_NIL(vcast<LString>(v))) {
       scanAnonFn(x, gensym, high, varArgs);
     }
     else
-    if (auto s = cast_symbol(v); X_NIL(s)) {
+    if (auto s = vcast<LSymbol>(v); X_NIL(s)) {
       checkForAnonArg(s, gensym, high, varArgs);
     }
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue readAnonFn(d::ValVec& res) {
+d::DValue readAnonFn(d::Addr _A, d::ValVec& res) {
   auto gs = gensym("G__");
-  bool varArgs=false;
+  bool varArgs=0;
   int high=0;
   auto form = LIST_VAL(res);
-  scanAnonFn(cast_list(form,1), gs, high, varArgs);
+  scanAnonFn(vcast<LList>(form), gs, high, varArgs);
   d::ValVec out { SYMBOL_VAL("fn") };
   d::ValVec args;
-  for (int i = 1; i <= high; ++i) {
-    s__conj(args, SYMBOL_VAL(gs + "_" + std::to_string(i)));
-  }
-  if (varArgs) {
-    s__conj(args, SYMBOL_VAL("&"));
-    s__conj(args, SYMBOL_VAL(gs + "_vargs"));
-  }
+  for (int i=1;i<=high;++i)
+    s__conj(args, SYMBOL_VAL(gs + "_" + N_STR(i)));
+  if (varArgs)
+  { s__conj(args, SYMBOL_VAL("&"));
+    s__conj(args, SYMBOL_VAL(gs + "_vargs")); }
   s__conj(out, VEC_VAL(args));
   s__conj(out, form);
-  return LIST_VAL(out);
+  return LList::make(_A,out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue readList(SExprParser* p, int ender, stdstr pairs) {
-  auto m= p->rdr()->ctx().mark();
-  auto found=0;
+d::DValue readList(SExprParser* p, int cur, int ender, cstdstr& pairs) {
+  auto _A= p->eat(cur)->addr();
+  bool found=0;
   d::ValVec res;
-  while (!p->isEof()) {
-    if (p->isCur(ender)) { found = 1, p->eat(); break; }
-    if (auto f= readForm(p); f) { s__conj(res, f); }
-  }
-  if (!found) {
-    RAISE(d::SyntaxError,
-          "Unmatched %s near line %d(%d).\n",
-          C_STR(pairs), m.first, m.second);
-  }
+
+  while (!p->isEof())
+  { if (p->isCur(ender))
+    { found = 1, p->eat(); break; }
+    if (auto f= readForm(p); f) s__conj(res, f); }
+
+  if (!found)
+    E_SYNTAX("Unmatched %s near %s",
+             pairs.c_str(), d::pr_addr(_A).c_str());
+
   switch (ender) {
-    case d::T_RBRACKET:
-      return VEC_VAL(res);
-    case d::T_RBRACE:
-      return pairs=="#{}" ? SET_VAL(res) : MAP_VAL(res);
-    default:
-      return pairs=="#()" ? readAnonFn(res) : LIST_VAL(res);
+  case d::T_RBRACKET:
+    return LVec::make(_A,res);
+  case d::T_RBRACE:
+    return pairs=="#{}"
+           ? LSet::make(_A, res)
+           : LHash::make(_A, res);
+  default:
+    return pairs=="#()"
+           ? readAnonFn(_A,res) : LList::make(_A,res);
   }
 }
 
@@ -245,19 +232,19 @@ d::DValue readList(SExprParser* p, int ender, stdstr pairs) {
 d::DValue readForm(SExprParser* p) {
   switch (p->cur()) {
     case d::T_LPAREN:
-      return (p->eat(), readList(p, d::T_RPAREN, "()"));
+      return readList(p, d::T_LPAREN, d::T_RPAREN, "()");
     case d::T_LBRACKET:
-      return (p->eat(), readList(p, d::T_RBRACKET, "[]"));
+      return readList(p, d::T_LBRACKET, d::T_RBRACKET, "[]");
     case d::T_LBRACE:
-      return (p->eat(), readList(p, d::T_RBRACE,  "{}"));
+      return readList(p, d::T_LBRACE, d::T_RBRACE,  "{}");
     case T_ANONFN:
-      return (p->eat(), readList(p, d::T_RPAREN, "#()"));
+      return readList(p, T_ANONFN, d::T_RPAREN, "#()");
     case T_SET:
-      return (p->eat(), readList(p, d::T_RBRACE, "#{}"));
+      return readList(p, T_SET, d::T_RBRACE, "#{}");
     case d::T_RPAREN:
     case d::T_RBRACE:
     case d::T_RBRACKET:
-      return NULL;
+      return DVAL_NIL;
     default:
       return readAtom(p);
   }
@@ -317,13 +304,13 @@ d::DToken SExprParser::eat() {
 d::DToken SExprParser::eat(int wanted) {
   auto t= token();
   if (t->type() != wanted) {
-    auto i= t->marker();
+    auto i= t->addr();
     RAISE(d::SyntaxError,
           "Expected token %s, found token %s near line %d(%d).\n",
           C_STR(typeToString(wanted)),
           C_STR(t->pr_str()),
-          i.first,
-          i.second);
+          _1(i),
+          _2(i));
   }
   lexer->ctx().cur= lexer->getNextToken();
   return t;

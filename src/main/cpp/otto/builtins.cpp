@@ -16,9 +16,6 @@
 #include "parser.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define CHKSZ(x, e) ((x) >= 0 && (x) < (e))
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::otto {
 namespace a = czlab::aeon;
 namespace d = czlab::dsl;
@@ -33,36 +30,35 @@ llong not_zero(llong n) { ASSERT1(n != 0); return n; }
 template<typename T>
 d::DValue op_math(int op, T res, d::VSlice args) {
   for (int i= 0, e= args.size(); i < e; ++i) {
-    auto s= cast_number(*(args.begin + i),1);
+    auto s= vcast<LNumber>(*(args.begin + i));
+    ASSERT1(s);
     switch (op) {
-      case d::T_PLUS:
-        if (s->isInt())
-          res += s->getInt(); else res += s->getFloat();
-      break;
-      case d::T_MINUS:
-        if (i==0 && e > 1) {
-          if (s->isInt())
-            res = s->getInt(); else res = s->getFloat();
-        } else {
-          if (s->isInt())
-            res -= s->getInt(); else res -= s->getFloat();
-        }
-      break;
-      case d::T_MULT:
-        if (s->isInt())
-          res *= s->getInt(); else res *= s->getFloat();
-      break;
-      case d::T_DIV:
-        if (i==0 && e > 1) {
-          if (s->isInt())
-            res = s->getInt(); else res = s->getFloat();
-        } else {
-          if (s->isInt())
-            res /= not_zero(s->getInt());
-          else
-            res /= not_zero(s->getFloat());
-        }
-      break;
+    case d::T_PLUS:
+      if (s->isInt())
+        res += s->getInt(); else res += s->getFloat();
+    break;
+    case d::T_MINUS:
+      if (i==0 && e > 1)
+      { if (s->isInt())
+          res = s->getInt(); else res = s->getFloat(); }
+      else
+      { if (s->isInt())
+          res -= s->getInt(); else res -= s->getFloat(); }
+    break;
+    case d::T_MULT:
+      if (s->isInt())
+        res *= s->getInt(); else res *= s->getFloat();
+    break;
+    case d::T_DIV:
+      if (i==0 && e > 1)
+      { if (s->isInt())
+          res = s->getInt(); else res = s->getFloat(); }
+      else
+      { if (s->isInt())
+          res /= not_zero(s->getInt());
+        else
+          res /= not_zero(s->getFloat()); }
+    break;
     }
   }
   return op_num(res);
@@ -109,12 +105,12 @@ static d::DValue native_lteq(Lisper* lisp, d::VSlice args) {
   d::preMin(1, args.size(), "<=");
   int i=1,e=args.size();
   scan_numbers(args);
-  auto lhs = cast_number(*args.begin,1)->getFloat();
+  auto lhs = vcast<LNumber>(*args.begin)->getFloat();
   for (; i < e; ++i) {
     auto a=*(args.begin+i);
-    if (auto rhs = cast_number(a,1)->getFloat(); lhs <= rhs) {
+    if (auto rhs = vcast<LNumber>(a)->getFloat(); lhs <= rhs) {
       lhs=rhs;
-    } else { break; }
+    } else break;
   }
   return BOOL_VAL(i>=e);
 }
@@ -126,12 +122,12 @@ static d::DValue native_gteq(Lisper* lisp, d::VSlice args) {
   d::preMin(1, args.size(), ">=");
   int i=1,e=args.size();
   scan_numbers(args);
-  auto lhs = cast_number(*args.begin,1)->getFloat();
+  auto lhs = vcast<LNumber>(*args.begin)->getFloat();
   for (; i < e; ++i) {
     auto a=*(args.begin+i);
-    if (auto rhs = cast_number(a,1)->getFloat(); lhs >= rhs) {
+    if (auto rhs = vcast<LNumber>(a)->getFloat(); lhs >= rhs) {
       lhs=rhs;
-    } else { break; }
+    } else break;
   }
   return BOOL_VAL(i>=e);
 }
@@ -143,12 +139,12 @@ static d::DValue native_lt(Lisper* lisp, d::VSlice args) {
   d::preMin(1, args.size(), "<");
   int i=1, e= args.size();
   scan_numbers(args);
-  auto lhs = cast_number(*args.begin,1)->getFloat();
+  auto lhs = vcast<LNumber>(*args.begin)->getFloat();
   for (; i < e; ++i) {
     auto a=*(args.begin+i);
-    if (auto rhs = cast_number(a,1)->getFloat(); lhs < rhs) {
+    if (auto rhs = vcast<LNumber>(a)->getFloat(); lhs < rhs) {
       lhs=rhs;
-    } else { break; }
+    } else break;
   }
   return BOOL_VAL(i>=e);
 }
@@ -160,12 +156,12 @@ static d::DValue native_gt(Lisper* lisp, d::VSlice args) {
   d::preMin(1, args.size(), ">");
   int i=1,e=args.size();
   scan_numbers(args);
-  auto lhs = cast_number(*args.begin,1)->getFloat();
+  auto lhs = vcast<LNumber>(*args.begin)->getFloat();
   for (; i < e; ++i) {
     auto a=*(args.begin+i);
-    if (auto rhs = cast_number(a,1)->getFloat(); lhs > rhs) {
+    if (auto rhs = vcast<LNumber>(a)->getFloat(); lhs > rhs) {
       lhs=rhs;
-    } else { break; }
+    } else break;
   }
   return BOOL_VAL(i>=e);
 }
@@ -177,12 +173,12 @@ static d::DValue native_eqeq(Lisper* lisp, d::VSlice args) {
   d::preMin(1, args.size(), "==");
   int i=1,e=args.size();
   scan_numbers(args);
-  auto lhs = cast_number(*args.begin,1)->getFloat();
+  auto lhs = vcast<LNumber>(*args.begin)->getFloat();
   for (; i < e; ++i) {
     auto a= *(args.begin+i);
-    if (auto rhs = cast_number(a,1)->getFloat(); a::fuzzy_equals(lhs, rhs)) {
+    if (auto rhs = vcast<LNumber>(a)->getFloat(); a::fuzzy_equals(lhs, rhs)) {
       lhs=rhs;
-    } else { break; }
+    } else break;
   }
   return BOOL_VAL(i>=e);
 }
@@ -209,7 +205,7 @@ static d::DValue native_apply(Lisper* lisp, d::VSlice args) {
   auto op = cast_function(*args.begin);
   auto last= args.begin + (len - 1);
   ASSERT1(last != args.end);
-  auto s= cast_seqable(*last, 1);
+  auto s= cast_seqable(*last);
   d::ValVec pms;
   appendAll(args,1,len-1, pms);
   appendAll(s,pms);
@@ -221,7 +217,7 @@ static d::DValue native_assoc(Lisper* lisp, d::VSlice args) {
   // (assoc m :a 1)
   // (assoc m :a 1 :b 2)
   d::preMin(1, args.size(), "assoc");
-  return cast_map(*args.begin, 1)->assoc(d::VSlice(args.begin+1,args.end));
+  return vcast<LHash>(*args.begin)->assoc(d::VSlice(args.begin+1,args.end));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -236,14 +232,14 @@ static d::DValue native_concat(Lisper* lisp, d::VSlice args) {
   // (concat [] [1 2])
   auto len= args.size();
   if (len == 0 ||
-      (len == 1 && cast_nil(*args.begin))) {
+      (len == 1 && vcast<LNil>(*args.begin))) {
     return EMPTY_LIST();
   }
   d::ValVec out;
   for (auto i=0; (args.begin+i) != args.end; ++i) {
     auto x= *(args.begin+i);
-    if (cast_nil(x)) { continue; }
-    appendAll(cast_seqable(x,1), out);
+    if (vcast<LNil>(x)) { continue; }
+    appendAll(cast_seqable(x), out);
   }
   return LIST_VAL(out);
 }
@@ -252,14 +248,14 @@ static d::DValue native_concat(Lisper* lisp, d::VSlice args) {
 static d::DValue native_setQ(Lisper* lisp, d::VSlice args) {
   // (set? x)
   d::preEqual(1, args.size(), "set?");
-  return BOOL_VAL(cast_set(*args.begin) != nullptr);
+  return BOOL_VAL(vcast<LSet>(*args.begin) != nullptr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_disj(Lisper* lisp, d::VSlice args) {
   // (disj #{1 2} 1)
   d::preMin(2, args.size(), "disj");
-  auto s= cast_set(*args.begin,1);
+  auto s= vcast<LSet>(*args.begin);
   return s->disj(d::VSlice(args.begin+1,args.end));
 }
 
@@ -267,11 +263,11 @@ static d::DValue native_disj(Lisper* lisp, d::VSlice args) {
 static d::DValue native_conj(Lisper* lisp, d::VSlice args) {
   // (conj [1 2] 3 4 5)
   d::preMin(2, args.size(), "conj");
-  if (auto s= cast_set(*args.begin); X_NIL(s)) {
+  if (auto s= vcast<LSet>(*args.begin); X_NIL(s)) {
     return s->conj(d::VSlice(args.begin+1,args.end));
   }
   else
-  return cast_sequential(*args.begin, 1)->conj(d::VSlice(args.begin+1,args.end));
+  return cast_sequential(*args.begin)->conj(d::VSlice(args.begin+1,args.end));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -279,7 +275,7 @@ static d::DValue native_cons(Lisper* lisp, d::VSlice args) {
   // (cons 1 [2 3])
   d::preEqual(2, args.size(), "cons");
   d::ValVec out { *args.begin };
-  appendAll(cast_seqable(*(args.begin+1), 1),out);
+  appendAll(cast_seqable(*(args.begin+1)),out);
   return LIST_VAL(out);
 }
 
@@ -288,32 +284,32 @@ static d::DValue native_containsQ(Lisper* lisp, d::VSlice args) {
   // (contains? {:a 1} :a)
   // (contains? [9 8 7] 1)
   d::preEqual(2, args.size(), "contains?");
-  return X_NIL(cast_nil(*args.begin))
+  return X_NIL(vcast<LNil>(*args.begin))
     ? *args.begin
-    : BOOL_VAL(cast_seqable(*args.begin,1)->contains(*(args.begin+1)));
+    : BOOL_VAL(cast_seqable(*args.begin)->contains(*(args.begin+1)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_count(Lisper* lisp, d::VSlice args) {
   // (count [2 3])
   d::preEqual(1, args.size(), "count");
-  return X_NIL(cast_nil(*args.begin))
+  return X_NIL(vcast<LNil>(*args.begin))
     ? NUMBER_VAL(0)
-    : NUMBER_VAL(cast_seqable(*args.begin,1)->count());
+    : NUMBER_VAL(cast_seqable(*args.begin)->count());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_deref(Lisper* lisp, d::VSlice args) {
   // (deref x)
   d::preEqual(1, args.size(), "deref");
-  return cast_atom(*args.begin,1)->deref();
+  return vcast<LAtom>(*args.begin)->deref();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_dissoc(Lisper* lisp, d::VSlice args) {
   // (dissoc {:a 1} :a)
   auto len= d::preMin(1, args.size(), "dissoc");
-  auto m = cast_map(*args.begin, 1);
+  auto m = vcast<LHash>(*args.begin);
   return (len == 1)
     ? *args.begin
     : m->dissoc(d::VSlice(args.begin+1, args.end));
@@ -323,7 +319,7 @@ static d::DValue native_dissoc(Lisper* lisp, d::VSlice args) {
 static d::DValue native_emptyQ(Lisper* lisp, d::VSlice args) {
   // (empty? "") (empty? []) (empty? {:a 1})
   d::preEqual(1, args.size(), "empty?");
-  if (cast_nil(*args.begin)) { return TRUE_VAL(); }
+  if (vcast<LNil>(*args.begin)) { return TRUE_VAL(); }
   auto m= cast_seqable(*args.begin);
   if(E_NIL(m))
     expected("Countable", *args.begin);
@@ -341,7 +337,7 @@ static d::DValue native_eval(Lisper* lisp, d::VSlice args) {
 static d::DValue native_first(Lisper* lisp, d::VSlice args) {
   // (first [1 2])
   d::preEqual(1, args.size(), "first");
-  if (cast_nil(*args.begin)) { return *args.begin; }
+  if (vcast<LNil>(*args.begin)) { return *args.begin; }
   auto s=cast_seqable(*args.begin);
   if (E_NIL(s)) expected("Seq'able", *args.begin);
   return s->first();
@@ -352,14 +348,14 @@ static d::DValue native_fnQ(Lisper* lisp, d::VSlice args) {
   // (fn? "aa")
   d::preEqual(1, args.size(), "fn?");
   return BOOL_VAL(X_NIL(cast_function(*args.begin)) &&
-                  E_NIL(cast_macro(*args.begin)));
+                  E_NIL(vcast<LMacro>(*args.begin)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_get(Lisper* lisp, d::VSlice args) {
   // (get {:a 1} :a)
   auto len= d::preMin(2, args.size(), "get");
-  auto m= cast_map(*args.begin, 1);
+  auto m= vcast<LHash>(*args.begin);
   auto s= s__cast(LSeqable, m);
   auto k= *(args.begin+1);
   if (s->contains(k)) { return m->get(k); }
@@ -372,23 +368,23 @@ static d::DValue native_hash_map(Lisper* lisp, d::VSlice args) {
   // (hash-map :a 1 :b 2)
   d::preEven(args.size(), "hash-map");
   auto m = LHash::make();
-  return cast_map(m,1)->assoc(args);
+  return vcast<LHash>(m)->assoc(args);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_keys(Lisper* lisp, d::VSlice args) {
   // (keys {:a 1 :b 2})
   d::preEqual(1, args.size(), "keys");
-  return cast_map(*args.begin, 1)->keys();
+  return vcast<LHash>(*args.begin)->keys();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_keyword(Lisper* lisp, d::VSlice args) {
   // (keyword "aaa")
   d::preEqual(1, args.size(), "keyword");
-  return X_NIL(cast_nil(*args.begin))
+  return X_NIL(vcast<LNil>(*args.begin))
     ? *args.begin
-    : KEYWORD_VAL(cast_string(*args.begin, 1)->impl());
+    : KEYWORD_VAL(vcast<LString>(*args.begin)->impl());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -401,43 +397,43 @@ static d::DValue native_list(Lisper* lisp, d::VSlice args) {
 static d::DValue native_macroQ(Lisper* lisp, d::VSlice args) {
   // (macro? x)
   d::preEqual(1, args.size(), "macro?");
-  return BOOL_VAL(cast_macro(*args.begin) != nullptr);
+  return BOOL_VAL(vcast<LMacro>(*args.begin) != nullptr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_atomQ(Lisper* lisp, d::VSlice args) {
   // (atom? a)
   d::preEqual(1, args.size(), "atom?");
-  return BOOL_VAL(cast_atom(*args.begin) != nullptr);
+  return BOOL_VAL(vcast<LAtom>(*args.begin) != nullptr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_keywordQ(Lisper* lisp, d::VSlice args) {
   // (keyword? a)
   d::preEqual(1, args.size(), "keyword?");
-  return BOOL_VAL(cast_keyword(*args.begin) != nullptr);
+  return BOOL_VAL(vcast<LKeyword>(*args.begin) != nullptr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_listQ(Lisper* lisp, d::VSlice args) {
   // (list? a)
   d::preEqual(1, args.size(), "list?");
-  return BOOL_VAL(cast_list(*args.begin) != nullptr);
+  return BOOL_VAL(vcast<LList>(*args.begin) != nullptr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_vecQ(Lisper* lisp, d::VSlice args) {
   // (vector? a)
   d::preEqual(1, args.size(), "vector?");
-  return BOOL_VAL(cast_vec(*args.begin) != nullptr);
+  return BOOL_VAL(vcast<LVec>(*args.begin) != nullptr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_sequentialQ(Lisper* lisp, d::VSlice args) {
   // (sequential? a)
   d::preEqual(1, args.size(), "sequential?");
-  return BOOL_VAL((cast_list(*args.begin) != nullptr ||
-                  (cast_vec(*args.begin) != nullptr)));
+  return BOOL_VAL((vcast<LList>(*args.begin) != nullptr ||
+                  (vcast<LVec>(*args.begin) != nullptr)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -451,17 +447,17 @@ static d::DValue native_seqQ(Lisper* lisp, d::VSlice args) {
 static d::DValue native_mapQ(Lisper* lisp, d::VSlice args) {
   // (map? a)
   d::preEqual(1, args.size(), "map?");
-  return BOOL_VAL(cast_map(*args.begin) != nullptr);
+  return BOOL_VAL(vcast<LHash>(*args.begin) != nullptr);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_map(Lisper* lisp, d::VSlice args) {
   // (map f [1 2 3])
   d::preEqual(2, args.size(), "map");
-  auto pp = cast_function(*args.begin, 1);
+  auto pp = cast_function(*args.begin);
   auto e= *(args.begin+1);
-  if (cast_nil(e)) { return EMPTY_LIST(); }
-  auto s= cast_seqable(e, 1);
+  if (vcast<LNil>(e)) { return EMPTY_LIST(); }
+  auto s= cast_seqable(e);
   if (s->isEmpty()) { return EMPTY_LIST(); }
   d::ValVec out;
   for (auto i=0, e=s->count(); i < e; ++i) {
@@ -482,10 +478,10 @@ static d::DValue native_meta(Lisper* lisp, d::VSlice args) {
 static d::DValue native_nth(Lisper* lisp, d::VSlice args) {
   // (nth x 2)
   auto len= d::preMin(2, args.size(), "nth");
-  if (cast_nil(*args.begin)) { return NIL_VAL(); }
-  auto pos= cast_number(*(args.begin+1), 1)->getInt();
-  auto s= cast_seqable(*args.begin,1);
-  return (!CHKSZ(pos,s->count()) && len > 2) ? *(args.begin+2) : s->nth(pos);
+  if (vcast<LNil>(*args.begin)) { return NIL_VAL(); }
+  auto pos= vcast<LNumber>(*(args.begin+1))->getInt();
+  auto s= cast_seqable(*args.begin);
+  return (!CHK_INDEX(pos,s->count()) && len > 2) ? *(args.begin+2) : s->nth(pos);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -522,7 +518,7 @@ static d::DValue native_prn(Lisper* lisp, d::VSlice args) {
 static d::DValue native_read_string(Lisper* lisp, d::VSlice args) {
   // (read-string "(+ 1 2)")
   d::preEqual(1, args.size(), "read-string");
-  auto s= cast_string(*args.begin, 1)->impl();
+  auto s= vcast<LString>(*args.begin)->impl();
   auto ret= SExprParser(s.c_str()).parse();
   //::printf("ret count = %d\n", ret.first);
   return ret.second;
@@ -532,15 +528,15 @@ static d::DValue native_read_string(Lisper* lisp, d::VSlice args) {
 static d::DValue native_resetBang(Lisper* lisp, d::VSlice args) {
   // (reset! a nil)
   d::preEqual(2, args.size(), "reset!");
-  return cast_atom(*args.begin, 1)->reset(*(args.begin+1));
+  return vcast<LAtom>(*args.begin)->reset(*(args.begin+1));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_rest(Lisper* lisp, d::VSlice args) {
   // (rest [1 2 3])
   d::preEqual(1, args.size(), "rest");
-  if (cast_nil(*args.begin)) { return EMPTY_LIST(); }
-  auto s = cast_seqable(*args.begin,1);
+  if (vcast<LNil>(*args.begin)) { return EMPTY_LIST(); }
+  auto s = cast_seqable(*args.begin);
   d::ValVec out;
   appendAll(s,1,out);
   return LIST_VAL(out);
@@ -550,9 +546,9 @@ static d::DValue native_rest(Lisper* lisp, d::VSlice args) {
 static d::DValue native_seq(Lisper* lisp, d::VSlice args) {
   // (seq [1 2 3])
   d::preEqual(1, args.size(), "seq");
-  return X_NIL(cast_nil(*args.begin))
+  return X_NIL(vcast<LNil>(*args.begin))
     ? *args.begin
-    : cast_seqable(*args.begin,1)->seq();
+    : cast_seqable(*args.begin)->seq();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -561,7 +557,7 @@ static d::DValue native_gensym(Lisper* lisp, d::VSlice args) {
   auto len=d::preMax(1, args.size(), "gensym");
   stdstr pfx {"G__"};
   if (len > 0) {
-    pfx= cast_string(*args.begin,1)->impl();
+    pfx= vcast<LString>(*args.begin)->impl();
   }
   return STRING_VAL(gensym(pfx));
 }
@@ -570,7 +566,7 @@ static d::DValue native_gensym(Lisper* lisp, d::VSlice args) {
 static d::DValue native_slurp(Lisper* lisp, d::VSlice args) {
   // (slurp "some file")
   d::preEqual(1, args.size(), "slurp");
-  return STRING_VAL(a::read_file(cast_string(*args.begin, 1)->impl().c_str()));
+  return STRING_VAL(a::read_file(vcast<LString>(*args.begin)->impl().c_str()));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -583,8 +579,8 @@ static d::DValue native_str(Lisper* lisp, d::VSlice args) {
 static d::DValue native_swapBang(Lisper* lisp, d::VSlice args) {
   // (swap! a f) (swap! a f 1 2 3)
   auto len = d::preMin(2, args.size(), "swap!");
-  auto a= cast_atom(*args.begin, 1);
-  auto op= cast_function(*(args.begin+1), 1);
+  auto a= vcast<LAtom>(*args.begin);
+  auto op= cast_function(*(args.begin+1));
   d::ValVec out {a->deref()};
   for (auto i= 2; i < len; ++i) {
     s__conj(out, *(args.begin+i));
@@ -596,7 +592,7 @@ static d::DValue native_swapBang(Lisper* lisp, d::VSlice args) {
 static d::DValue native_symbol(Lisper* lisp, d::VSlice args) {
   // (symbol "s")
   d::preEqual(1, args.size(), "symbol");
-  return SYMBOL_VAL(cast_string(*args.begin, 1)->impl());
+  return SYMBOL_VAL(vcast<LString>(*args.begin)->impl());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -618,9 +614,9 @@ static d::DValue native_time_ms(Lisper* lisp, d::VSlice args) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_vals(Lisper* lisp, d::VSlice args) {
   d::preEqual(1, args.size(), "vals");
-  return X_NIL(cast_nil(*args.begin))
+  return X_NIL(vcast<LNil>(*args.begin))
          ? *args.begin
-         : cast_map(*args.begin, 1)->vals();
+         : vcast<LHash>(*args.begin)->vals();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

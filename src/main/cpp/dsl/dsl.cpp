@@ -20,11 +20,10 @@ namespace czlab::dsl {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::map<int, stdstr> TOKENS {
-  {T_INTEGER, "long"},
+std::map<int, stdstr> I_TOKENS {
+  {T_INT, "long"},
   {T_REAL, "double"},
   {T_STRING, "string"},
-  {T_IDENT, "id"},
   {T_COMMA, ","},
   {T_COLON, ":"},
   {T_LPAREN, "("},
@@ -38,20 +37,30 @@ std::map<int, stdstr> TOKENS {
   {T_DIV, "/"},
   {T_GT, ">"},
   {T_LT, "<"},
-  {T_QUOTE,"'"},
-  {T_DQUOTE,"\""},
   {T_SEMI, ";"},
+  {T_DOT, "."},
   {T_TILDA, "~"},
   {T_BACKTICK, "`"},
+  {T_QUOTE, "'"},
+  {T_DQUOTE, "\""},
   {T_BANG, "!"},
   {T_AMPER, "&"},
   {T_AT, "@"},
-  {T_PERCENT, "%"},
+  {T_PERCENT,"%"},
   {T_QMARK, "?"},
   {T_HAT, "^"},
   {T_LBRACKET, "["},
-  {T_RBRACKET, "]"}
+  {T_RBRACKET, "]"},
+  {T_EOF, "<EOF>"},
+  {T_ETHEREAL, "<?>"}
 };
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+auto S_TOKENS=a::map_reflect(I_TOKENS);
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+const std::map<stdstr,int>& getStrTokens() { return S_TOKENS; }
+const std::map<int,stdstr>& getIntTokens() { return I_TOKENS; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool is_same(const Data* x, const Data* y) {
@@ -68,7 +77,7 @@ bool is_same(DValue x, const Data* y) {
 int preEqual(int wanted, int got, cstdstr& fn) {
   if (wanted != got)
     RAISE(BadArity,
-          "%s expected %d args, got %d.", C_STR(fn), wanted, got);
+          "%s wanted %d args, got %d.", C_STR(fn), wanted, got);
   return got;
 }
 
@@ -76,7 +85,7 @@ int preEqual(int wanted, int got, cstdstr& fn) {
 int preMax(int max, int got, cstdstr& fn) {
   if (got > max)
     RAISE(BadArity,
-          "%s expected at most %d args, got %d.", C_STR(fn), max, got);
+          "%s wanted at most %d args, got %d.", C_STR(fn), max, got);
   return got;
 }
 
@@ -84,7 +93,7 @@ int preMax(int max, int got, cstdstr& fn) {
 int preMin(int min, int got, cstdstr& fn) {
   if (got < min)
     RAISE(BadArity,
-          "%s expected at least %d args, got %d.", C_STR(fn), min, got);
+          "%s wanted at least %d args, got %d.", C_STR(fn), min, got);
   return got;
 }
 
@@ -92,7 +101,7 @@ int preMin(int min, int got, cstdstr& fn) {
 int preNonZero(int c, cstdstr& fn) {
   if (c == 0)
     RAISE(BadArity,
-          "%s expected some args, got %d.", C_STR(fn), c);
+          "%s wanted some args, got %d.", C_STR(fn), c);
   return c;
 }
 
@@ -100,7 +109,7 @@ int preNonZero(int c, cstdstr& fn) {
 int preEven(int c, cstdstr& fn) {
   if (!a::is_even(c))
     RAISE(BadArity,
-          "%s expected even args, got %d.", C_STR(fn), c);
+          "%s wanted even args, got %d.", C_STR(fn), c);
   return c;
 }
 
@@ -108,10 +117,22 @@ int preEven(int c, cstdstr& fn) {
 Tchar peek(Context& ctx) { return ctx.src[ctx.pos]; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Tchar pop(Context& ctx) {
+  auto ch= peek(ctx); return advance(ctx), ch;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 // Peek into the buffer and see what's ahead.
 Tchar peekAhead(Context& ctx, int offset) {
   auto nx = ctx.pos + offset;
   return nx >= 0 && nx < ctx.len ? ctx.src[nx] : '\0';
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr pr_addr(Addr m) {
+  Tchar buf[1024];
+  ::sprintf(buf, "line: %d, col: %d", _1(m), _2(m));
+  return stdstr(buf);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -140,8 +161,9 @@ bool advance(Context& ctx, int steps) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Mark mark_advance(Context& ctx, int steps) {
-  auto m=ctx.mark(); advance(ctx, steps); return m;
+Addr mark_advance(Context& ctx, int steps) {
+  auto m=ctx.mark();
+  return advance(ctx, steps), m;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -151,29 +173,36 @@ void skipWhitespace(Context& ctx) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr digits(Context& ctx) {
+std::pair<stdstr,Addr> digits(Context& ctx) {
   // grab a sequence of digits
+  auto m= ctx.mark();
   stdstr res;
   while (!ctx.eof &&
          ::isdigit(peek(ctx))) { res += peek(ctx); advance(ctx); }
-  return res;
+  return s__pair(stdstr,Addr,res,m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::pair<stdstr,Mark> numeric(Context& ctx) {
-  auto m= ctx.mark();
+std::pair<stdstr,Addr> numeric(Context& ctx) {
+  bool dot = peek(ctx)=='.' ; // leading dot
+  if (dot)
+  { advance(ctx);
+    if (ctx.eof || !::isdigit(peek(ctx)))
+      E_SYNTAX("Bad number near line %d, col %d.", ctx.line, ctx.col); }
   auto res = digits(ctx);
-  if (!ctx.eof &&
+  auto s= _1(res);
+  if (!dot &&
+      !ctx.eof &&
       peek(ctx) == '.') {
-    res += peek(ctx);
+    s += peek(ctx);
     advance(ctx);
-    res += digits(ctx);
+    s += _1(digits(ctx));
   }
-  return s__pair(stdstr,Mark,res, m);
+  return s__pair(stdstr,Addr,s, _2(res));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::pair<stdstr,Mark> str(Context& ctx) {
+std::pair<stdstr,Addr> str(Context& ctx) {
   auto m= ctx.mark();
   stdstr res;
   auto ch= '\0';
@@ -182,71 +211,48 @@ std::pair<stdstr,Mark> str(Context& ctx) {
     advance(ctx);
     while (!ctx.eof) {
       ch= peek(ctx);
-      if (ch == '"') { break; }
+      if (ch == '"')
+      break;
       if (ch == '\\') {
         if (!advance(ctx)) {
-          RAISE(SyntaxError,
-                "Malformed string value, bad escaped char %c.", ch); }
-        ch=a::unescape_char(peek(ctx));
-      }
+          E_SYNTAX(
+              "Bad escaped char %c near line %d, col %d.", ch, _1(m), _2(m)); }
+        ch=a::unescape_char(peek(ctx)); }
       res += ch;
-      advance(ctx);
-    }
+      advance(ctx); }
+
     if (ctx.eof || ch != '"') {
-      RAISE(SyntaxError,
-            "Malformed string value, missing %s.", "dquote"); }
+      E_SYNTAX("Bad string value, missing \" near line %d, col %d.", _1(m), _2(m)); }
+
     // good, got the end dquote
     advance(ctx);
   }
 
-  return s__pair(stdstr,Mark,res,m);
+  return s__pair(stdstr,Addr,res,m);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::pair<stdstr,Mark> identifier(Context& ctx, IdPredicate pred) {
+std::pair<stdstr,Addr> identifier(Context& ctx, IdPredicate pred) {
   auto m= ctx.mark();
   stdstr res;
+
   while (!ctx.eof) {
     auto ch=peek(ctx);
     if (res.empty()) {
       if (pred(ch,1)) {
         res += ch;
-        advance(ctx); } else { break; }
-    } else {
+        advance(ctx); } else break; }
+    else {
       if (pred(ch,0)) {
         res += ch;
-        advance(ctx); } else { break; }
-    }
-  }
-  return s__pair(stdstr,Mark,res,m);
-}
-/*
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Number::isZero() const {
-  return type==T_INTEGER ? u.n==0 : a::fuzzy_zero(u.r);
+        advance(ctx); } else break; } }
+
+  return s__pair(stdstr,Addr,res,m);
 }
 
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool Number::isInt() const { return type== T_INTEGER;}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-double Number::getFloat() const { return u.r; }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-llong Number::getInt() const { return u.n; }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Number::setFloat(double d) { u.r=d; }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Number::setInt(llong n) { u.n=n; }
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Number::setInt(int n) { u.n=n; }
-*/
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Context::Context() {
-  S_NIL(src); len=0; line=0; col=0; pos=0; eof=0; }
+  S_NIL(src); len=0; line=1; col=1; pos=0; eof=0; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DFrame Frame::make(cstdstr& n, DFrame outer) {
@@ -310,25 +316,19 @@ DValue Frame::get(cstdstr& key) const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DValue Frame::setEx(cstdstr& key, DValue v) {
 
-  auto x= slots.find(key);
-  if (x != slots.end()) {
-    slots[key]=v;
-    DEBUG("frame:setEx %s -> %s\n",
-          C_STR(key), C_STR(v->pr_str(1)));
-    return v;
-  } else if (prev) {
-    return prev->setEx(key,v);
+  DEBUG("frame:setEx %s -> %s\n", C_STR(key), C_STR(v->pr_str(1)));
+
+  if (s__contains(slots,key)) {
+    return (slots[key]=v), v;
   } else {
-    return DVAL_NIL;
+    return prev ? prev->setEx(key,v) : DVAL_NIL;
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 DValue Frame::set(cstdstr& key, DValue v) {
-  slots[key]=v;
-  DEBUG("frame:set %s -> %s\n",
-        C_STR(key), C_STR(v->pr_str(1)));
-  return v;
+  DEBUG("frame:set %s -> %s\n", C_STR(key), C_STR(v->pr_str(1)));
+  return (slots[key]=v), v;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -394,8 +394,42 @@ DSymbol Table::find(cstdstr& name) const {
   }
 }
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool String::equals(DValue rhs) const {
+  return is_same(rhs, this) &&
+         DCAST(String,rhs)->value == value;
+}
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int String::compare(DValue rhs) const {
+  if (!is_same(rhs, this)) {
+    return pr_str().compare(rhs->pr_str()); }
+  else {
+    return value.compare(DCAST(String,rhs)->value); }
+}
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool Number::match(const Number* rhs) const {
+  return (isInt() && rhs->isInt())
+    ? getInt() == rhs->getInt()
+    : a::fuzzy_equals(getFloat(), rhs->getFloat());
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool Number::equals(DValue rhs) const {
+  return is_same(rhs, this) &&
+         match(DCAST(Number, rhs));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+int Number::compare(DValue rhs) const {
+  if (!is_same(rhs, this)) {
+    return pr_str().compare(rhs->pr_str());
+  } else {
+    auto p= DCAST(Number, rhs);
+    return match(p) ? 0 : (getFloat() > p->getFloat() ? 1 : -1);
+  }
+}
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

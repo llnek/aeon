@@ -53,19 +53,24 @@ typedef int64_t llong;
 
 //////////////////////////////////////////////////////////////////////////////
 #if DEBUG_TRACE
-  #define DEBUG(...) ::fprintf(LOG_FILE, __VA_ARGS__)
+  #define DEBUG(fmt,...) \
+  do { ::fprintf(LOG_FILE, (const char*)fmt, __VA_ARGS__); ::fprintf(LOG_FILE, "\n"); } while (0)
 #else
   #define DEBUG NO_LOG
 #endif
 //////////////////////////////////////////////////////////////////////////////
 #if LOG_TRACE
-  #define LOG(...) ::fprintf(LOG_FILE, __VA_ARGS__)
+  #define LOG(fmt,...) \
+  do { ::fprintf(LOG_FILE, (const char*)fmt, __VA_ARGS__); ::fprintf(LOG_FILE, "\n"); } while (0)
+
 #else
   #define LOG NO_LOG
 #endif
 //////////////////////////////////////////////////////////////////////////////
 #if ERROR_TRACE
-  #define ERROR(...) ::fprintf(ERROR_FILE, __VA_ARGS__)
+  #define ERROR(fmt,...) \
+  do { ::fprintf(ERROR_FILE, (const char*)fmt, __VA_ARGS__); ::fprintf(ERROR_FILE, "\n"); } while (0)
+
 #else
   #define ERROR NO_LOG
 #endif
@@ -75,13 +80,14 @@ typedef int64_t llong;
 //////////////////////////////////////////////////////////////////////////////
 #define ____ASSERT(file, line, condition, ...) \
     if (!(condition)) { \
-        ::printf("Assertion failed near %s(%d): ", file, line); \
+        ::printf("Assertion failed: file %s, line %d: ", file, line); \
         ::printf(__VA_ARGS__); \
+        ::printf("\n"); \
         exit(1); \
     } else { }
 
 #define ASSERT1(condition) \
-    ____ASSERT(__FILE__, __LINE__, condition, "%s", "\n")
+    ____ASSERT(__FILE__, __LINE__, condition, "")
 
 #define ASSERT(condition, ...) \
     ____ASSERT(__FILE__, __LINE__, condition, __VA_ARGS__)
@@ -107,6 +113,7 @@ typedef int64_t llong;
 #define CTOR_1(T,p1) new(std::nothrow) T {p1}
 #define CTOR_0(T) new(std::nothrow) T {}
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 // misc
 #define BOOL_STR_U(b) ((b) ? "TRUE" : "FALSE")
 #define BOOL_STR(b)  ((b) ? "true" : "false")
@@ -115,17 +122,19 @@ typedef int64_t llong;
 #define PRN_STR(fmt, ...) \
     do { Tchar buf[1024];\
       ::sprintf(buf, (const char*)fmt, __VA_ARGS__); return stdstr(buf); } while (0);
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#define CHK_INDEX(x, e) ((x) >= 0 && (x) < (e))
+
 
 //////////////////////////////////////////////////////////////////////////////
 // c++ std collection iteration
-//#define F__POOP(x,c) for (auto x=c->begin(); x != c->end(); ++x)
-//#define F__LOOP(x,c) for (auto x=c.begin(); x != c.end(); ++x)
 #define s__ccat(x,y) ((x).insert((x).end(),(y).begin(),(y).end()))
 #define s__pair(T1,T2,v1,v2) std::pair<T1,T2>(v1,v2)
 #define s__tuple2(a,b) std::make_tuple(a,b)
 #define s__conj(c,n) (c).push_back(n)
 #define s__nil(x) (x = nullptr)
 #define s__mix(c) std::random_shuffle(c.begin(),c.end())
+#define s__index(a,c) (a >= 0 && a < c.size())
 
 //////////////////////////////////////////////////////////////////////////////
 // c++ casting
@@ -142,6 +151,16 @@ typedef int64_t llong;
 // c++ STL
 #define s__contains(C,x) ((C).find((x)) != (C).end())
 #define map__val(M,K) (M).find(K)->second
+
+#if defined(_1) || defined(_2) || defined(_1_) || defined(_2_)
+#error macros _1,_2,_1_,_2_ have been defined already
+#endif
+#define _2_(p) p->second
+#define _2(p) p.second
+#define _1_(p) p->first
+#define _1(p) p.first
+#define STDS_NPOS  std::string::npos
+
 typedef std::string stdstr;
 typedef const std::string cstdstr;
 typedef std::vector<std::string> StrVec;

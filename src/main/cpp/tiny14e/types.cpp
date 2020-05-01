@@ -24,70 +24,17 @@ namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool SStr::eq(d::DValue rhs) const {
-  return d::is_same(rhs, this) && DCAST(SStr,rhs)->value == value;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int SStr::cmp(d::DValue rhs) const {
-  if (d::is_same(rhs, this)) {
-    auto p= DCAST(SStr,rhs);
-    return value==p->value ? 0 : value.compare(p->value);
-  } else {
-    return pr_str(0).compare(rhs->pr_str(0));
-  }
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool SNumber::eq(d::DValue rhs) const {
-  return d::is_same(rhs, this) && match(DCAST(SNumber, rhs));
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-int SNumber::cmp(d::DValue rhs) const {
-  if (d::is_same(rhs, this)) {
-    auto p= DCAST(SNumber, rhs);
-    return match(p) ? 0 : (getFloat() > p->getFloat() ? 1 : -1);
-  } else {
-    return pr_str(0).compare(rhs->pr_str(0));
-  }
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-bool SNumber::match(const SNumber* rhs) const {
-  return (isInt() && rhs->isInt())
-         ? getInt() == rhs->getInt()
-         : a::fuzzy_equals(getFloat(), rhs->getFloat());
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue expected(cstdstr& m, d::DValue v) {
   RAISE(d::BadArg,
-        "Expected `%s`, got %s.", C_STR(m), C_STR(v->pr_str()));
-}
-
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SNumber A_NUM;
-SStr A_STR;
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SNumber* cast_number(d::DValue v, int panic) {
-  if (auto p= v.get(); p && typeid(A_NUM) == typeid(*p)) {
-    return s__cast(SNumber,p);
-  }
-  if (panic) expected("Number", v);
-  return P_NIL;
+        "Wanted `%s`, got %s", C_STR(m), C_STR(v->pr_str()));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-SStr* cast_string(d::DValue v,int panic) {
-  if (auto p= v.get(); p && typeid(A_STR) == typeid(*p)) {
-    return s__cast(SStr, p);
-  }
-  if (panic) expected("String", v);
-  return P_NIL;
+d::DValue expected(cstdstr& m, d::DValue v, d::Addr a) {
+  RAISE(d::BadArg,
+        "Wanted `%s`, got %s near %s",
+        C_STR(m), C_STR(v->pr_str()), d::pr_addr(a).c_str());
 }
-
 
 
 

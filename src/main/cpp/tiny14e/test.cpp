@@ -117,7 +117,7 @@ namespace d=czlab::dsl;
 
 int main(int argc, char* argv[]) {
   try {
-    auto src= read_file("/Users/kenl/Desktop/pas_triangle.pas");
+    auto src= read_file("/tmp/pas_triangle.pas");
     Interpreter i(src.c_str());
     i.interpret();
     //::printf("result = %s\n", r.get()->pr_str().c_str());

@@ -42,48 +42,6 @@ enum TokenType {
 stdstr typeToString(int);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SToken : public d::Lexeme {
-
-  static d::DToken make(int t, cstdstr& s, d::Mark i) {
-    return WRAP_TKN( SToken,t,s,i);
-  }
-
-  static d::DToken make(int t, Tchar c, d::Mark i) {
-    return WRAP_TKN( SToken,t,c,i);
-  }
-
-  virtual double getFloat() const {
-    return type()==d::T_REAL ? number.r : number.n;
-  }
-
-  virtual llong getInt() const {
-    return type()==d::T_INTEGER ? number.n : number.r;
-  }
-
-  virtual stdstr getStr() const;
-  virtual ~SToken() {}
-
-  virtual stdstr pr_str() const { return lexeme; }
-  void setLiteral(double d) { number.r=d;}
-  void setLiteral(int n) { number.n=n;}
-  void setLiteral(llong n) { number.n=n;}
-
-  private:
-
-  stdstr lexeme;
-  union { llong n; double r; } number;
-
-  SToken(int t, cstdstr& s, d::Mark m) : d::Lexeme(t,m) {
-    lexeme=s;
-  }
-
-  SToken(int t, Tchar c, d::Mark m) : d::Lexeme(t,m) {
-    lexeme= stdstr {c};
-  }
-
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Lexer : public d::IScanner {
 
   virtual bool isKeyword(cstdstr&) const;

@@ -16,14 +16,19 @@
 #include "../dsl/dsl.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+#define PRK(t) DCAST(czlab::dsl::Token,t)->pr_str().c_str()
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 namespace czlab::basic {
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
   T_ARRAYINDEX = 1000,
+  T_FUNCALL,
   T_REM,
   T_INPUT,
+  T_PRINTLN,
   T_PRINT,
   T_LET,
   T_END,
@@ -54,37 +59,9 @@ enum TokenType {
   T_XOR,
   T_DIM,
   T_RESTORE,
+  T_PROGRAM,
 
   T_EOL
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BToken : public d::Lexeme {
-
-  static d::DToken make(int t, cstdstr& s, d::Mark m) {
-    return WRAP_TKN(BToken, t, s, m);
-  }
-  static d::DToken make(int t, Tchar c, d::Mark m) {
-    return WRAP_TKN(BToken, t, c, m);
-  }
-
-  void setLiteral(double d) { number.r= d;}
-  void setLiteral(llong n) { number.n=n; }
-  void setLiteral(int n) { number.n=n; }
-
-  virtual double getFloat() const;
-  virtual stdstr getStr() const;
-  virtual llong getInt() const;
-  virtual stdstr pr_str() const;
-  virtual ~BToken() {}
-
-  private:
-
-  stdstr lexeme;
-  union { llong n; double r; } number;
-
-  BToken(int t, Tchar c, d::Mark m);
-  BToken(int t, cstdstr& s, d::Mark m);
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -94,14 +71,13 @@ stdstr typeToString(int type);
 struct Lexer : public d::IScanner {
 
   virtual bool isKeyword(cstdstr&) const;
+  d::Context& ctx() { return _ctx; }
 
   virtual d::DToken getNextToken();
   virtual d::DToken skipComment();
   virtual d::DToken number();
   virtual d::DToken id();
   virtual d::DToken string();
-
-  d::Context& ctx() { return _ctx; }
 
   Lexer(const Tchar* src);
   virtual ~Lexer() {}
@@ -110,10 +86,6 @@ struct Lexer : public d::IScanner {
 
   d::Context _ctx;
 };
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DToken token(int, Tchar, d::Mark);
-d::DToken token(int, cstdstr&, d::Mark);
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

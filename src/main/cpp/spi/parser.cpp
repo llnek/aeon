@@ -20,8 +20,8 @@ namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define INT_VAL(x) EVal::make( (llong)(x))
-#define FLT_VAL(x) EVal::make((double)x)
+#define INT_VAL(x) d::Number::make( (llong)(x))
+#define FLT_VAL(x) d::Number::make((double)x)
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst compound_statement(SimplePascalParser*);
@@ -29,10 +29,24 @@ d::DAst block(SimplePascalParser*);
 d::DAst expr(SimplePascalParser*);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast::Ast(d::DToken t) { token=t; }
+d::DValue expected(cstdstr& m, d::DValue v, d::Addr k) {
+  RAISE(d::BadArg,
+        "Wanted `%s`, got %s near %s",
+        m.c_str(), v->pr_str(1).c_str(), d::pr_addr(k).c_str());
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast::Ast() { }
+d::DValue expected(cstdstr& m, d::DValue v) {
+  RAISE(d::BadArg,
+        "Wanted `%s`, got %s", m.c_str(), v->pr_str(1).c_str());
+}
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Ast::Ast(d::DToken t) {
+  token=t;
+  ASSERT1(t);
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 BinOp::BinOp(d::DAst left, d::DToken op, d::DAst right)
@@ -51,17 +65,17 @@ d::DValue BinOp::eval(d::IEvaluator* e) {
 
   auto lf = lhs->eval(e);
   auto rt = rhs->eval(e);
-  auto lf_= DCAST(EVal,lf);
-  auto rt_= DCAST(EVal,rt);
+  auto lf_= DCAST(d::Number,lf);
+  auto rt_= DCAST(d::Number,rt);
   double x, y, z;
 
-  if (lf_->type == d::T_INTEGER)  {
-    x= (double) lf_->u.n;
-  } else { x= lf_->u.r; }
+  if (lf_->isInt())  {
+    x= (double) lf_->getInt();
+  } else { x= lf_->getFloat(); }
 
-  if (rt_->type == d::T_INTEGER)  {
-    y= (double) rt_->u.n;
-  } else { y= rt_->u.r; }
+  if (rt_->isInt())  {
+    y= (double) rt_->getInt();
+  } else { y= rt_->getFloat(); }
 
   switch (token->type()) {
     case d::T_MINUS: z = x - y; break;
@@ -77,15 +91,14 @@ d::DValue BinOp::eval(d::IEvaluator* e) {
       return FLT_VAL(z);
 
     default:
-    { auto i= token->marker();
-      RAISE(d::SyntaxError,
-            "Bad binary-op near line %d(%d).",
-            i.first, i.second);
+    { auto i= token->addr();
+      E_SYNTAX(
+            "Bad binary-op near %s",
+            d::pr_addr(i).c_str());
     }
   }
 
-  return (lf_->type == d::T_REAL ||
-          rt_->type == d::T_REAL) ? FLT_VAL(z) : INT_VAL(z);
+  return lf_->isInt() && rt_->isInt() ? INT_VAL(z) : FLT_VAL(z);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -96,7 +109,7 @@ void String::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue String::eval(d::IEvaluator* e) {
-  return EVal::make(token->getStr());
+  return d::String::make(token->getStr());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -108,7 +121,7 @@ void Num::visit(d::IAnalyzer* a) { }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Num::name() const {
   switch (token->type()) {
-    case d::T_INTEGER: return "integer";
+    case d::T_INT: return "integer";
     case d::T_REAL: return "real";
     default: return "Can't happen!";
   }
@@ -117,15 +130,15 @@ stdstr Num::name() const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Num::eval(d::IEvaluator* e) {
   switch (token->type()) {
-    case d::T_INTEGER:
+    case d::T_INT:
       return INT_VAL(token->getInt());
     case d::T_REAL:
       return FLT_VAL(token->getFloat());
     default:
-    {  auto i=token->marker();
-      RAISE(d::SyntaxError,
-            "Bad number near line %d(%d).",
-            i.first, i.second);
+    {  auto i=token->addr();
+      E_SYNTAX(
+            "Bad number near %s",
+            d::pr_addr(i).c_str());
     }
   }
 }
@@ -139,10 +152,10 @@ stdstr UnaryOp::name() const {
     case d::T_PLUS: return "+";
     case d::T_MINUS: return "-";
     default:
-    {  auto i=token->marker();
-      RAISE(d::SyntaxError,
-            "Bad unary-op near line %d(%d).",
-            i.first, i.second);
+    {  auto i=token->addr();
+      E_SYNTAX(
+            "Bad unary-op near %s",
+            d::pr_addr(i).c_str());
     }
   }
 }
@@ -155,27 +168,27 @@ void UnaryOp::visit(d::IAnalyzer* a) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue UnaryOp::eval(d::IEvaluator* e) {
   auto r = expr->eval(e);
-  auto r_ = DCAST(EVal,r);
+  auto r_ = vcast<d::Number>(r);
 
-  if (! (r_->type == d::T_REAL || r_->type == d::T_INTEGER)) {
-    auto i=token->marker();
-    RAISE(d::SyntaxError,
-          "Expected numeric type near line %d(%d).",
-          i.first, i.second);
+  if (!r_) {
+    auto i=token->addr();
+    E_SYNTAX(
+          "Expected numeric type near %s",
+          d::pr_addr(i).c_str());
   }
 
   if (token->type() == d::T_MINUS) {
-    if (r_->type == d::T_INTEGER)
-      return INT_VAL(- r_->u.n);
-    if (r_->type == d::T_REAL)
-      return FLT_VAL(- r_->u.r);
+    if (r_->isInt())
+      return INT_VAL(- r_->getInt());
+    else
+      return FLT_VAL(- r_->getFloat());
   }
 
   return r;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Compound::Compound() : Ast() { _name="Compound"; }
+Compound::Compound(d::DToken t) : Ast(t) { _name="Compound"; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Compound::visit(d::IAnalyzer* a) {
@@ -204,12 +217,11 @@ void Assignment::visit(d::IAnalyzer* a) {
   auto lhs_ = DCAST(Ast,lhs);
   auto v = lhs_->token->getStr();
   if (auto s= a->search(v); !s) {
-    auto i= lhs_->token->marker();
-    RAISE(d::SyntaxError,
-          "Unknown var %s near line %d(%d).",
+    auto i= lhs_->token->addr();
+    E_SYNTAX(
+          "Unknown var %s near %s",
           v.c_str(),
-          i.first,
-          i.second);
+          d::pr_addr(i).c_str());
   }
 }
 
@@ -232,11 +244,11 @@ Var::Var(d::DToken t) : Ast(t) {
 void Var::visit(d::IAnalyzer* a) {
   auto n = token->getStr();
   if (auto s= a->search(n); !s) {
-    auto i=token->marker();
-    RAISE(d::SyntaxError,
-          "Unknown var %s near line %d(%d).",
+    auto i=token->addr();
+    E_SYNTAX(
+          "Unknown var %s near %s",
           n.c_str(),
-          i.first, i.second);
+          d::pr_addr(i).c_str());
   }
 }
 
@@ -255,7 +267,7 @@ void Type::visit(d::IAnalyzer* a) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Type::eval(d::IEvaluator* e) {
-  return NULL;
+  return DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -273,7 +285,9 @@ SymTable::SymTable(cstdstr& n) : d::Table(n) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Param::Param(d::DAst var, d::DAst type)
-  : Ast(), var_node(var), type_node(type) {
+  : Ast(DCAST(Ast,var)->token) {
+  var_node=var;
+  type_node=type;
   _name = DCAST(Var,var_node)->name();
 }
 
@@ -281,17 +295,17 @@ Param::Param(d::DAst var, d::DAst type)
 void Param::visit(d::IAnalyzer* a) {
   auto n= DCAST(Ast,type_node)->name();
   if (auto t= a->search(n); !t) {
-    auto i=token->marker();
-    RAISE(d::SyntaxError,
-          "Unknown type %s near line %d(%d).",
+    auto i=token->addr();
+    E_SYNTAX(
+          "Unknown type %s near %s",
           n.c_str(),
-          i.first, i.second);
+          d::pr_addr(i).c_str());
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Param::eval(d::IEvaluator* e) {
-  return P_NIL;
+  return DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -305,19 +319,19 @@ void VarDecl::visit(d::IAnalyzer* a) {
   auto type_name = DCAST(Ast,type_node)->name();
   auto var_name = DCAST(Var,var_node)->name();
   auto type_symbol = a->search(type_name);
-  auto i=token->marker();
+  auto i=token->addr();
   if (!type_symbol) {
-    RAISE(d::SyntaxError,
-          "Unknown type %s near line %d(%d).",
+    E_SYNTAX(
+          "Unknown type %s near %s",
           C_STR(type_name),
-          i.first, i.second);
+          d::pr_addr(i).c_str());
   }
 
   if (auto s = a->find(var_name); s) {
-    RAISE(d::SyntaxError,
-          "Duplicate var %s near line %d(%d).\n",
+    E_SYNTAX(
+          "Duplicate var %s near %s",
           C_STR(var_name),
-          i.first, i.second);
+          d::pr_addr(i).c_str());
   } else {
     a->define(d::VarSymbol::make(var_name, type_symbol));
   }
@@ -330,8 +344,8 @@ d::DValue VarDecl::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Block::Block(std::vector<d::DAst>& decls, d::DAst compound)
-  : Ast(), compound(compound) {
+Block::Block(d::DToken k,std::vector<d::DAst>& decls, d::DAst compound)
+  : Ast(k), compound(compound) {
   _name="Block";
   s__ccat(declarations, decls);
 }
@@ -353,8 +367,8 @@ d::DValue Block::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-ProcedureDecl::ProcedureDecl(cstdstr& proc_name,
-    d::AstVec& pms, d::DAst block_node) : Ast()  {
+ProcedureDecl::ProcedureDecl(d::DToken k,cstdstr& proc_name,
+    d::AstVec& pms, d::DAst block_node) : Ast(k)  {
   _name=proc_name;
   block=block_node;
   s__ccat(params, pms);
@@ -403,12 +417,11 @@ void ProcedureCall::visit(d::IAnalyzer* a) {
   if (auto x = a->search(_name); x) {
     proc_symbol = x;
   } else {
-    auto i=token->marker();
-    RAISE(d::SyntaxError,
-          "Unknown proc %s near line %d(%d).",
+    auto i=token->addr();
+    E_SYNTAX(
+          "Unknown proc %s near %s",
           _name.c_str(),
-          i.first,
-          i.second);
+          d::pr_addr(i).c_str());
   }
 }
 
@@ -433,7 +446,7 @@ d::DValue ProcedureCall::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Program::Program(cstdstr& name, d::DAst block) : Ast() {
+Program::Program(d::DToken k,cstdstr& name, d::DAst block) : Ast(k) {
   _name=name;
   this->block=block;
 }
@@ -445,6 +458,7 @@ void Program::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Program::eval(d::IEvaluator* e) {
+  //std::cout << "program start....\n";
   return block->eval(e);
 }
 
@@ -466,7 +480,7 @@ d::DAst factor(SimplePascalParser* ps) {
     case d::T_MINUS:
       res= (ps->eat(), UnaryOp::make(t, factor(ps)));
       break;
-    case d::T_INTEGER:
+    case d::T_INT:
       res= (ps->eat(), Num::make(t));
       break;
     case d::T_REAL:
@@ -514,10 +528,10 @@ d::DAst type_spec(SimplePascalParser* ps) {
     case T_INT:
     case T_REAL: ps->eat(); break;
     default:
-    {  auto i=t->marker();
-      RAISE(d::SyntaxError,
-            "Unknown token %d near line %d(%d).",
-            t->type(), i.first, i.second);
+    {  auto i=t->addr();
+      E_SYNTAX(
+            "Unknown token %d near %s",
+            t->type(), d::pr_addr(i).c_str());
     }
   }
   return Type::make(t);
@@ -548,7 +562,7 @@ d::DAst assignment_statement(SimplePascalParser* ps) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst empty(SimplePascalParser* ps) {
-  return NoOp::make();
+  return NoOp::make(ps->token());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -622,8 +636,10 @@ d::AstVec statement_list(SimplePascalParser* ps) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst compound_statement(SimplePascalParser* ps) {
+  auto X=ps->token();
+
   auto nodes = (ps->eat(T_BEGIN),statement_list(ps));
-  auto root= (ps->eat(T_END), Compound::make());
+  auto root= (ps->eat(T_END), Compound::make(X));
   auto pr= DCAST(Compound,root);
   for (auto& node : nodes) {
     s__conj(pr->statements,node);
@@ -643,7 +659,6 @@ d::AstVec formal_parameters(SimplePascalParser* ps) {
   }
 
   auto type_node = (ps->eat(d::T_COLON),type_spec(ps));
-
   for (auto& t : param_tokens) {
     //::printf("param toke= %s\n", t->getLiteralAsStr());
     s__conj(pnodes, Param::make(Var::make(t), type_node));
@@ -661,10 +676,13 @@ d::AstVec formal_parameter_list(SimplePascalParser* ps) {
   }
 
   auto pnodes = formal_parameters(ps);
+
   while (ps->isCur(d::T_SEMI)) {
     auto pms = (ps->eat(), formal_parameters(ps));
+
     s__ccat(pnodes, pms);
   }
+
   return pnodes;
 }
 
@@ -675,11 +693,13 @@ d::DAst procedure_declaration(SimplePascalParser* ps) {
   d::AstVec params;
 
   if (ps->isCur(d::T_LPAREN)) {
+
     params = (ps->eat(), formal_parameter_list(ps));
     ps->eat(d::T_RPAREN);
   }
 
-  auto decl = ProcedureDecl::make(pn->getStr(),
+  auto decl = ProcedureDecl::make(ps->token(),
+                                pn->getStr(),
                                 params,
                                 (ps->eat(d::T_SEMI), block(ps)));
   //::printf("proc name=%s\n", decl->name().c_str());
@@ -689,7 +709,6 @@ d::DAst procedure_declaration(SimplePascalParser* ps) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::AstVec declarations(SimplePascalParser* ps) {
   d::AstVec ds;
-
   if (ps->isCur(T_VAR)) {
     ps->eat();
     while (ps->isCur(d::T_IDENT)) {
@@ -708,15 +727,17 @@ d::AstVec declarations(SimplePascalParser* ps) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst block(SimplePascalParser* ps) {
+  auto k=ps->token();
   auto decls=declarations(ps);
-  return Block::make(decls, compound_statement(ps));
+  return Block::make(k,decls, compound_statement(ps));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst program(SimplePascalParser* ps) {
   auto var_node = (ps->eat(T_PROGRAM),variable(ps));
   auto pn= DCAST(Ast,var_node)->name();
-  auto prog = Program::make(pn, (ps->eat(d::T_SEMI),block(ps)));
+  auto k= ps->token();
+  auto prog = Program::make(k,pn, (ps->eat(d::T_SEMI),block(ps)));
   //::printf("program = %s\n", prog->name().c_str());
   return (ps->eat(d::T_DOT), prog);
 }
@@ -772,12 +793,12 @@ d::DToken SimplePascalParser::eat() {
 d::DToken SimplePascalParser::eat(int wanted) {
   auto t= lex->ctx().cur;
   if (t->type() != wanted) {
-    auto i=t->marker();
-    RAISE(d::SyntaxError,
-          "Expected token %s, got token %s near line %d(%d).",
+    auto i=t->addr();
+    E_SYNTAX(
+          "Expected token %s, got token %s near %s",
           C_STR(typeToString(wanted)),
           C_STR(t->pr_str()),
-          i.first, i.second);
+          d::pr_addr(i).c_str());
   }
   lex->ctx().cur=lex->getNextToken();
   return t;

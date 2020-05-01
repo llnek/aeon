@@ -35,43 +35,54 @@ enum TokenType {
 stdstr typeToString(int type);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+/*
 struct LToken : public d::Lexeme {
 
-  static d::DToken make(int t, cstdstr& s, d::Mark i) {
+  static d::DToken make(int t, cstdstr& s, d::Addr i) {
     return WRAP_TKN(LToken,t, s, i);
   }
 
-  static d::DToken make(int t, Tchar c, d::Mark i) {
+  static d::DToken make(int t, Tchar c, d::Addr i) {
     return WRAP_TKN(LToken,t, c, i);
   }
 
-  virtual double getFloat() const;
+  virtual stdstr pr_str() const { return lexeme; }
+
+  virtual double getFloat() const {
+    return type()==d::T_INT?n:r;
+  }
+
   virtual stdstr getStr() const;
-  virtual llong getInt() const;
-  virtual stdstr pr_str() const;
+
+  virtual llong getInt() const {
+    return type()==d::T_INT?n:r;
+  }
+
   virtual ~LToken() {}
 
-  void setLiteral(double d) { number.r=d;}
-  void setLiteral(llong n) { number.n=n;}
-  void setLiteral(int n) { number.n= n;}
+  void setLiteral(double d) { r=d;}
+  void setLiteral(llong nn) { n=nn;}
+  void setLiteral(int nn) { n= nn;}
 
   protected:
 
-  LToken(int type, cstdstr&, d::Mark);
-  LToken(int type, Tchar, d::Mark);
+  LToken(int t, cstdstr& s, d::Addr a) : d::Lexeme(t,a) {
+    lexeme=s;
+  }
 
+  LToken(int t, Tchar c, d::Addr a) : d::Lexeme(t,a) {
+    lexeme=stdstr{c};
+  }
+
+  llong n=0;
+  double r=0;
   stdstr lexeme;
-  union { llong n; double r; } number;
 };
-
+*/
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Reader : public d::IScanner {
 
   // A Lexer.
-
-  virtual d::DToken popToken() { return DTKN_NIL; }
-  virtual void pushToken(d::DToken) {}
-  virtual void unwindTokens() {}
 
   virtual bool isKeyword(cstdstr&) const;
   virtual d::DToken getNextToken();

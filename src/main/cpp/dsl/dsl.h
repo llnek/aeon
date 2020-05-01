@@ -21,6 +21,7 @@ namespace czlab::dsl {
 namespace a=czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #define DMARK(l,c) s__pair(int,int,l,c)
+#define DMARK_00 s__pair(int,int,0,0)
 #define DCAST(T,x) s__cast(T,x.get())
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #define WRAP_SYM(T,...) czlab::dsl::DSymbol(new T(__VA_ARGS__))
@@ -38,7 +39,7 @@ namespace a=czlab::aeon;
 #define E_SYNTAX(fmt,...) RAISE(czlab::dsl::SyntaxError, fmt, __VA_ARGS__)
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 typedef bool (*IdPredicate)(Tchar, bool); // for tokenizeing an identifier
-typedef std::pair<int,int> Mark; // line & col info
+typedef std::pair<int,int> Addr; // line & col info
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct NoSuchVar : public a::Error {
@@ -113,7 +114,7 @@ int preEven(int c, cstdstr&);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
-  T_INTEGER = 1000000,
+  T_INT = 1000000,
   T_REAL,
   T_STRING,
   T_IDENT,
@@ -155,7 +156,9 @@ enum TokenType {
 struct Lexeme {
   // A chunk of text - a sequence of chars.
 
-  Mark marker() const { return info; }
+  bool stringy() const { return ttype==T_IDENT || ttype==T_STRING; }
+  bool type(int t) const { return t==ttype;}
+  Addr addr() const { return info; }
   int type() const { return ttype;}
 
   virtual double getFloat() const =0;
@@ -166,11 +169,11 @@ struct Lexeme {
 
   protected:
 
-  Mark info;
+  Addr info;
   int ttype;
 
   Lexeme(int t) { ttype=t; }
-  Lexeme(int t, Mark m) { ttype=t;  info=m; }
+  Lexeme(int t, Addr m) { ttype=t;  info=m; }
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -189,36 +192,10 @@ struct IScanner {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-/*
-struct Number {
-
-  // A gnerialized number object.
-  explicit Number(double d) : type(T_REAL) { u.r=d; }
-  explicit Number(llong n) : type(T_INTEGER) { u.n=n; }
-  Number(int n) : type(T_INTEGER) { u.n=n; }
-  Number() : type(T_INTEGER) { u.n=0; }
-
-  bool isZero() const;
-  bool isInt() const;
-
-  void setFloat(double);
-  void setInt(llong);
-  void setInt(int);
-
-  double getFloat() const;
-  llong getInt() const;
-
-  private:
-
-  int type;
-  union { llong n; double r; } u;
-};
-*/
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Context {
   /////////////////////////////////////////////
   // For lexer, holds all the key attributes.
-  Mark mark() { return DMARK(line,col); }
+  Addr mark() { return DMARK(line,col); }
   ~Context() {}
   Context();
   /////////////////////////////////////////////
@@ -244,14 +221,19 @@ bool is_same(const Data* x, const Data* y);
 bool is_same(DValue, const Data* y);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::pair<stdstr,Mark> identifier(Context&, IdPredicate);
-std::pair<stdstr,Mark> numeric(Context&);
-std::pair<stdstr,Mark> str(Context&);
+std::pair<stdstr,Addr> identifier(Context&, IdPredicate);
+std::pair<stdstr,Addr> digits(Context&);
+std::pair<stdstr,Addr> numeric(Context&);
+std::pair<stdstr,Addr> str(Context&);
 Tchar peekAhead(Context&, int offset=1);
 Tchar peek(Context&);
+Tchar pop(Context&);
+const std::map<stdstr,int>& getStrTokens();
+const std::map<int,stdstr>& getIntTokens();
 void skipWhitespace(Context&);
+stdstr  pr_addr(Addr);
 bool advance(Context&, int steps=1);
-Mark mark_advance(Context&, int steps=1);
+Addr mark_advance(Context&, int steps=1);
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Symbol {
@@ -311,6 +293,7 @@ struct Table {
 struct Data {
   // Abstract class to store data value in parsers.
   virtual stdstr pr_str(bool p = 0) const = 0;
+  virtual stdstr rtti() const=0;
   virtual bool equals(DValue) const = 0;
   virtual int compare(DValue) const = 0;
   virtual ~Data() {}
@@ -321,10 +304,101 @@ struct Data {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct Number : public Data {
+
+  static DValue make(double d) {
+    return WRAP_VAL(Number,d);
+  }
+
+  static DValue make(int n) {
+    return WRAP_VAL(Number,n);
+  }
+
+  static DValue make(llong n) {
+    return WRAP_VAL(Number,n);
+  }
+
+  static DValue make() {
+    return WRAP_VAL(Number);
+  }
+
+  double getFloat() const { return isInt() ? (double)num.n : num.r; }
+  llong getInt() const { return isInt() ? num.n : (llong) num.r; }
+
+  void setFloat(double d) { num.r=d; }
+  void setInt(llong n) { num.n=n; }
+
+  bool isInt() const { return type== T_INT;}
+
+  bool isZero() const {
+    return type==T_INT ? getInt()==0 : a::fuzzy_zero(getFloat()); }
+
+  bool isNeg() const {
+    return type==T_INT ? getInt() < 0 : getFloat() < 0.0; }
+
+  bool isPos() const {
+    return type==T_INT ? getInt() > 0 : getFloat() > 0.0; }
+
+  virtual stdstr pr_str(bool p=0) const {
+    return isInt() ? N_STR(getInt()) : N_STR(getFloat());
+  }
+
+  virtual bool equals(DValue) const;
+  virtual int compare(DValue) const;
+
+  virtual stdstr rtti() const { return "Number"; }
+  Number() : type(T_INT) { num.n=0; }
+
+  protected:
+
+  explicit Number(double d) : type(T_REAL) { num.r=d; }
+  explicit Number(int n) : type(T_INT) { num.n=n; }
+  Number(llong n) : type(T_INT) { num.n=n; }
+
+  bool match(const Number*) const;
+
+  int type;
+  union { llong n; double r; } num;
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+struct String : public Data {
+
+  virtual stdstr rtti() const { return "String"; }
+
+  virtual stdstr pr_str(bool p=0) const {
+    return p ? "\"" + value + "\"" : value;
+  }
+
+  static DValue make(const Tchar* s) {
+    return WRAP_VAL(String,s);
+  }
+
+  static DValue make(cstdstr& s) {
+    return WRAP_VAL(String,s);
+  }
+
+  virtual bool equals(DValue) const;
+  virtual int compare(DValue) const;
+
+  stdstr impl() const { return value; }
+  // internal use only
+  String() {}
+
+  protected:
+
+  stdstr value;
+  String(cstdstr& s) : value(s) {}
+  String(const Tchar* s) : value(s) {}
+};
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Nothing : public Data {
 
+  virtual stdstr pr_str(bool b=0) const { return "nothing"; }
+  virtual stdstr rtti() const { return "Nothing"; }
+
   static DValue make() { return WRAP_VAL(Nothing); }
-  stdstr pr_str(bool b=0) const { return "nothing"; }
 
   virtual bool equals(DValue rhs) const {
     ASSERT1(rhs);
@@ -480,25 +554,67 @@ struct IParser {
   virtual ~IParser() {}
 };
 
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-/*
 struct Token : public Lexeme {
 
-  virtual double getFloat() const;
-  virtual stdstr getStr() const;
-  virtual llong getInt() const;
-  virtual stdstr pr_str() const;
+  static DToken make(int t, cstdstr& s, Addr a) {
+    auto x=new Token(t,a);
+    x->text=s;
+    return DToken(x);
+  }
+
+  static DToken make(int t, Tchar c, Addr a) {
+    auto x=new Token(t,a);
+    x->text=stdstr{c};
+    return DToken(x);
+  }
+
+  static DToken make(cstdstr& s, Addr a, double d) {
+    auto x=new Token(T_REAL,a);
+    x->num.r=d;
+    x->text=s;
+    return DToken(x);
+  }
+
+  static DToken make(cstdstr& s, Addr a, llong n) {
+    auto x=new Token(T_INT,a);
+    x->num.n=n;
+    x->text=s;
+    return DToken(x);
+  }
+
+  static DToken make(cstdstr& s, Addr a) {
+    auto x=new Token(T_STRING,a);
+    x->text=s;
+    return DToken(x);
+  }
+
+  virtual double getFloat() const {
+    return type()==T_REAL?num.r:num.n;
+  }
+
+  virtual llong getInt() const {
+    return type()==T_REAL?num.r:num.n;
+  }
+
+  virtual stdstr getStr() const {
+    return text;
+  }
+
+  virtual stdstr pr_str() const {
+    return text;
+  }
+
   virtual ~Token() {}
 
   protected:
 
-  Token(int, cstdstr&, Mark);
-  Token(int, Tchar, Mark);
-
-  stdstr lexeme;
-  union { llong n; double r; } number;
+  stdstr text;
+  union { llong n; double r; } num;
+  Token(int t, Addr m) : Lexeme(t,m) {}
 };
-*/
+
 
 
 

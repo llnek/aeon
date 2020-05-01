@@ -31,20 +31,20 @@ d::DAst b_expr(CrenshawParser*);
 stdstr toStr(d::DValue e) { return e ? e->pr_str(1) : ""; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue boolFalse() { return SNumber::make(0); }
+d::DValue boolFalse() { return d::Number::make(0); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue boolTrue() { return SNumber::make(1); }
+d::DValue boolTrue() { return d::Number::make(1); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 double toReal(d::DValue e) {
-  auto n= cast_number(e,0);
+  auto n= vcast<d::Number>(e);
   return n ? n->getFloat() : 0;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 llong toInt(d::DValue e) {
-  auto n= cast_number(e,0);
+  auto n= vcast<d::Number>(e);
   return n ? n->getInt() : 0;
 }
 
@@ -52,28 +52,23 @@ llong toInt(d::DValue e) {
 d::DValue cast(d::DValue v, d::DSymbol t) {
   auto s = t.get()->name();
   if (s == "INTEGER") {
-    return SNumber::make(toInt(v));
+    return d::Number::make(toInt(v));
   }
   if (s== "REAL") {
-    return SNumber::make(toReal(v));
+    return d::Number::make(toReal(v));
   }
   if (s== "STRING") {
-    return SStr::make(toStr(v));
+    return d::String::make(toStr(v));
   }
-  RAISE(d::SemanticError, "Unknown type %s.", C_STR(s));
+  E_SEMANTIC("Unknown type %s", C_STR(s));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool toBool(d::DValue e) { return toInt(e) != 0L; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Ast::Ast() {
-  _token=SToken::make(d::T_ETHEREAL,"<?>", DMARK(0,0));
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Ast::name() const {
-  return DCAST(SToken,_token)->getStr();
+  return DCAST(d::Token,_token)->getStr();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -93,10 +88,11 @@ stdstr BinOp::name() const { return "BinOp"; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue BinOp::eval(d::IEvaluator* e) {
 
+  auto _A=token()->addr();
   auto lf = lhs->eval(e);
   auto rt = rhs->eval(e);
-  auto plf = cast_number(lf,1);
-  auto prt = cast_number(rt,1);
+  auto plf = vcast<d::Number>(lf,_A);
+  auto prt = vcast<d::Number>(rt,_A);
   bool ints = plf->isInt() && prt->isInt();
   llong L=0;
   double R=0;
@@ -121,7 +117,7 @@ d::DValue BinOp::eval(d::IEvaluator* e) {
         R = plf->getFloat() * prt->getFloat();
     break;
     case T_INT_DIV:
-      ASSERT(ints, "Expecting integers, got %s.", "floats");
+      ASSERT(ints, "Expecting integers, got %s", "floats");
       ASSERT(!prt->isZero(),
              "Div by int-zero error, %s", C_STR(prt->pr_str()));
       L = plf->getInt() / prt->getInt();
@@ -133,13 +129,13 @@ d::DValue BinOp::eval(d::IEvaluator* e) {
       R = plf->getFloat() / prt->getFloat();
     break;
     default:
-    { auto i= token()->marker();
-      RAISE(d::SemanticError,
-            "Bad op near line %d(%d).", i.first, i.second);
+    { auto i= token()->addr();
+      E_SEMANTIC(
+            "Bad op near %s", d::pr_addr(i).c_str());
     }
   }
 
-  return ints ? SNumber::make(L) : SNumber::make(R);
+  return ints ? d::Number::make(L) : d::Number::make(R);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -153,7 +149,7 @@ stdstr String::name() const { return "string"; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue String::eval(d::IEvaluator* e) {
-  return SStr::make(token()->getStr());
+  return d::String::make(token()->getStr());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -165,12 +161,12 @@ void Num::visit(d::IAnalyzer* a) { }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Num::name() const {
   switch (token()->type()) {
-    case d::T_INTEGER: return "integer";
+    case d::T_INT: return "integer";
     case d::T_REAL: return "real";
     default:
-    { auto i= token()->marker();
-      RAISE(d::SyntaxError,
-            "Bad number near line %d(%d).", i.first, i.second);
+    { auto i= token()->addr();
+      E_SYNTAX(
+            "Bad number near %s", d::pr_addr(i).c_str());
     }
   }
 }
@@ -178,14 +174,14 @@ stdstr Num::name() const {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Num::eval(d::IEvaluator* e) {
   switch (token()->type()) {
-    case d::T_INTEGER:
-      return SNumber::make(token()->getInt());
+    case d::T_INT:
+      return d::Number::make(token()->getInt());
     case d::T_REAL:
-      return SNumber::make(token()->getFloat());
+      return d::Number::make(token()->getFloat());
     default:
-    { auto i= token()->marker();
-      RAISE(d::SyntaxError,
-            "Bad number near line %d(%d).", i.first, i.second);
+    { auto i= token()->addr();
+      E_SYNTAX(
+            "Bad number near %s", d::pr_addr(i).c_str());
     }
   }
 }
@@ -199,9 +195,9 @@ stdstr UnaryOp::name() const {
     case d::T_MINUS: return "-";
     case d::T_PLUS: return "+";
     default:
-    { auto i= token()->marker();
-      RAISE(d::SyntaxError,
-            "Bad op near line %d(%d).", i.first, i.second);
+    { auto i= token()->addr();
+      E_SYNTAX(
+            "Bad op near %s", d::pr_addr(i).c_str());
     }
   }
 }
@@ -211,20 +207,21 @@ void UnaryOp::visit(d::IAnalyzer* a) { expr->visit(a); }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue UnaryOp::eval(d::IEvaluator* e) {
+  auto _A=token()->addr();
   auto r = expr->eval(e);
-  auto p = cast_number(r,1);
+  auto p = vcast<d::Number>(r,_A);
 
   if (token()->type() == d::T_MINUS) {
     r= p->isInt()
-       ? SNumber::make(- p->getInt())
-       : SNumber::make(- p->getFloat());
+       ? d::Number::make(- p->getInt())
+       : d::Number::make(- p->getFloat());
   }
 
   return r;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Compound::Compound() { }
+Compound::Compound(d::DToken t) : Ast(t) { }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Compound::name() const { return "Compound"; }
@@ -259,10 +256,10 @@ void Assignment::visit(d::IAnalyzer* a) {
   auto pn=pl->name();
   auto s= a->search(pn);
   if (!s) {
-    auto i= pl->token()->marker();
-    RAISE(d::SemanticError,
-          "Unknown var %s near line %d(%d).",
-          C_STR(pn), i.first, i.second);
+    auto i= pl->token()->addr();
+    E_SEMANTIC(
+          "Unknown var %s near %s",
+          C_STR(pn), d::pr_addr(i).c_str());
   }
   s__cast(Var,pl)->type_symbol= s->type();
 }
@@ -290,9 +287,10 @@ stdstr Var::name() const {
 void Var::visit(d::IAnalyzer* a) {
   auto n = name();
   if (auto x= a->search(n); !x) {
-    auto i= token()->marker();
-    RAISE(d::SemanticError,
-          "Unknown var %s near line %d(%d).", C_STR(n), i.first, i.second);
+    auto i= token()->addr();
+    E_SEMANTIC(
+          "Unknown var %s near %s",
+          C_STR(n), d::pr_addr(i).c_str());
   }
 }
 
@@ -328,17 +326,18 @@ void VarDecl::visit(d::IAnalyzer* a) {
   auto tname = DCAST(Ast,type_node)->name();
   auto vname = DCAST(Ast,var_node)->name();
   auto tsym = a->search(tname);
-  auto i= token()->marker();
+  auto i= token()->addr();
 
   if (!tsym) {
-    RAISE(d::SemanticError,
-          "Unknown type %s near line %d(%d).", C_STR(tname), i.first, i.second);
+    E_SEMANTIC(
+          "Unknown type %s near %s",
+          C_STR(tname), d::pr_addr(i).c_str());
   }
 
   if (auto x = a->find(vname); x) {
-    RAISE(d::SemanticError,
-          "Duplicate var %s near line %d(%d).",
-          C_STR(vname), i.first, i.second);
+    E_SEMANTIC(
+          "Duplicate var %s near %s",
+          C_STR(vname), d::pr_addr(i).c_str());
   }
 
   DCAST(Var,var_node)->type_symbol= tsym;
@@ -354,7 +353,7 @@ d::DValue VarDecl::eval(d::IEvaluator* e) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BoolExpr::BoolExpr(const d::AstVec& ts, const d::TokenVec& ops) {
+BoolExpr::BoolExpr(d::DToken k, const d::AstVec& ts, const d::TokenVec& ops) : Ast(k) {
   s__ccat(this->ops, ops);
   s__ccat(this->terms, ts);
 }
@@ -398,7 +397,7 @@ void BoolExpr::visit(d::IAnalyzer* a) {
 stdstr BoolExpr::name() const { return "BoolExpr"; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-BoolTerm::BoolTerm(const d::AstVec& ts) {
+BoolTerm::BoolTerm(d::DToken k, const d::AstVec& ts) : Ast(k) {
   s__ccat(terms, ts);
 }
 
@@ -469,10 +468,11 @@ void RelationOp::visit(d::IAnalyzer* a) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue RelationOp::eval(d::IEvaluator* e) {
+  auto _A=token()->addr();
   auto lf = lhs->eval(e);
   auto rt = rhs->eval(e);
-  auto l = cast_number(lf,1)->getFloat();
-  auto r = cast_number(rt,1)->getFloat();
+  auto l = vcast<d::Number>(lf,_A)->getFloat();
+  auto r = vcast<d::Number>(rt,_A)->getFloat();
   auto res=false;
   switch (token()->type()) {
     case d::T_GT: res = l > r; break;
@@ -482,16 +482,16 @@ d::DValue RelationOp::eval(d::IEvaluator* e) {
     case T_EQUALS: res = l == r; break;
     case T_NOTEQ: res = l != r; break;
     default:
-    { auto i= token()->marker();
-      RAISE(d::SemanticError,
-            "Unknown op near line %d(%d).", i.first, i.second);
+    { auto i= token()->addr();
+      E_SEMANTIC(
+            "Unknown op near %s", d::pr_addr(i).c_str());
     }
   }
   return res ? boolTrue() : boolFalse();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Block::Block(const d::AstVec& decls, d::DAst compound) {
+Block::Block(d::DToken k,const d::AstVec& decls, d::DAst compound) : Ast(k) {
   this->compound = compound;
   s__ccat(declarations, decls);
 }
@@ -575,10 +575,10 @@ void ProcedureCall::visit(d::IAnalyzer* a) {
   if (auto x = a->search( name()); x) {
     proc_symbol = x;
   } else {
-    auto i=token()->marker();
-    RAISE(d::SemanticError,
-          "Unknown proc %s near line %d(%d).",
-          C_STR(name()), i.first, i.second);
+    auto i=token()->addr();
+    E_SEMANTIC(
+          "Unknown proc %s near %s",
+          C_STR(name()), d::pr_addr(i).c_str());
   }
 }
 
@@ -638,7 +638,7 @@ d::DAst factor(CrenshawParser* ps) {
       res= (ps->eat(), UnaryOp::make(t, factor(ps)));
       break;
     case d::T_REAL:
-    case d::T_INTEGER:
+    case d::T_INT:
       res= (ps->eat(), Num::make(t));
       break;
     case d::T_STRING:
@@ -702,17 +702,19 @@ d::DAst not_factor(CrenshawParser* ps) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst b_term(CrenshawParser* ps) {
+  auto k=ps->token();
   d::AstVec res {not_factor(ps)};
   while (ps->isCur(T_AND)) {
     ps->eat();
     s__conj(res, not_factor(ps));
   }
-  return BoolTerm::make(res);
+  return BoolTerm::make(k, res);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst b_expr(CrenshawParser* ps) {
   static std::set<int> ops {T_OR, T_XOR};
+  auto k= ps->token();
   d::AstVec res {b_term(ps)};
   d::TokenVec ts;
   while (s__contains(ops, ps->cur())) {
@@ -720,7 +722,7 @@ d::DAst b_expr(CrenshawParser* ps) {
     ps->eat();
     s__conj(res, b_term(ps));
   }
-  return BoolExpr::make(res, ts);
+  return BoolExpr::make(k, res, ts);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -731,10 +733,10 @@ d::DAst type_spec(CrenshawParser* ps) {
     case T_INT:
     case T_REAL: ps->eat(); break;
     default:
-    { auto i= DCAST(SToken,t)->marker();
-      RAISE(d::SyntaxError,
-            "Unknown token %d near line %d(%d).",
-            t->type(), i.first, i.second);
+    { auto i= DCAST(d::Token,t)->addr();
+      E_SYNTAX(
+            "Unknown token %d near %s",
+            t->type(), d::pr_addr(i).c_str());
     }
   }
   return Type::make(t);
@@ -878,7 +880,7 @@ d::DValue ForLoop::eval(d::IEvaluator* e) {
     //::printf("z = %ld, i= %ld\n", z ,i);
     if (z >= i) {
       ret= code->eval(e);
-      auto xxx= SNumber::make(i+1);
+      auto xxx= d::Number::make(i+1);
       e->setValueEx(vn, cast(xxx, tn));
     } else {
       break;
@@ -939,11 +941,11 @@ d::DValue VarInput::eval(d::IEvaluator* e) {
   d::DValue res;
 
   if (s == "INTEGER") {
-    res = SNumber::make( e_->readInt());
+    res = d::Number::make( e_->readInt());
   } else if (s == "REAL") {
-    res = SNumber::make( e_->readFloat());
+    res = d::Number::make( e_->readFloat());
   } else if (s == "STRING") {
-    res = SStr::make( e_->readString());
+    res = d::String::make( e_->readString());
   }
 
   return e->setValueEx(name(), res);
@@ -954,10 +956,10 @@ void VarInput::visit(d::IAnalyzer* a) {
   if (auto s = a->search(name()); s) {
     type_symbol= DCAST(d::VarSymbol,s)->type();
   } else {
-    auto i= DCAST(SToken,token())->marker();
-    RAISE(d::SemanticError,
-          "Unknown var %s near line %d(%d).",
-          C_STR(name()), i.first, i.second);
+    auto i= DCAST(d::Token,token())->addr();
+    E_SEMANTIC(
+          "Unknown var %s near %s",
+          C_STR(name()), d::pr_addr(i).c_str());
   }
 }
 
@@ -1145,11 +1147,12 @@ void statement_list(CrenshawParser* ps, d::AstVec& results) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst compound_statement(CrenshawParser* ps, bool beginend) {
+  auto X=ps->token();
   if (beginend) {ps->eat(T_BEGIN);}
   d::AstVec nodes;
   statement_list(ps, nodes);
   if (beginend) {ps->eat(T_END);}
-  auto root= Compound::make();
+  auto root= Compound::make(X);
   auto pr= DCAST(Compound,root);
   for (auto& node : nodes) {
     s__conj(pr->statements,node);
@@ -1234,9 +1237,10 @@ void declarations(CrenshawParser* ps, d::AstVec& out) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DAst block(CrenshawParser* ps) {
+  auto k= ps->token();
   d::AstVec decls;
   declarations(ps, decls);
-  return Block::make(decls, compound_statement(ps, true));
+  return Block::make(k, decls, compound_statement(ps, true));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -1299,11 +1303,11 @@ d::DToken CrenshawParser::eat() {
 d::DToken CrenshawParser::eat(int wanted) {
   auto t= token();
   if (t->type() != wanted) {
-    auto i= DCAST(SToken,t)->marker();
-    RAISE(d::SyntaxError,
-          "Expected token %s, found token %s near line %d(%d).",
+    auto i= DCAST(d::Token,t)->addr();
+    E_SYNTAX(
+          "Expected token %s, found %s near %s",
           C_STR(typeToString(wanted)),
-          C_STR(t->pr_str()), i.first, i.second);
+          C_STR(t->pr_str()), d::pr_addr(i).c_str());
   }
   lex->ctx().cur= lex->getNextToken();
   return t;

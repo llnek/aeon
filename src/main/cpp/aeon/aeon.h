@@ -139,6 +139,17 @@ std::vector<T> slice(std::vector<T>* src, int from) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+template <typename K, typename V>
+std::map<V,K> map_reflect(const std::map<K,V>& src) {
+  std::map<V,K> res;
+  for (auto& x : src) {
+    res[x.second]=x.first;
+  }
+  return res;
+}
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF

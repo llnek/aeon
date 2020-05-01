@@ -35,7 +35,7 @@ double rad_deg(double rad) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static double to_dbl(d::DValue arg) {
-  return cast_number(arg,1)->getFloat();
+  return vcast<d::Number>(arg,DMARK_00)->getFloat();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -192,7 +192,7 @@ static d::DValue native_fix(d::IEvaluator*, d::VSlice args) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_rand(d::IEvaluator*, d::VSlice args) {
-  d::preEqual(0, args.size(), "rnd");
+  //d::preEqual(0, args.size(), "rnd");
   std::random_device rd;
   std::mt19937 gen(rd());
   std::uniform_real_distribution<> dis(0, 1);
@@ -202,15 +202,16 @@ static d::DValue native_rand(d::IEvaluator*, d::VSlice args) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_chr(d::IEvaluator*, d::VSlice args) {
   d::preEqual(1, args.size(), "chr$");
-  int v= cast_number(*(args.begin),1)->getInt();
+  int v= vcast<d::Number>(*(args.begin),DMARK_00)->getInt();
   ASSERT(v>=0&&v<=255, "Bad arg value: %d.", v);
-  return CHAR_VAL((Tchar)v);
+  stdstr s {(char)v};
+  return STRING_VAL(s);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_asc(d::IEvaluator*, d::VSlice args) {
   d::preEqual(1, args.size(), "asc");
-  auto s= cast_string(*(args.begin),1)->impl();
+  auto s= vcast<d::String>(*(args.begin),DMARK_00)->impl();
   ASSERT(s.size() > 0, "Bad string: %s.", C_STR(s));
   return NUMBER_VAL((int) s[0]);
 }
@@ -218,7 +219,7 @@ static d::DValue native_asc(d::IEvaluator*, d::VSlice args) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_val(d::IEvaluator*, d::VSlice args) {
   d::preEqual(1, args.size(), "val");
-  auto s= cast_string(*(args.begin),1)->impl().c_str();
+  auto s= vcast<d::String>(*(args.begin),DMARK_00)->impl().c_str();
   if (::strchr(s, '.')) {
     return NUMBER_VAL(::atof(s));
   } else {
@@ -229,9 +230,9 @@ static d::DValue native_val(d::IEvaluator*, d::VSlice args) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_right(d::IEvaluator*, d::VSlice args) {
   d::preEqual(2, args.size(), "right$");
-  auto s= cast_string(*(args.begin),1)->impl();
+  auto s= vcast<d::String>(*(args.begin),DMARK_00)->impl();
   auto z= s.size();
-  auto w= cast_number(*(args.begin+1),1)->getInt();
+  auto w= vcast<d::Number>(*(args.begin+1),DMARK_00)->getInt();
 
   if (w <= 0) {
     return STRING_VAL(""); }
@@ -248,9 +249,9 @@ static d::DValue native_right(d::IEvaluator*, d::VSlice args) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_left(d::IEvaluator*, d::VSlice args) {
   d::preEqual(2, args.size(), "left$");
-  auto s= cast_string(*(args.begin),1)->impl();
+  auto s= vcast<d::String>(*(args.begin),DMARK_00)->impl();
   auto z= s.size();
-  auto w= cast_number(*(args.begin+1),1)->getInt();
+  auto w= vcast<d::Number>(*(args.begin+1),DMARK_00)->getInt();
 
   if (w <= 0) {
     return STRING_VAL(""); }
@@ -267,15 +268,15 @@ static d::DValue native_left(d::IEvaluator*, d::VSlice args) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_mid(d::IEvaluator*, d::VSlice args) {
   auto len=d::preMin(2, args.size(), "mid$");
-  auto s= cast_string(*(args.begin),1)->impl();
+  auto s= vcast<d::String>(*(args.begin),DMARK_00)->impl();
   auto z= s.size();
   auto w=z;
-  auto pos= cast_number(*(args.begin+1),1)->getInt();
+  auto pos= vcast<d::Number>(*(args.begin+1),DMARK_00)->getInt();
   if (pos >=0 && pos < z) {} else {
     return STRING_VAL("");
   }
   if (len > 2) {
-    w= cast_number(*(args.begin+2),1)->getInt(); }
+    w= vcast<d::Number>(*(args.begin+2),DMARK_00)->getInt(); }
   ASSERT1(w >=0);
   Tchar buf[z+1];
   int cz= s.copy(buf,w,pos);
@@ -286,17 +287,28 @@ static d::DValue native_mid(d::IEvaluator*, d::VSlice args) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_len(d::IEvaluator*, d::VSlice args) {
   d::preEqual(1, args.size(), "len");
-  auto s= cast_string(*(args.begin),1)->impl();
+  auto s= vcast<d::String>(*(args.begin),DMARK_00)->impl();
   return NUMBER_VAL((int)s.size());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_str(d::IEvaluator*, d::VSlice args) {
   d::preEqual(1, args.size(), "str$");
-  auto n= cast_number(*(args.begin),1);
+  auto n= vcast<d::Number>(*(args.begin),DMARK_00);
   stdstr s;
   if (n->isInt())
     s= N_STR(n->getInt()); else s=N_STR(n->getFloat());
+  return STRING_VAL(s);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_spc(d::IEvaluator*, d::VSlice args) {
+  d::preEqual(1, args.size(), "spc");
+  auto n= vcast<d::Number>(*(args.begin),DMARK_00);
+  stdstr s;
+  if (n->isInt() && n->getInt() > 0) {
+    s= stdstr((int)n->getInt(), ' ');
+  }
   return STRING_VAL(s);
 }
 
@@ -346,7 +358,7 @@ d::DFrame init_natives(d::DFrame env) {
   REG(env, "ASC", native_asc);
   REG(env, "VAL", native_val);
   REG(env, "LEN", native_len);
-
+  REG(env, "SPC", native_spc);
 
 
 

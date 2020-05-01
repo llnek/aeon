@@ -21,15 +21,6 @@ namespace czlab::basic {
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Basic::Basic(const Tchar* src) {
-  source = src;
-  running=false;
-  dataPtr=0;
-  progOffset=0;
-  progCounter=0;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DFrame Basic::root_env() {
   return init_natives(pushFrame("root"));
 }
@@ -41,32 +32,27 @@ d::DValue Basic::interpret() {
   dataSlots.clear();
   defs.clear();
   auto tree= p.parse();
-  //std::cout << s__cast(Ast,tree.get())->pr_str() << "\n";
+  DEBUG("%s", PRN(tree));
   return check(tree), eval(tree);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::addData(d::DValue v) {
-  ASSERT1(v);
-  //std::cout << "addData = " << v->pr_str(0) << "\n";
+  DEBUG("addData(): %s", PRV(v,0));
   s__conj(dataSlots,v);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Basic::readData() {
-  return (dataPtr >= 0 &&
-      dataPtr < dataSlots.size()) ? dataSlots[dataPtr++] : P_NIL;
+  return s__index(dataPtr,dataSlots) ? dataSlots[dataPtr++] : DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::restore() {
-  dataPtr=0;
-}
+void Basic::restore() { dataPtr=0; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::addLambda(d::DValue f) {
-  auto func= DCAST(Lambda,f);
-  defs[func->name()] = f;
+  defs[PNAME(Lambda,f)]=f;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -77,53 +63,49 @@ d::DValue Basic::eval(d::DAst tree) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DFrame Basic::pushFrame(const stdstr& name) {
-  stack = d::Frame::make(name, stack);
-  return stack;
+d::DFrame Basic::pushFrame(cstdstr& name) {
+  return (stack = d::Frame::make(name, stack));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DFrame Basic::popFrame() {
   if (stack) {
     auto f= stack;
-    //::printf("Frame pop'ed:=\n%s\n", f->pr_str().c_str());
+    DEBUG("Frame: %s", PSTR(f));
     stack= stack->getOuter();
     return f;
   } else {
-    return P_NIL;
+    return DENV_NIL;
   }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DFrame Basic::peekFrame() const {
-  return stack;
-}
+d::DFrame Basic::peekFrame() const { return stack; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Basic::setValueEx(cstdstr& name, d::DValue v) {
-  throw d::Unsupported("Can't call setValueEx.");
-  //auto x = peekFrame();
-  //return x ? x->setEx(name, v) : P_NIL;
+  RAISE(d::Unsupported, "Can't call %s", "setValueEx");
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Basic::setValue(cstdstr& name, d::DValue v) {
   auto x = peekFrame();
   ensure_data_type(name,v);
-  return x ? x->set(name, v) : P_NIL;
+  return x ? x->set(name, v) : DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue Basic::getValue(const stdstr& name) const {
+d::DValue Basic::getValue(cstdstr& name) const {
   auto x = peekFrame();
-  return x ? x->get(name) : P_NIL;
+  return x ? x->get(name) : DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-std::map<stdstr,d::DSymbol> BITS {
-  {"INTEGER", d::Symbol::make("INTEGER")},
-  {"REAL", d::Symbol::make("REAL")},
-  {"STRING", d::Symbol::make("STRING")}
+static StrVec TYPES {"INT", "REAL", "STRING"};
+static std::map<stdstr,d::DSymbol> BITS {
+  {TYPES[0], d::Symbol::make(TYPES[0])},
+  {TYPES[1], d::Symbol::make(TYPES[1])},
+  {TYPES[2], d::Symbol::make(TYPES[2])}
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -133,12 +115,12 @@ void Basic::check(d::DAst tree) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DSymbol Basic::search(const stdstr& n) const {
+d::DSymbol Basic::search(cstdstr& n) const {
   return symbols ? symbols->search(n) : P_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DSymbol Basic::find(const stdstr& n) const {
+d::DSymbol Basic::find(cstdstr& n) const {
   return symbols ? symbols->find(n) : P_NIL;
 }
 
@@ -149,66 +131,54 @@ d::DSymbol Basic::define(d::DSymbol s) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DTable Basic::pushScope(const stdstr& name) {
-  symbols= d::Table::make(name, symbols);
-  return symbols;
+d::DTable Basic::pushScope(cstdstr& name) {
+  return (symbols= d::Table::make(name, symbols));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DTable Basic::popScope() {
-  if (!symbols) {
+  if (!symbols)
     return P_NIL;
-  }
   auto cur = symbols;
-  symbols = cur.get()->outer();
-  return cur;
+  return (symbols = cur.get()->outer(), cur);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr Basic::readString() {
-  stdstr s;
-  std::cin >> s;
-  return s;
+  // get the whole line
+  stdstr s; std::getline(std::cin,s); return s;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 double Basic::readFloat() {
-  double d;
-  std::cin >> d;
-  return d;
+  auto s= readString();
+  return s.empty() ? 0 : ::atof(s.c_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 llong Basic::readInt() {
-  llong n;
-  std::cin >> n;
-  return n;
+  auto s= readString();
+  return s.empty() ? 0 : ::atol(s.c_str());
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::writeString(const stdstr& s) {
-  ::printf("%s", s.c_str());
-}
+void Basic::writeString(cstdstr& s) { std::cout << s; }
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::writeFloat(double d) {
-  ::printf("%lf", d);
-}
+void Basic::writeFloat(double d) { std::cout << d; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::writeInt(llong n) {
-  std::cout << n;
-  //::printf("%ld", n);
-}
+void Basic::writeInt(llong n) { std::cout << n; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::writeln() {
-  ::printf("%s", "\n");
-}
+void Basic::writeln() { std::cout << "\n"; }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Basic::installProgram(const std::map<int,int>& m) {
-  for (auto& x : m) { lines[x.first] = x.second; }
+void Basic::install(const std::map<int,int>& m) {
+  // install the entire program, maps code lines
+  // to linear array positions.
+  for (auto& x : m)
+    lines[_1(x)] = _2(x);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -220,16 +190,18 @@ void Basic::uninstall() {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::init_lambdas() {
+  // install all user defined functions.
   for (auto& x : defs) {
-    auto v= x.second;
+    auto v= _2(x);
     auto p= DCAST(Lambda,v);
     setValue(p->name(), v);
-    //std::cout << "installed lambda: " << p->name() << "\n";
-  }
+    DEBUG("installed lambda: %s", p->name().c_str()); }
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-#define CLEAR_STACK(s) do { while (!s.empty()) s.pop(); } while (0)
+#define CLEAR_STACK(s) \
+  do { while (!s.empty()) s.pop(); } while (0)
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::init_counters() {
   running=true;
@@ -242,34 +214,38 @@ void Basic::init_counters() {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::finz_counters() {
+  running=false;
   dataPtr=0;
   progOffset=0;
   progCounter= -1;
-  running=false;
   CLEAR_STACK(gosubReturns);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int Basic::retSub() {
   if (gosubReturns.empty())
-    RAISE(d::BadArg, "Bad gosub-return: %s.", "no sub called");
+    RAISE(d::BadArg, "Bad gosub-return: %s", "no sub called");
   auto r= gosubReturns.top();
   gosubReturns.pop();
-  progOffset = r.second+1;
-  return (progCounter = r.first - 1);
+  // return to the *next* offset
+  progOffset = _2(r) + 1;
+  // return to the line before since pc always increment.
+  return (progCounter = _1(r) - 1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int Basic::jumpSub(int target, int from, int off) {
-
   auto it= lines.find(target);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad gosub: %d.", target);
+    RAISE(d::BadArg, "Bad gosub<%d>", target);
 
+  // must!
   ASSERT1(progCounter == lines[from]);
+
   gosubReturns.push(s__pair(int,int,progCounter,off));
-  auto pc = it->second;
+  auto pc = _2_(it);
   progOffset=0;
+  // go one less since pc always increments.
   return (progCounter = pc-1);
 }
 
@@ -277,9 +253,10 @@ int Basic::jumpSub(int target, int from, int off) {
 int Basic::jump(int line) {
   auto it= lines.find(line);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad goto: %d.", line);
-  auto pos = it->second ;
+    RAISE(d::BadArg, "Bad goto<%d>", line);
+  auto pos = _2_(it);
   progOffset=0;
+  // go one less since pc always increments.
   return (progCounter = pos-1);
 }
 
@@ -287,34 +264,37 @@ int Basic::jump(int line) {
 int Basic::jumpFor(DslFLInfo f) {
   auto it= lines.find(f->begin);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad for-loop: %d.",  f->begin);
+    RAISE(d::BadArg, "Bad for-loop<%d>",  f->begin);
   progOffset=f->beginOffset;
-  return (progCounter = it->second -1);
+  // always one less since pc always increments.
+  return (progCounter = _2_(it) - 1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int Basic::endFor(DslFLInfo f) {
   auto it= lines.find(f->end);
   if (it == lines.end())
-    RAISE(d::BadArg, "Bad end-for: %d.", f->end);
+    RAISE(d::BadArg, "Bad end-for<%d>", f->end);
   f->init=P_NIL;
+  // when done goto next offset.
   progOffset=f->endOffset+1;
-  return (progCounter = it->second-1);
+  // one less since pc always increments.
+  return (progCounter = _2_(it) - 1);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 void Basic::addForLoop(DslFLInfo f) {
   auto x= this->forLoop; // current outer for loop
   auto vn= f->var;
-  auto bad=false;
+  bool bad=0;
+
   while (x) {
-    bad = (x->var == vn);
-    x=x->outer;
-  }
+    bad = (x->var == vn); x=x->outer; }
+
   if (bad)
-    RAISE(d::SemanticError, "For counter-var %s reused.", C_STR(vn));
-  f->outer= forLoop;
-  forLoop=f;
+    E_SEMANTIC("For counter-var: %s reused", vn.c_str());
+
+  f->outer= forLoop, forLoop=f;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -326,36 +306,46 @@ void Basic::xrefForNext(int n, int pos) {
 void Basic::xrefForNext(cstdstr& v, int n, int pos) {
   // make sure the next statement matches the current for loop.
   auto c = this->forLoop;
+  // must!
   ASSERT1(c);
+
   if (!v.empty())
     if (!(c->var == v))
-      RAISE(d::SemanticError,
-            "Expecting  for-counter: %s, got %s.",
-            c->var.c_str(), C_STR(v));
+      E_SEMANTIC("Wanted forloop var: %s, got %s.",
+                 c->var.c_str(), v.c_str());
+
   c->endOffset=pos;
   c->end= n;
+
   // find the corresponding counters
   auto b= this->lines[c->begin];
   auto e= this->lines[c->end];
 
-  this->forBegins[b] = c;
-  this->forEnds[e] = c;
+  // we need to handle multi next on same line
+  auto bkey= N_STR(b)+","+N_STR(c->beginOffset);
+  auto ekey= N_STR(e)+","+N_STR(pos);
+
+  //std::cout << "bkey= " << bkey << "\n";
+  //std::cout << "ekey= " << ekey << "\n";
+
+  this->forBegins[bkey] = c;
+  this->forEnds[ekey] = c;
 
   // pop it
   forLoop=forLoop->outer;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-DslFLInfo Basic::getForLoop(int c) const {
-  if (auto i = forBegins.find(c); i != forBegins.end()) {
-    return i->second;
-  }
+DslFLInfo Basic::getForLoop(int c, int offset) const {
+  auto k= N_STR(c)+","+N_STR(offset);
 
-  if (auto i = forEnds.find(c); i != forEnds.end()) {
-    return i->second;
-  }
+  if (auto i = forBegins.find(k);
+      i != forBegins.end()) { return _2_(i); }
 
-  RAISE(d::SemanticError, "Unknown for-loop: %d.", (int) c);
+  if (auto i = forEnds.find(k);
+      i != forEnds.end()) { return _2_(i); }
+
+  E_SEMANTIC("Unknown for-loop<%d>, offset[%d]", c, offset);
 }
 
 
