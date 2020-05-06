@@ -226,6 +226,7 @@ std::pair<stdstr,Addr> digits(Context&);
 std::pair<stdstr,Addr> numeric(Context&);
 std::pair<stdstr,Addr> str(Context&);
 Tchar peekAhead(Context&, int offset=1);
+bool peekPattern(Context&,cstdstr&);
 Tchar peek(Context&);
 Tchar pop(Context&);
 const std::map<stdstr,int>& getStrTokens();
@@ -234,6 +235,10 @@ void skipWhitespace(Context&);
 stdstr  pr_addr(Addr);
 bool advance(Context&, int steps=1);
 Addr mark_advance(Context&, int steps=1);
+
+stdstr unescape(cstdstr&);
+stdstr escape(cstdstr&);
+
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Symbol {

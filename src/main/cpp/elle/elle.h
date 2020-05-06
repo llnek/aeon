@@ -13,63 +13,16 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "types.h"
+#include "../dsl/dsl.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::otto {
-namespace d = czlab::dsl;
-
+namespace czlab::elle {
+namespace d=czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-enum TokenType {
-  T_SPLICE_UNQUOTE = 100,
-  T_KEYWORD,
-  T_ANONFN,
-  T_SET,
-  T_TRUE,
-  T_FALSE,
-  T_NIL,
-  T_COMMENT
-};
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr typeToString(int type);
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Reader : public d::IScanner {
-
-  // A Lexer.
-
-  virtual bool isKeyword(cstdstr&) const;
-  virtual d::DToken getNextToken();
-  virtual d::DToken number();
-  virtual d::DToken id();
-  virtual d::DToken string();
-
-  d::Context& ctx() { return _ctx; }
-  Reader(const Tchar* src);
-  virtual ~Reader() {};
-
-  private:
-
-  d::Context _ctx;
-
-  Reader();
-  void skipCommas();
-  d::DToken keywd();
-  d::DToken skipComment();
-};
-
-
-
-
-
-
-
-
-
-
+stdstr repl(cstdstr& s);
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
 

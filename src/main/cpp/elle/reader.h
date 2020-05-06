@@ -16,18 +16,20 @@
 #include "types.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::otto {
+namespace czlab::elle {
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 enum TokenType {
   T_SPLICE_UNQUOTE = 100,
-  T_KEYWORD,
-  T_ANONFN,
-  T_SET,
+  T_SYNTAX_QUOTE,
+  T_UNQUOTE,
+  T_QUOTE,
+  T_CHAR,
+  T_VEC,
+  T_LIST,
   T_TRUE,
   T_FALSE,
-  T_NIL,
   T_COMMENT
 };
 
@@ -54,8 +56,6 @@ struct Reader : public d::IScanner {
   d::Context _ctx;
 
   Reader();
-  void skipCommas();
-  d::DToken keywd();
   d::DToken skipComment();
 };
 

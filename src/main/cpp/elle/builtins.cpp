@@ -1,4 +1,3 @@
-#pragma once
 /* Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
@@ -13,58 +12,22 @@
  *
  * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
 
-#include "types.h"
+#include <chrono>
+#include "parser.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::otto {
+namespace czlab::elle {
+namespace a = czlab::aeon;
 namespace d = czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-enum TokenType {
-  T_SPLICE_UNQUOTE = 100,
-  T_KEYWORD,
-  T_ANONFN,
-  T_SET,
-  T_TRUE,
-  T_FALSE,
-  T_NIL,
-  T_COMMENT
-};
+d::DFrame root_env();
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr typeToString(int type);
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Reader : public d::IScanner {
-
-  // A Lexer.
-
-  virtual bool isKeyword(cstdstr&) const;
-  virtual d::DToken getNextToken();
-  virtual d::DToken number();
-  virtual d::DToken id();
-  virtual d::DToken string();
-
-  d::Context& ctx() { return _ctx; }
-  Reader(const Tchar* src);
-  virtual ~Reader() {};
-
-  private:
-
-  d::Context _ctx;
-
-  Reader();
-  void skipCommas();
-  d::DToken keywd();
-  d::DToken skipComment();
-};
-
-
-
-
-
-
-
+d::DFrame init_natives() {
+  auto env = d::Frame::make("root");
+  return env;
+}
 
 
 
@@ -72,4 +35,5 @@ struct Reader : public d::IScanner {
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 //EOF
+
 

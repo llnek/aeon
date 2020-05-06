@@ -1,14 +1,14 @@
 #include <iostream>
-#include "otto.h"
+#include "elle.h"
 
-namespace k = czlab::otto;
+namespace k = czlab::elle;
 namespace a = czlab::aeon;
 #if 0
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int main(int argc, char* argv[]) {
 
   try {
-    auto f= a::read_file("/tmp/test.clj");
+    auto f= a::read_file("/tmp/poo.scm");
     auto s = k::repl(f);
     //"`(+ 1 2)");
     //"~eee");

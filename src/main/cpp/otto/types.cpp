@@ -136,41 +136,8 @@ bool scan_numbers(d::VSlice vs) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr unescape(const stdstr& src) {
-  auto len = src.length();
-  auto ch= '\n';
-  stdstr res;
-  if (len == 0 ||
-      !(src[0]=='"' && src[len-1]=='"')) { return src; }
-  // skip 1st and last => no dqoutes
-  --len;
-  for (auto i = 1; i < len; ++i) {
-    ch = src[i];
-    if (ch == '\\') {
-      i += 1;
-      res += a::unescape_char(src[i]);
-    } else {
-      res += ch;
-    }
-  }
-  return res;
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-stdstr escape(const stdstr& src) {
-  auto len = src.length();
-  stdstr res;
-  if (len == 0 ||
-      (src[0]=='"' && src[len-1]=='"')) { return src; }
-  for (auto i = 0; i < len; ++i) {
-    res += a::escape_char(src[i]);
-  }
-  return "\"" + res + "\"";
-}
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr LString::encoded() const {
-  return escape(value);
+  return d::escape(value);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

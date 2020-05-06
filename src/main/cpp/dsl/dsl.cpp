@@ -114,11 +114,58 @@ int preEven(int c, cstdstr& fn) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Tchar peek(Context& ctx) { return ctx.src[ctx.pos]; }
+stdstr unescape(cstdstr& src) {
+  auto len = src.length();
+  auto ch= '\n';
+  stdstr res;
+  if (len == 0 ||
+      !(src[0]=='"' && src[len-1]=='"')) { return src; }
+  // skip 1st and last => no dqoutes
+  --len;
+  for (auto i = 1; i < len; ++i) {
+    ch = src[i];
+    if (ch == '\\') {
+      i += 1;
+      res += a::unescape_char(src[i]);
+    } else {
+      res += ch;
+    }
+  }
+  return res;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+stdstr escape(cstdstr& src) {
+  auto len = src.length();
+  stdstr res;
+  if (len == 0 ||
+      (src[0]=='"' && src[len-1]=='"')) { return src; }
+  for (auto i = 0; i < len; ++i) {
+    res += a::escape_char(src[i]);
+  }
+  return "\"" + res + "\"";
+}
+
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+Tchar peek(Context& ctx) {
+  return ctx.eof ? '\0' : ctx.src[ctx.pos];
+}
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 Tchar pop(Context& ctx) {
-  auto ch= peek(ctx); return advance(ctx), ch;
+  auto ch= peek(ctx);
+  return ctx.eof ? '\0' : (advance(ctx), ch);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+bool peekPattern(Context& ctx, cstdstr& pattern) {
+  auto pos=0;
+  for (auto& x : pattern) {
+    if (peekAhead(ctx,pos)!=x)
+    break; else ++pos;
+  }
+  return pos==pattern.size();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
