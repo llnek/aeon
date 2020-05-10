@@ -116,7 +116,7 @@ d::DValue readList(SExprParser* p, int cur, int ender, cstdstr& pairs) {
     }
 
     auto f= readForm(p);
-    //std::cout << "f == " << f->pr_str(1) << "\n";
+    //std::cout << "form => " << f->pr_str(1) << "\n";
     //
     if (dot && !f)
       E_SYNTAX("Bad dotted pair near %s",
@@ -135,7 +135,7 @@ d::DValue readList(SExprParser* p, int cur, int ender, cstdstr& pairs) {
              pairs.c_str(), d::pr_addr(_A).c_str());
   return pairs=="#()"
          ? SVec::make(_A,res)
-         : (!dot ? makeList(_A,res) : makePair(_A,res));
+         : (dot ? makePair(_A,res) : makeList(_A,res));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

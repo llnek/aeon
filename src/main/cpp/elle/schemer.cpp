@@ -100,6 +100,38 @@ stdstr Scheme::PRINT(d::DValue v) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+StrVec to_params(d::DValue v) {
+  auto pms= vcast<SPair>(v);
+  StrVec vs;
+  while (pms) {
+    auto h= pms->head();
+    auto t= pms->tail();
+    auto s= vcast<SSymbol>(h);
+    s__conj(vs, s->impl());
+    s=vcast<SSymbol>(t);
+    pms=P_NIL;
+    if (s) {
+      // a dotted end, varargs
+      s__conj(vs, stdstr("."));
+      s__conj(vs, s->impl());
+    } else {
+      pms= vcast<SPair>(t);
+    }
+  }
+  //std::cout << "size of args = " << vs.size() << "\n";
+  //for (auto& x : vs) std::cout << "pms = " << x << "\n";
+  return vs;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DValue wrapAsDo(d::DValue body) {
+  auto p= vcast<SPair>(body);
+  auto len= count(p);
+  return len < 2
+    ? p->head() : SPair::make(p->addr(), SSymbol::make("begin"),body);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue Scheme::EVAL(d::DValue ast, d::DFrame env) {
   while (true) {
 
@@ -125,9 +157,19 @@ d::DValue Scheme::EVAL(d::DValue ast, d::DFrame env) {
       DEBUG("op= %s, len()= %d", op->impl().c_str(), len);
 
       if (code == "define") {
-        //d::preEqual(3, len, "define");
-        //auto var= vcast<SSymbol>(list->nth(1))->impl();
-        //return env->set(var, EVAL(list->nth(2), env));
+        d::preMin(3, len, "define");
+        auto var= vcast<SSymbol>(nth(list,1));
+        if (var)
+          return env->set(var->impl(), EVAL(nth(list,2), env));
+        //else (define (name p1 p2)
+        //               (some body))
+        auto func= nth(list,1);
+        auto body= rest(rest(list));
+        auto pms= to_params(rest(func));
+        var= vcast<SSymbol>(car(func));
+        auto fn= var->impl();
+        return env->set(fn,
+            SLambda::make(fn, pms, wrapAsDo(body), env));
       }
 
       if (code == "let" || code == "let*") {
@@ -230,8 +272,7 @@ stdstr repl(cstdstr& s, d::DFrame env) {
   default:
     auto s= vcast<SVec>(_2(ret));
     for (auto i=0, e=s->count(); i<e; ++i) {
-      out = lisp.PRINT(//lisp.EVAL(s->nth(i), env));
-          s->nth(i));
+      out = lisp.PRINT(lisp.EVAL(s->nth(i), env));
     }
     break;
   }

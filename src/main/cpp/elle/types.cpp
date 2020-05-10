@@ -49,9 +49,9 @@ d::DValue makeList(d::VSlice args) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue makePair(d::Addr a, d::ValVec& vs) {
-  auto e=vs.size()-1;
+  int e=vs.size()-1;
   auto res= SPair::make(a, vs[e-1], vs[e]);
-  for (auto i=e-2; i>=0; --i) {
+  for (int i=e-2; i>=0; --i) {
     res=SPair::make(a, vs[i], res);
   }
   return res;
@@ -258,7 +258,7 @@ d::DFrame SLambda::bindContext(d::VSlice args) {
   // run through parameters...
   for (; i < z; ++i) {
     auto k= params[i];
-    if (k == "&") {
+    if (k == "&" || k == ".") {
       // var-args, next must be the last one
       // e.g. [a b c & x]
       ASSERT1((i+1 == (z-1)));
@@ -457,19 +457,29 @@ d::DValue expected(cstdstr&, d::DValue) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue first(d::DValue x) {
+d::DValue car(d::DValue x) {
   auto p=vcast<SPair>(x);
   return p ? p->head() : DVAL_NIL;
 }
 
-;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue rest(d::DValue x) {
-  auto p= vcast<SPair>(x);
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DValue cdr(d::DValue x) {
+  auto p=vcast<SPair>(x);
   return p ? p->tail() : DVAL_NIL;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue setFirst(d::DValue des, d::DValue y) {
+d::DValue rest(d::DValue x) {
+  return rest(vcast<SPair>(x));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DValue rest(SPair* p) {
+  return p ? p->tail() : DVAL_NIL;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DValue setCar(d::DValue des, d::DValue y) {
   auto p= vcast<SPair>(des);
   if (p)
     p->head(y);
@@ -481,7 +491,7 @@ d::DValue setFirst(d::DValue des, d::DValue y) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue setRest(d::DValue des, d::DValue y) {
+d::DValue setCdr(d::DValue des, d::DValue y) {
   if (auto p=vcast<SPair>(des); p)
     p->tail(y);
   else
@@ -493,12 +503,12 @@ d::DValue setRest(d::DValue des, d::DValue y) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue second(d::DValue x) {
-  return first(rest(x));
+  return car(rest(x));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue third(d::DValue x) {
-  return first(rest(rest(x)));
+  return car(rest(rest(x)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -515,9 +525,9 @@ d::DValue list(d::DValue a) {
 /** listStar(args) is like Common Lisp (apply #'list* args) **/
 d::DValue listStar(d::DValue args) {
   if (!rest(args))
-    return first(args);
+    return car(args);
   else
-    return cons(first(args), listStar(rest(args)));
+    return cons(car(args), listStar(rest(args)));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -530,7 +540,7 @@ d::DValue cons(d::DValue a, d::DValue b) {
 d::DValue reverse(d::DValue src) {
   auto res= SNil::make(); // empty list
   for (auto x= src; vcast<SPair>(x);) {
-    res = cons(first(x), res);
+    res = cons(car(x), res);
     x = rest(x);
   }
   return res;
@@ -563,7 +573,7 @@ int count(SPair* p) {
 d::DValue listToVector(d::DValue objs) {
   d::ValVec v;
   for (; vcast<SPair>(objs);) {
-    s__conj(v, first(objs));
+    s__conj(v, car(objs));
     objs = rest(objs);
   }
   return SVec::make(v);
