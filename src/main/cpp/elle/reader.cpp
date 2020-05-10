@@ -98,7 +98,6 @@ d::DToken Reader::string() {
 d::DToken Reader::id() {
   static stdstr bad("{}[]()'\"\\`@~^,.;");
   auto m= _ctx.mark();
-  int t;
   stdstr res;
   while (!_ctx.eof) {
     auto ch=peek(_ctx);

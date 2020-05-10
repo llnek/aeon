@@ -79,9 +79,9 @@ d::DValue readAtom(SExprParser* p) {
   case d::T_IDENT:
     return SSymbol::make(p->eat());
   case T_TRUE:
-    return STrue::make(p->eat()->addr());
+    return STrue::make();
   case T_FALSE:
-    return SFalse::make(p->eat()->addr());
+    return SFalse::make();
   case d::T_BACKTICK:
     return macro_func(p, "syntax-quote");
   case d::T_QUOTE:
@@ -104,22 +104,27 @@ d::DValue readList(SExprParser* p, int cur, int ender, cstdstr& pairs) {
   d::ValVec res;
 
   while (!p->isEof()) {
+
     if (p->isCur(ender))
     { found = 1, p->eat(); break; }
+
     if (p->isCur(d::T_DOT)) {
       if (res.empty())
         E_SYNTAX("Bad pair near %s",
                  d::pr_addr(_A).c_str());
       dot=p->eat(); // a dotted pair
     }
+
     auto f= readForm(p);
-    if (dot) {
-      if (!f)
-        E_SYNTAX("Bad dotted pair near %s",
-                 d::pr_addr(dot->addr()).c_str());
-    }
+    //std::cout << "f == " << f->pr_str(1) << "\n";
+    //
+    if (dot && !f)
+      E_SYNTAX("Bad dotted pair near %s",
+               d::pr_addr(dot->addr()).c_str());
+
     if (f)
       s__conj(res, f);
+
     if (dot)
     { found=1;
       p->eat(ender); break; }
@@ -130,7 +135,7 @@ d::DValue readList(SExprParser* p, int cur, int ender, cstdstr& pairs) {
              pairs.c_str(), d::pr_addr(_A).c_str());
   return pairs=="#()"
          ? SVec::make(_A,res)
-         : (!dot ? SPair::makeList(_A,res) : SPair::makePair(_A,res));
+         : (!dot ? makeList(_A,res) : makePair(_A,res));
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

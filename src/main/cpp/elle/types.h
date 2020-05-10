@@ -53,9 +53,6 @@ T* vcast(d::DValue v, d::Addr mark) {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct Scheme {
-  d::DValue macroExpand(d::DValue, d::DFrame);
-  d::DValue syntaxQuote(d::DValue, d::DFrame);
-  d::DValue evalAst(d::DValue, d::DFrame);
   d::DValue EVAL(d::DValue, d::DFrame);
   std::pair<int,d::DValue> READ(cstdstr&);
   stdstr PRINT(d::DValue);
@@ -73,6 +70,7 @@ struct SValue : public d::Data {
   virtual d::DValue eval(Scheme*, d::DFrame) = 0;
   virtual stdstr rtti() const { return pr_str(0); }
   d::Addr addr() const { return loc; }
+  virtual bool truthy() const { return true; }
   virtual ~SValue() {}
 
   protected:
@@ -86,6 +84,7 @@ struct SValue : public d::Data {
 struct SFalse : public SValue {
 
   virtual stdstr pr_str(bool=0) const { return "#f"; }
+  virtual bool truthy() const { return false; }
 
   virtual int compare(d::DValue rhs) const {
     return d::is_same(rhs, this)
@@ -93,20 +92,23 @@ struct SFalse : public SValue {
   }
 
   virtual d::DValue eval(Scheme*,d::DFrame) {
-    return make(addr());
+    return SFalse::make();
   }
 
   virtual bool equals(d::DValue rhs) const {
     return d::is_same(rhs,this);
   }
 
-  static d::DValue make(d::Addr a) {
-    return WRAP_VAL(SFalse,a);
+  static d::DValue make() {
+    return _singleton;
   }
 
+  virtual ~SFalse() {}
   SFalse() {}
+
   private:
-  SFalse(d::Addr a) : SValue(a) {}
+
+  static d::DValue _singleton;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -116,24 +118,28 @@ struct STrue : public SValue {
 
   virtual int compare(d::DValue rhs) const {
     return d::is_same(rhs, this)
-           ? 0 : pr_str(0).compare(rhs->pr_str(0));
+           ? 0
+           : pr_str(0).compare(rhs->pr_str(0));
   }
 
   virtual d::DValue eval(Scheme*,d::DFrame) {
-    return make(addr());
+    return STrue::make();
   }
 
   virtual bool equals(d::DValue rhs) const {
     return d::is_same(rhs,this);
   }
 
-  static d::DValue make(d::Addr a) {
-    return WRAP_VAL(STrue,a);
+  static d::DValue make() {
+    return _singleton;
   }
 
+  virtual ~STrue() {}
   STrue() {}
+
   private:
-  STrue(d::Addr a) : SValue(a) {}
+
+  static d::DValue _singleton;
 };
 
 
@@ -356,21 +362,24 @@ struct SNil : public SValue {
     return SNil::make();
   }
 
-  static d::DValue make() {
-    return WRAP_VAL(SNil);
+  virtual int compare(d::DValue rhs) const {
+    return equals(rhs)
+           ? 0 : pr_str(0).compare(rhs->pr_str(0));
   }
 
   virtual bool equals(d::DValue rhs) const {
     return d::is_same(rhs,this);
   }
 
-  virtual int compare(d::DValue rhs) const {
-    return equals(rhs) ? 0 : pr_str(0).compare(rhs->pr_str(0));
+  static d::DValue make() {
+    return _singleton;
   }
 
+  virtual ~SNil() {}
   SNil() {}
-  private:
 
+  private:
+  static d::DValue _singleton;
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -383,9 +392,6 @@ struct SPair : public SValue {
   static d::DValue make(d::DValue a, d::DValue b) {
     return WRAP_VAL(SPair,a,b);
   }
-
-  static d::DValue makeList(d::Addr,d::ValVec&);
-  static d::DValue makePair(d::Addr,d::ValVec&);
 
   static d::DValue make(d::Addr a, d::DValue v) {
     return make(a, v, SNil::make());
@@ -401,12 +407,25 @@ struct SPair : public SValue {
 
   virtual stdstr pr_str(bool=0) const;
 
+  bool hasProperTail() {
+    return vcast<SPair>(f2) != P_NIL;
+  }
+
+  bool hasNilTail() {
+    return vcast<SNil>(f2) != P_NIL;
+  }
+
+  bool isDotted() {
+    return vcast<SNil>(f2) == P_NIL &&
+      vcast<SPair>(f2)== P_NIL;
+  }
+
   d::DValue head() const { return f1; }
   d::DValue tail() const { return f2; }
-
   void head(d::DValue v) { f1=v;}
   void tail(d::DValue v) { f2=v; }
 
+  virtual ~SPair() {}
   SPair() {}
 
   private:
@@ -476,12 +495,10 @@ struct SFunction : public SValue {
 
   virtual d::DValue invoke(Scheme*, d::VSlice) = 0;
   virtual d::DValue invoke(Scheme*) = 0;
-
   stdstr name() const { return _name; }
+  virtual ~SFunction() {}
 
   protected:
-
-  virtual ~SFunction() {}
 
   stdstr _name;
   SFunction(cstdstr& n) : _name(n) {}
@@ -504,7 +521,10 @@ struct SLambda : public SFunction {
 
   virtual d::DValue invoke(Scheme*, d::VSlice);
   virtual d::DValue invoke(Scheme*);
-  virtual stdstr pr_str(bool p=0) const;
+
+  virtual stdstr pr_str(bool p=0) const {
+    return "#<lambda>@" + name();
+  }
 
   virtual d::DValue eval(Scheme*, d::DFrame) {
     return WRAP_VAL(SLambda, this);
@@ -547,17 +567,21 @@ struct SMacro : public SLambda {
     return WRAP_VAL(SMacro,this);
   }
 
-  virtual ~SMacro() {}
-
   virtual bool isMacro() const { return 1; }
-  virtual stdstr pr_str(bool p=0) const;
 
+  virtual stdstr pr_str(bool p=0) const {
+    return "#<macro>@" + name();
+  }
+
+  virtual ~SMacro() {}
   SMacro() {}
 
   protected:
 
-  SMacro(cstdstr&, const StrVec&, d::DValue, d::DFrame);
-  SMacro(const StrVec&, d::DValue, d::DFrame);
+  SMacro(const StrVec& s, d::DValue v, d::DFrame e) : SLambda(s,v,e) {}
+  SMacro(cstdstr& n, const StrVec& s, d::DValue v, d::DFrame e)
+    : SLambda(n,s,v,e)
+  {}
   SMacro(const SMacro* rhs) : SLambda(rhs) {}
 };
 
@@ -572,7 +596,9 @@ struct SNative : public SFunction {
     return WRAP_VAL(SNative);
   }
 
-  virtual stdstr pr_str(bool p=0) const;
+  virtual stdstr pr_str(bool p=0) const {
+    return "#<native>@" + name();
+  }
 
   virtual d::DValue invoke(Scheme*, d::VSlice);
   virtual d::DValue invoke(Scheme*);
@@ -590,8 +616,9 @@ struct SNative : public SFunction {
   protected:
 
   SNative(cstdstr& name, Invoker p) : SFunction(name), fn(p) { }
-  SNative(const SNative*);
-
+  SNative(const SNative* n) : SFunction(n->name()) {
+    fn=n->fn;
+  }
   Invoker fn;
 };
 
@@ -599,10 +626,26 @@ struct SNative : public SFunction {
 
 
 
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+void appendAll(d::VSlice, int from, int to, d::ValVec&);
+void appendAll(d::VSlice, int from, d::ValVec&);
+void appendAll(SPair*, d::ValVec&);
+void appendAll(SPair*, int from, int to, d::ValVec&);
+void appendAll(SPair*, int from, d::ValVec&);
+void appendAll(d::DValue, d::ValVec&);
+void appendAll(d::DValue, int from, int to, d::ValVec&);
+void appendAll(d::DValue, int from, d::ValVec&);
+
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue first(d::DValue);
 d::DValue rest(d::DValue);
+bool truthy(d::DValue);
+bool listQ(d::DValue);
+bool listQ(SPair*);
+bool atomQ(d::DValue);
 bool isNil(d::DValue);
+d::DValue nth(d::DValue, int);
+d::DValue nth(SPair*, int);
 d::DValue setFirst(d::DValue, d::DValue);
 d::DValue setRest(d::DValue, d::DValue);
 d::DValue second(d::DValue);
@@ -614,9 +657,19 @@ d::DValue cons(d::DValue, d::DValue);
 d::DValue reverse(d::DValue);
 bool equals(d::DValue, d::DValue);
 int length(d::DValue);
+int count(SPair*);
+
 d::DValue listToVector(d::DValue);
 d::DValue vectorToList(d::DValue);
 
+d::DValue makePair(d::Addr, d::ValVec&);
+d::DValue makeList(d::Addr, d::ValVec&);
+d::DValue makeList(d::ValVec&);
+d::DValue makeList(d::VSlice);
+
+
+d::DValue evalEach(Scheme*, d::DFrame,d::DValue);
+d::DValue evalEach(Scheme*, d::DFrame,SPair*);
 
 
 
