@@ -673,7 +673,7 @@ d::DValue makeList(d::VSlice);
 d::DValue evalEach(Scheme*, d::DFrame,d::DValue);
 d::DValue evalEach(Scheme*, d::DFrame,SPair*);
 
-
+SFunction* cast_function(d::DValue);
 
 
 

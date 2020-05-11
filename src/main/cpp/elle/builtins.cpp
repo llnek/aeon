@@ -232,6 +232,14 @@ static d::DValue native_atomQ(Scheme* lisp, d::VSlice args) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_count(Scheme* lisp, d::VSlice args) {
+  // (length a)
+  d::preEqual(1, args.size(), "length");
+  auto p= vcast<SPair>(*args.begin);
+  return SNumber::make(p ? count(p) : 0);
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 static d::DValue native_gensym(Scheme* lisp, d::VSlice args) {
   // (gensym "G_")
   auto len=d::preMax(1, args.size(), "gensym");
@@ -241,6 +249,63 @@ static d::DValue native_gensym(Scheme* lisp, d::VSlice args) {
   }
   return SString::make(gensym(pfx));
 }
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_apply(Scheme* lisp, d::VSlice args) {
+  // (apply + 1 2 3 [4 5])
+  auto len = d::preMin(2, args.size(), "apply");
+  auto op = cast_function(*args.begin);
+  auto last= args.begin + (len - 1);
+  ASSERT1(last != args.end);
+  auto s= vcast<SPair>(*last);
+  auto Z=vcast<SNil>(*last);
+  ASSERT1(s || Z);
+  d::ValVec pms;
+  appendAll(args,1,len-1, pms);
+  if (s)
+    appendAll(s,pms);
+  return op->invoke(lisp, d::VSlice(pms));
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_map(Scheme* lisp, d::VSlice args) {
+  // (map f [1 2 3])
+  auto len=d::preMin(2, args.size(), "map");
+  auto pp = cast_function(*args.begin);
+  auto e= *(args.begin+1);
+  if (len==2) {
+    if (vcast<SNil>(e)) return SNil::make();
+    auto s= vcast<SPair>(e);
+    auto cnt= s ? count(s) : 0;
+    if (cnt==0) return SNil::make();
+    d::ValVec out;
+    for (auto i=0; i < cnt; ++i) {
+      d::ValVec p{ nth(s,i) };
+      s__conj(out, pp->invoke(lisp, d::VSlice(p)));
+    }
+    return makeList(out);
+  }
+  d::ValVec res;
+  int pos=0;
+  while (1) {
+    d::ValVec pms;
+    for (int i=0,e=len-1; i < e; ++i) {
+      auto a= *(args.begin + 1 + i);
+      auto p=vcast<SPair>(a);
+      if (vcast<SNil>(a) || !p)
+        return makeList(res);
+      auto z= count(p);
+      if (pos >= z)
+        return makeList(res);
+      s__conj(pms, nth(a,pos));
+    }
+    ++pos;
+    s__conj(res, pp->invoke(lisp, d::VSlice(pms)));
+  }
+
+  return SNil::make();
+}
+
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DFrame init_natives() {
@@ -256,12 +321,16 @@ d::DFrame init_natives() {
   env->set(">", SNative::make(">",&native_gt));
   env->set("append", SNative::make("append",&native_concat));
   env->set("gensym", SNative::make("gensym",&native_gensym));
+  env->set("length", SNative::make("length",&native_count));
   env->set("cons", SNative::make("cons",&native_cons));
   env->set("list", SNative::make("list",&native_list));
   env->set("list?", SNative::make("list?",&native_listQ));
   env->set("atom?", SNative::make("atom?",&native_atomQ));
   env->set("null?", SNative::make("null?",&native_nilQ));
   env->set("nil?", SNative::make("nil?",&native_nilQ));
+  env->set("map", SNative::make("map",&native_map));
+  env->set("apply", SNative::make("apply",&native_apply));
+
 
   return env;
 }

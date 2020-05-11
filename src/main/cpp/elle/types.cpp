@@ -333,7 +333,13 @@ int SLambda::compare(d::DValue rhs) const {
          ? 0 : pr_str(0).compare(rhs->pr_str(0));
 }
 
-//kenl
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+SFunction* cast_function(d::DValue v) {
+  auto x= vcast<SLambda>(v);
+  auto y= vcast<SNative>(v);
+  return x ? (SFunction*)x : (y ? (SFunction*)y : P_NIL);
+}
+
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 bool truthy(d::DValue v) {
   return DCAST(SValue,v)->truthy();
