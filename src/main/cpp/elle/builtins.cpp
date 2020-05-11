@@ -201,7 +201,7 @@ static d::DValue native_cons(Scheme* lisp, d::VSlice args) {
   // (cons 1 [2 3])
   d::preEqual(2, args.size(), "cons");
   d::ValVec out { *args.begin };
-  appendAll(vcast<SPair>(*(args.begin+1)),out);
+  appendAll(*(args.begin+1),out);
   return makeList(out);
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -215,6 +215,13 @@ static d::DValue native_listQ(Scheme* lisp, d::VSlice args) {
   // (list? a)
   d::preEqual(1, args.size(), "list?");
   return listQ(*args.begin) ? STrue::make() : SFalse::make();
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+static d::DValue native_nilQ(Scheme* lisp, d::VSlice args) {
+  // (nil? a)
+  d::preEqual(1, args.size(), "nil?");
+  return isNil(*args.begin) ? STrue::make() : SFalse::make();
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -253,6 +260,8 @@ d::DFrame init_natives() {
   env->set("list", SNative::make("list",&native_list));
   env->set("list?", SNative::make("list?",&native_listQ));
   env->set("atom?", SNative::make("atom?",&native_atomQ));
+  env->set("null?", SNative::make("null?",&native_nilQ));
+  env->set("nil?", SNative::make("nil?",&native_nilQ));
 
   return env;
 }

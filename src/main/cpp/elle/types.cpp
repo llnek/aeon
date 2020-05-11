@@ -90,9 +90,9 @@ stdstr SPair::pr_str(bool p) const {
     if (auto s= vcast<SSymbol>(f1); s) {
       auto i= s->impl();
       special = (i == "quote")
-                ? "'" : (i == "quasiquote")
+                ? "'" : (i == "syntax-quote")
                 ? "`" : (i == "unquote")
-                ? "," : (i == "unquote-splicing") ? ",@" : "";
+                ? "," : (i == "splice-unquote") ? ",@" : "";
       if (!special.empty())
         buf += special + p2->head()->pr_str(p);
     }
@@ -109,9 +109,10 @@ stdstr SPair::pr_str(bool p) const {
     }
     if (!vcast<SNil>(t))
       buf += " . " + t->pr_str(p);
+    buf += ")";
   }
 
-  return buf + ")";
+  return buf;
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -350,20 +351,14 @@ d::DValue evalEach(Scheme* s, d::DFrame env,d::DValue v) {
 d::DValue evalEach(Scheme* s, d::DFrame env, SPair* p) {
   auto _A= p->addr();
   d::ValVec out;
-  std::cout << "start of evalEach at: " << d::pr_addr(_A) << "\n";
   while (p) {
     auto h= p->head();
-    std::cout << "head= " << h->pr_str(1) << "\n";
-    auto r= DCAST(SValue,h)->eval(s,env);
+    auto r= s->EVAL(h,env);
     s__conj(out, r);
-    std::cout << "head evaled to = " << r->pr_str(1) << "\n";
     auto t= p->tail();
     p= vcast<SPair>(t);
   }
-  std::cout << "end of evalEach\n";
-  auto x= makeList(_A, out);
-  std::cout << "end of evalEach = " << x <<"\n";
-  return x;
+  return makeList(_A, out);
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -100,6 +100,52 @@ stdstr Scheme::PRINT(d::DValue v) {
 }
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+d::DValue evalCond(Scheme* S, d::DFrame env, d::DValue code) {
+  // (cond (a b) (c d) (else r))
+  auto p=vcast<SPair>(code);
+  while (p) {
+    auto c = nth(code,0);
+    auto k= car(c);
+    auto res= DVAL_NIL;
+    c= rest(c);
+    if (auto s = vcast<SSymbol>(k); s && s->impl()=="else") {
+      res= STrue::make();
+    }
+    else
+    if (auto t = vcast<STrue>(k); t) {
+      res=k;
+    } else {
+      res= S->EVAL(k,env);
+    }
+    if (truthy(res)) {
+      d::ValVec out;
+      //(a)
+      if (isNil(c)) {
+        s__conj(out, SSymbol::make("quote"));
+        s__conj(out,res);
+        return makeList(out);
+      }
+      //(a => xxx)
+      k=car(c);
+      if (auto s=vcast<SSymbol>(k); s && s->impl()=="=>") {
+        s__conj(out, SSymbol::make("quote"));
+        s__conj(out,res);
+        c=rest(c);
+        d::ValVec args{ car(c), makeList(out)};
+        return makeList(args);
+      }
+      //else
+      s__conj(out, SSymbol::make("begin"));
+      s__conj(out, car(c));
+      return makeList(out);
+    }
+    code=rest(code);
+    p=vcast<SPair>(code);
+  }
+  return code;
+}
+
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 StrVec to_params(d::DValue v) {
   auto pms= vcast<SPair>(v);
   StrVec vs;
@@ -156,6 +202,11 @@ d::DValue Scheme::EVAL(d::DValue ast, d::DFrame env) {
 
       DEBUG("op= %s, len()= %d", op->impl().c_str(), len);
 
+      if (code == "cond") {
+        ast= evalCond(this, env, rest(list));
+        continue;
+      }
+
       if (code == "define") {
         d::preMin(3, len, "define");
         auto var= vcast<SSymbol>(nth(list,1));
@@ -173,18 +224,26 @@ d::DValue Scheme::EVAL(d::DValue ast, d::DFrame env) {
       }
 
       if (code == "let" || code == "let*") {
-        /*
+        // (let ((a 1)(b2))
+        //        (+ a b))
         d::preMin(2, len, "let");
-        auto args= vcast<LVec>(list->nth(1));
-        auto cnt= d::preEven(args->count(), "let bindings");
+        auto args= nth(list,1);
+        auto pargs= vcast<SPair>(args);
+        auto body= rest(rest(list));
+        auto cnt= d::preEven(count(pargs), "let bindings");
         auto f= d::Frame::make("let", env);
-        for (auto i = 0; i < cnt; i += 2) {
-          f->set(vcast<LSymbol>(args->nth(i))->impl(), EVAL(args->nth(i+1), f));
+        for (auto i= 0; i < cnt; ++i) {
+          auto a=nth(args,i);
+          auto n=vcast<SSymbol>(car(a));
+          auto e=car(rest(a));
+          if (code == "let*")
+            f->set(n->impl(), EVAL(e, f));
+          else // let
+            f->set(n->impl(), EVAL(e, env));
         }
-        ast = wrapAsDo(list,2);
+        ast = wrapAsDo(body);
         env = f;
         continue;
-        */
       }
 
       if (code == "quote") {
@@ -199,10 +258,36 @@ d::DValue Scheme::EVAL(d::DValue ast, d::DFrame env) {
       }
 
       if (code == "define-macro") {
-        //d::preEqual(4, len, "define-macro");
-        //auto var = vcast<LSymbol>(list->nth(1))->impl();
-        //auto pms= cast_params(list->nth(2));
-        //return env->set(var, MACRO_VAL(var, pms, list->nth(3), env));
+        d::preMin(3, len, "define-macro");
+        auto a2=nth(list,1);
+        if (auto s = vcast<SSymbol>(a2); s) {
+          if (len == 3) {
+            // (define-macro name (lambda ...))
+            auto func=nth(list,2);
+            auto e2= nth(func,1);
+            auto s2= vcast<SSymbol>(e2);
+            auto pms= s2 ? StrVec{".", s2->impl()} : to_params(e2);
+            auto body=rest(rest(func));
+            auto pb=vcast<SPair>(body);
+            return env->set(s->impl(),
+                SMacro::make(s->impl(), pms, pb->head(), env));
+          }
+          //(define-macro name (p1 . p2) (some stuff))
+          auto pms= to_params(nth(list,2));
+          auto body=rest(rest(rest(list)));
+          auto pb=vcast<SPair>(body);
+          return env->set(s->impl(),
+              SMacro::make(s->impl(), pms, pb->head(), env));
+        }
+        //(define-macro (name p1 p2)
+        //               (some body))
+        auto body= rest(rest(list));
+        auto pb=vcast<SPair>(body);
+        auto pms= to_params(rest(a2));
+        auto var= vcast<SSymbol>(car(a2));
+        auto fn= var->impl();
+        return env->set(fn,
+            SMacro::make(fn, pms, pb->head(),env));
       }
 
       if (code == "macroexpand") {
@@ -230,10 +315,16 @@ d::DValue Scheme::EVAL(d::DValue ast, d::DFrame env) {
       }
 
       if (code == "lambda") {
-        //d::preMin(2,len,"lambda");
-        //auto pms= cast_params(list->nth(1));
-        //auto var= "anon-fn#"+std::to_string(++seed);
-        //return LAMBDA_VAL(var, pms, wrapAsDo(list,2), env);
+        d::preMin(3,len,"lambda");
+        // (lambda (x y) ...)
+        // (lambda (x .y) ...)
+        // (lambda args ...)
+        auto e2= nth(list,1);
+        auto s2= vcast<SSymbol>(e2);
+        auto pms= s2 ? StrVec{".", s2->impl()} : to_params(e2);
+        auto var= "anon-fn"+N_STR(++seed);
+        auto body=rest(rest(list));
+        return SLambda::make(var, pms, wrapAsDo(body), env);
       }
     }
 

@@ -52,8 +52,10 @@ stdstr gensym(cstdstr& prefix) {
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue macro_func(SExprParser* p, stdstr op) {
   auto _A= p->eat()->addr();
-  if (auto f = readForm(p); f)
-    return SPair::make(_A, SSymbol::make(_A,op), f);
+  if (auto f = readForm(p); f) {
+    d::ValVec out{SSymbol::make(_A,op), f};
+    return makeList(_A, out);
+  }
   E_SYNTAX("Bad macro near %s", d::pr_addr(_A).c_str());
 }
 
@@ -82,13 +84,13 @@ d::DValue readAtom(SExprParser* p) {
     return STrue::make();
   case T_FALSE:
     return SFalse::make();
-  case d::T_BACKTICK:
+  case T_SYNTAX_QUOTE:
     return macro_func(p, "syntax-quote");
-  case d::T_QUOTE:
+  case T_QUOTE:
     return macro_func(p, "quote");
   case T_SPLICE_UNQUOTE:
     return macro_func(p, "splice-unquote");
-  case d::T_TILDA:
+  case T_UNQUOTE:
     return macro_func(p, "unquote");
   default:
     return SSymbol::make(p->eat());
@@ -116,7 +118,6 @@ d::DValue readList(SExprParser* p, int cur, int ender, cstdstr& pairs) {
     }
 
     auto f= readForm(p);
-    //std::cout << "form => " << f->pr_str(1) << "\n";
     //
     if (dot && !f)
       E_SYNTAX("Bad dotted pair near %s",
