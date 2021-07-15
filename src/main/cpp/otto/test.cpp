@@ -6,7 +6,7 @@ namespace a = czlab::aeon;
 #if 0
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 int main(int argc, char* argv[]) {
-
+#if 0
   try {
     auto f= a::read_file("/tmp/test.clj");
     auto s = k::repl(f);
@@ -22,15 +22,24 @@ int main(int argc, char* argv[]) {
   } catch (...) {
     std::cout << "Core dumped!\n";
   }
-#if 0
+#endif
   std::string input;
 
-  while (1) {
-    std::cout << "user>\n";
-    std::cin >> input;
-    k::repl(input);
+  while(1){
+    try{
+      std::cout << "user> ";
+      getline(std::cin, input);
+      if(input=="xxx" || input == "qqq"){
+        std::cout << "bye!\n";
+        break;
+      }
+      std::cout << k::repl(input);
+      std::cout << "\n";
+    }catch(a::Error& e){
+      std::cout << e.what() << "\n";
+    }
   }
-#endif
+
   return 0;
 }
 #endif

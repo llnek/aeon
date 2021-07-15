@@ -10,33 +10,25 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include <typeinfo>
 #include "types.h"
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-
-
+namespace czlab::tiny14e{
+namespace a= czlab::aeon;
+namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::tiny14e {
-namespace a = czlab::aeon;
-namespace d = czlab::dsl;
-
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue expected(cstdstr& m, d::DValue v) {
+d::DValue expected(cstdstr& m, d::DValue v)
+{
   RAISE(d::BadArg,
-        "Wanted `%s`, got %s", C_STR(m), C_STR(v->pr_str()));
-}
-
+        "Wanted `%s`, got %s", C_STR(m), C_STR(v->pr_str())); }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue expected(cstdstr& m, d::DValue v, d::Addr a) {
+d::DValue expected(cstdstr& m, d::DValue v, d::Addr a)
+{
   RAISE(d::BadArg,
         "Wanted `%s`, got %s near %s",
-        C_STR(m), C_STR(v->pr_str()), d::pr_addr(a).c_str());
-}
-
-
+        C_STR(m), C_STR(v->pr_str()), d::pr_addr(a).c_str()); }
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

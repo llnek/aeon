@@ -10,12 +10,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include <iostream>
 #include "interpreter.h"
-
-namespace czlab::spi {
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+namespace czlab::spi{
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 using namespace czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -30,7 +30,7 @@ BEGIN\n\
 \n\
      x := 11;\n\
  END.\n";
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const char* XXARG="\n\
 PROGRAM Part10AST;\n\
 VAR\n\
@@ -45,7 +45,7 @@ BEGIN {Part10AST}\n\
    y := 20 / 7 + 3.14;\n\
 END.  {Part10AST}\n\
 ";
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const char* ARG = "\n\
 PROGRAM Part12;\n\
 VAR\n\
@@ -71,7 +71,7 @@ BEGIN {Part12}\n\
    a := 10;\n\
 END.  {Part12}\n\
 ";
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const char* zARG= "\n\
 program Main;\n\
 var\n\
@@ -83,7 +83,7 @@ begin { Main }\n\
    x := (y + 3) * 3;\n\
 END.  { Main }\n\
 ";
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 const char* ARG18= "\n\
 program Main;\n\
 var poo : integer;\n\
@@ -105,17 +105,18 @@ begin { Main }\n\
 end.  { Main }\n\
 ";
 }
-
+//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 #if 0
 int main(int argc, char* argv[]) {
   using namespace czlab::spi;
   try {
     //"5 - - - + - (3 + 4) - +2");//" 2 + ((5 + 4) * 3)");
     Interpreter i(ARG18);
+    stdstr input;
     auto r= i.interpret();
     std::cout << "result = " << r->pr_str() << "\n";
     //Analyzer z(ARG);
-
+    getline(std::cin,input);
   } catch ( const d::SyntaxError& e) {
     std::cout << e.what() << "\n";
   }

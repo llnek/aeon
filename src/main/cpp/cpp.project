@@ -1,0 +1,141 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<CodeLite_Project Name="cpp" Version="11000" InternalType="">
+  <VirtualDirectory Name="dsl">
+    <File Name="dsl/dsl.cpp"/>
+    <File Name="dsl/dsl.h"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="aeon">
+    <File Name="aeon/aeon.h"/>
+    <File Name="aeon/pool.cpp"/>
+    <File Name="aeon/array.h"/>
+    <File Name="aeon/macros.h"/>
+    <File Name="aeon/aeon.cpp"/>
+    <File Name="aeon/dlist.h"/>
+    <File Name="aeon/test.cpp"/>
+    <File Name="aeon/pool.h"/>
+    <File Name="aeon/smptr.h"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="otto">
+    <File Name="otto/parser.cpp"/>
+    <File Name="otto/reader.cpp"/>
+    <File Name="otto/lisper.cpp"/>
+    <File Name="otto/builtins.h"/>
+    <File Name="otto/test.cpp"/>
+    <File Name="otto/parser.h"/>
+    <File Name="otto/types.h"/>
+    <File Name="otto/otto.h"/>
+    <File Name="otto/builtins.cpp"/>
+    <File Name="otto/types.cpp"/>
+    <File Name="otto/reader.h"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="nlohmann">
+    <File Name="nlohmann/json.hpp"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="spi">
+    <File Name="spi/parser.cpp"/>
+    <File Name="spi/lexer.h"/>
+    <File Name="spi/lexer.cpp"/>
+    <File Name="spi/test.cpp"/>
+    <File Name="spi/interpreter.h"/>
+    <File Name="spi/parser.h"/>
+    <File Name="spi/interpreter.cpp"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="ecs">
+    <File Name="ecs/engine.cpp"/>
+    <File Name="ecs/node.cpp"/>
+    <File Name="ecs/test.cpp"/>
+    <File Name="ecs/types.h"/>
+    <File Name="ecs/types.cpp"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="basic">
+    <File Name="basic/parser.cpp"/>
+    <File Name="basic/lexer.h"/>
+    <File Name="basic/builtins.h"/>
+    <File Name="basic/lexer.cpp"/>
+    <File Name="basic/test.cpp"/>
+    <File Name="basic/parser.h"/>
+    <File Name="basic/types.h"/>
+    <File Name="basic/basic.cpp"/>
+    <File Name="basic/builtins.cpp"/>
+    <File Name="basic/types.cpp"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="tiny14e">
+    <File Name="tiny14e/parser.cpp"/>
+    <File Name="tiny14e/lexer.h"/>
+    <File Name="tiny14e/lexer.cpp"/>
+    <File Name="tiny14e/test.cpp"/>
+    <File Name="tiny14e/interpreter.h"/>
+    <File Name="tiny14e/parser.h"/>
+    <File Name="tiny14e/types.h"/>
+    <File Name="tiny14e/interpreter.cpp"/>
+    <File Name="tiny14e/types.cpp"/>
+  </VirtualDirectory>
+  <VirtualDirectory Name="elle">
+    <File Name="elle/parser.cpp"/>
+    <File Name="elle/schemer.cpp"/>
+    <File Name="elle/reader.cpp"/>
+    <File Name="elle/elle.h"/>
+    <File Name="elle/builtins.h"/>
+    <File Name="elle/test.cpp"/>
+    <File Name="elle/parser.h"/>
+    <File Name="elle/types.h"/>
+    <File Name="elle/builtins.cpp"/>
+    <File Name="elle/types.cpp"/>
+    <File Name="elle/reader.h"/>
+  </VirtualDirectory>
+  <Description/>
+  <Dependencies/>
+  <Settings Type="Executable">
+    <GlobalSettings>
+      <Compiler Options="" C_Options="" Assembler="">
+        <IncludePath Value="."/>
+      </Compiler>
+      <Linker Options="">
+        <LibraryPath Value="."/>
+      </Linker>
+      <ResourceCompiler Options=""/>
+    </GlobalSettings>
+    <Configuration Name="Debug" CompilerType="CLANG" DebuggerType="LLDB Debugger" Type="Executable" BuildCmpWithGlobalSettings="append" BuildLnkWithGlobalSettings="append" BuildResWithGlobalSettings="append">
+      <Compiler Options="-std=c++17;-std=c++14;-std=c++11;-g -Wall" C_Options="" Assembler="" Required="yes" PreCompiledHeader="" PCHInCommandLine="no" PCHFlags="" PCHFlagsPolicy="0">
+        <IncludePath Value="."/>
+      </Compiler>
+      <Linker Options="-O0" Required="yes">
+        <LibraryPath Value="."/>
+        <LibraryPath Value="Debug"/>
+      </Linker>
+      <ResourceCompiler Options="" Required="no"/>
+      <General OutputFile="$(IntermediateDirectory)/$(ProjectName)" IntermediateDirectory="$(ConfigurationName)" Command="$(OutputFile)" CommandArguments="" UseSeparateDebugArgs="no" DebugArguments="" WorkingDirectory="" PauseExecWhenProcTerminates="no" IsGUIProgram="no" IsEnabled="yes"/>
+      <BuildSystem Name="Default"/>
+      <Environment EnvVarSetName="&lt;Use Defaults&gt;" DbgSetName="&lt;Use Defaults&gt;">
+        <![CDATA[]]>
+      </Environment>
+      <Debugger IsRemote="no" RemoteHostName="" RemoteHostPort="" DebuggerPath="" IsExtended="no">
+        <DebuggerSearchPaths/>
+        <PostConnectCommands/>
+        <StartupCommands/>
+      </Debugger>
+      <PreBuild/>
+      <PostBuild/>
+      <CustomBuild Enabled="no">
+        <RebuildCommand/>
+        <CleanCommand/>
+        <BuildCommand/>
+        <PreprocessFileCommand/>
+        <SingleFileCommand/>
+        <MakefileGenerationCommand/>
+        <ThirdPartyToolName/>
+        <WorkingDirectory/>
+      </CustomBuild>
+      <AdditionalRules>
+        <CustomPostBuild/>
+        <CustomPreBuild/>
+      </AdditionalRules>
+      <Completion EnableCpp11="no" EnableCpp14="no">
+        <ClangCmpFlagsC/>
+        <ClangCmpFlags/>
+        <ClangPP/>
+        <SearchPaths/>
+      </Completion>
+    </Configuration>
+  </Settings>
+</CodeLite_Project>

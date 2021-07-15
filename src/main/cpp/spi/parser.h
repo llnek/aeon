@@ -11,107 +11,98 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include "lexer.h"
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::spi {
+namespace czlab::spi{
 namespace d = czlab::dsl;
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Ast : public d::Node {
+struct Ast : public d::Node{
 
   virtual d::DValue eval(d::IEvaluator*) = 0;
   virtual void visit(d::IAnalyzer*) = 0;
 
-  virtual stdstr name() const { return _name; }
-  virtual ~Ast() {}
+  virtual stdstr name() const{ return _name; }
+  virtual ~Ast(){}
   Ast(d::DToken);
 
   d::DToken token;
   stdstr _name;
 
   private:
-  Ast() {}
+  Ast(){}
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BinOp : public Ast {
+struct BinOp : public Ast{
 
-  static d::DAst make(d::DAst left, d::DToken op, d::DAst right) {
+  static d::DAst make(d::DAst left, d::DToken op, d::DAst right){
     return WRAP_AST( BinOp,left,op,right);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~BinOp() {}
+  virtual ~BinOp(){}
 
   d::DAst lhs;
   d::DAst rhs;
 
   private:
   BinOp(d::DAst, d::DToken, d::DAst);
-
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Num : public Ast {
-  static d::DAst make(d::DToken t) {
+struct Num : public Ast{
+  static d::DAst make(d::DToken t){
     return WRAP_AST( Num,t);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
-  virtual ~Num() {}
+  virtual ~Num(){}
 
   private:
   Num(d::DToken);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct String : public Ast {
+struct String : public Ast{
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
-  static d::DAst make(d::DToken t) {
+  static d::DAst make(d::DToken t){
     return WRAP_AST( String,t);
   }
 
-  virtual ~String() {}
+  virtual ~String(){}
 
   protected:
   String(d::DToken);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct UnaryOp : public Ast {
+struct UnaryOp : public Ast{
 
-  static d::DAst make(d::DToken t, d::DAst a) {
+  static d::DAst make(d::DToken t, d::DAst a){
     return WRAP_AST( UnaryOp,t,a);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
-  virtual ~UnaryOp() {}
+  virtual ~UnaryOp(){}
   d::DAst expr;
 
   private:
   UnaryOp(d::DToken, d::DAst);
-
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Compound : public Ast {
+struct Compound : public Ast{
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Compound() {}
+  virtual ~Compound(){}
 
-  static d::DAst make(d::DToken k) {
+  static d::DAst make(d::DToken k){
     return WRAP_AST( Compound,k);
   }
 
@@ -120,15 +111,14 @@ struct Compound : public Ast {
   private:
   Compound(d::DToken);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Var : public Ast {
+struct Var : public Ast{
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Var() {}
+  virtual ~Var(){}
 
-  static d::DAst make(d::DToken t) {
+  static d::DAst make(d::DToken t){
     return WRAP_AST( Var,t);
   }
 
@@ -137,30 +127,29 @@ struct Var : public Ast {
 };
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Type : public Ast {
+struct Type : public Ast{
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Type() {}
+  virtual ~Type(){}
 
-  static d::DAst make(d::DToken t) {
+  static d::DAst make(d::DToken t){
     return WRAP_AST( Type,t);
   }
 
   private:
   Type(d::DToken);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Assignment : public Ast {
+struct Assignment : public Ast{
 
-  static d::DAst make(d::DAst left, d::DToken op, d::DAst right) {
+  static d::DAst make(d::DAst left, d::DToken op, d::DAst right){
     return WRAP_AST( Assignment,left,op,right);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Assignment() {}
+  virtual ~Assignment(){}
 
   d::DAst lhs;
   d::DAst rhs;
@@ -168,35 +157,33 @@ struct Assignment : public Ast {
   private:
   Assignment(d::DAst left, d::DToken op, d::DAst right);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct NoOp : public Ast {
+struct NoOp : public Ast{
 
-  virtual d::DValue eval(d::IEvaluator*) {
+  virtual d::DValue eval(d::IEvaluator*){
     return DVAL_NIL;
   }
 
-  static d::DAst make(d::DToken t) {
+  static d::DAst make(d::DToken t){
     return WRAP_AST( NoOp,t);
   }
 
-  virtual void visit(d::IAnalyzer*) {}
-  virtual ~NoOp() {}
+  virtual void visit(d::IAnalyzer*){}
+  virtual ~NoOp(){}
 
   private:
-  NoOp(d::DToken t) : Ast(t) { _name= "709394"; }
+  NoOp(d::DToken t) : Ast(t){ _name= "709394"; }
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Param : public Ast {
+struct Param : public Ast{
 
-  static d::DAst make(d::DAst var, d::DAst type) {
+  static d::DAst make(d::DAst var, d::DAst type){
     return WRAP_AST( Param,var,type);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Param() {}
+  virtual ~Param(){}
 
   d::DAst var_node;
   d::DAst type_node;
@@ -204,17 +191,16 @@ struct Param : public Ast {
   private:
   Param(d::DAst var, d::DAst type);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct VarDecl : public Ast {
+struct VarDecl : public Ast{
 
-  static d::DAst make(d::DAst var, d::DAst type) {
+  static d::DAst make(d::DAst var, d::DAst type){
     return WRAP_AST( VarDecl,var,type);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~VarDecl() {}
+  virtual ~VarDecl(){}
 
   d::DAst var_node;
   d::DAst type_node;
@@ -222,17 +208,16 @@ struct VarDecl : public Ast {
   private:
   VarDecl(d::DAst var, d::DAst type);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Block : public Ast {
+struct Block : public Ast{
 
-  static d::DAst make(d::DToken k,d::AstVec& decls, d::DAst c) {
+  static d::DAst make(d::DToken k,d::AstVec& decls, d::DAst c){
     return WRAP_AST( Block,k,decls, c);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Block() {}
+  virtual ~Block(){}
 
   d::DAst compound;
   d::AstVec declarations;
@@ -240,16 +225,15 @@ struct Block : public Ast {
   private:
   Block(d::DToken,d::AstVec& decls, d::DAst compound);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct ProcedureDecl : public Ast {
+struct ProcedureDecl : public Ast{
 
-  static d::DAst make(d::DToken k,const stdstr& s, d::AstVec& v, d::DAst b) {
+  static d::DAst make(d::DToken k,const stdstr& s, d::AstVec& v, d::DAst b){
     return WRAP_AST( ProcedureDecl,k,s,v,b);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
-  virtual ~ProcedureDecl() {}
+  virtual ~ProcedureDecl(){}
   virtual void visit(d::IAnalyzer*);
 
   d::DAst block;
@@ -258,16 +242,15 @@ struct ProcedureDecl : public Ast {
   private:
   ProcedureDecl(d::DToken,const stdstr&, d::AstVec&, d::DAst block);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct ProcedureCall : public Ast {
+struct ProcedureCall : public Ast{
 
-  static d::DAst make(const stdstr& s, d::AstVec& v, d::DToken t) {
+  static d::DAst make(const stdstr& s, d::AstVec& v, d::DToken t){
     return WRAP_AST( ProcedureCall,s,v,t);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
-  virtual ~ProcedureCall() {}
+  virtual ~ProcedureCall(){}
   virtual void visit(d::IAnalyzer*);
 
   d::AstVec args;
@@ -276,57 +259,53 @@ struct ProcedureCall : public Ast {
   private:
   ProcedureCall(const stdstr&, d::AstVec&, d::DToken);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Program : public Ast {
+struct Program : public Ast{
 
-  static d::DAst make(d::DToken k,const stdstr& s, d::DAst b) {
+  static d::DAst make(d::DToken k,const stdstr& s, d::DAst b){
     return WRAP_AST( Program,k,s,b);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Program() {}
+  virtual ~Program(){}
 
   d::DAst block;
 
   private:
   Program(d::DToken,const stdstr&, d::DAst block);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BuiltinTypeSymbol : public d::TypeSymbol {
+struct BuiltinTypeSymbol : public d::TypeSymbol{
 
-  static d::DSymbol make(const stdstr& n) {
+  static d::DSymbol make(const stdstr& n){
     return WRAP_SYM( BuiltinTypeSymbol,n);
   }
 
-  ~BuiltinTypeSymbol() {}
+  ~BuiltinTypeSymbol(){}
 
   private:
-  BuiltinTypeSymbol(cstdstr& n) : d::TypeSymbol(n) {}
+  BuiltinTypeSymbol(cstdstr& n) : d::TypeSymbol(n){}
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SymTable : public d::Table {
+struct SymTable : public d::Table{
 
-  static d::DTable make(cstdstr& s, d::DTable t) {
+  static d::DTable make(cstdstr& s, d::DTable t){
     return d::DTable(new SymTable(s,t));
   }
 
-  static d::DTable make(cstdstr& s) {
+  static d::DTable make(cstdstr& s){
     return d::DTable(new SymTable(s));
   }
 
-  ~SymTable() {}
+  ~SymTable(){}
 
   private:
   SymTable(cstdstr&, d::DTable);
   SymTable(cstdstr&);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SimplePascalParser : public d::IParser {
+struct SimplePascalParser : public d::IParser{
   SimplePascalParser(const Tchar* src);
   virtual ~SimplePascalParser();
 
@@ -344,30 +323,29 @@ struct SimplePascalParser : public d::IParser {
 
   Lexer* lex;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue expected(cstdstr&, d::DValue, d::Addr);
 d::DValue expected(cstdstr&, d::DValue);
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename T>
-T* vcast(d::DValue v) {
+T* vcast(d::DValue v){
   T obj;
-  if (auto p= v.get(); p &&
-      typeid(obj)==typeid(*p))
-    return s__cast(T,p); else return P_NIL;
-}
-
+  if(auto p= v.get(); p &&
+     typeid(obj)==typeid(*p))
+    return s__cast(T,p); else return P_NIL; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename T>
-T* vcast(d::DValue v, d::Addr mark) {
+T* vcast(d::DValue v, d::Addr mark){
   T obj;
-  if (auto p= v.get(); p &&
-      typeid(obj)==typeid(*p)) return s__cast(T,p);
-  if (_1(mark) == 0 &&
-      _2(mark) == 0)
+  if(auto p= v.get(); p &&
+     typeid(obj)==typeid(*p))
+    return s__cast(T,p);
+
+  if(_1(mark) == 0 &&
+     _2(mark) == 0)
     expected(obj.rtti(), v);
-  else expected(obj.rtti(), v,mark);
+  else
+    expected(obj.rtti(), v,mark);
   return P_NIL;
 }
 

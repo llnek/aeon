@@ -10,102 +10,86 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include <iostream>
 #include "interpreter.h"
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::spi {
+namespace czlab::spi{
 namespace d = czlab::dsl;
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-Interpreter::Interpreter(const Tchar* src) {
+Interpreter::Interpreter(const Tchar* src){
   source = src;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue Interpreter::interpret() {
+d::DValue Interpreter::interpret(){
   SimplePascalParser p(source);
   auto tree= p.parse();
   return check(tree), eval(tree);
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue Interpreter::eval(d::DAst tree) {
+d::DValue Interpreter::eval(d::DAst tree){
   auto res= (pushFrame("root"),tree->eval(this));
   popFrame();
   return res;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DFrame Interpreter::pushFrame(const std::string& name) {
+d::DFrame Interpreter::pushFrame(const std::string& name){
   stack= d::Frame::make(name, stack);
   return stack;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DFrame Interpreter::popFrame() {
-  if (stack) {
+d::DFrame Interpreter::popFrame(){
+  if(stack){
     auto f= stack;
-    std::cout << f->pr_str() << "\n";
+    //std::cout << f->pr_str() << "\n";
     stack=stack->getOuter();
     return f;
-  } else {
+  }else{
     return P_NIL;
   }
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DFrame Interpreter::peekFrame() const {
+d::DFrame Interpreter::peekFrame() const{
   return stack;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue Interpreter::setValueEx(cstdstr& name, d::DValue v) {
+d::DValue Interpreter::setValueEx(cstdstr& name, d::DValue v){
   return stack ? stack->setEx(name, v) : P_NIL;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue Interpreter::setValue(cstdstr& name, d::DValue v) {
+d::DValue Interpreter::setValue(cstdstr& name, d::DValue v){
   return stack ? stack->set(name, v) : P_NIL;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DValue Interpreter::getValue(cstdstr& name) const {
+d::DValue Interpreter::getValue(cstdstr& name) const{
   return stack ? stack->get(name) : P_NIL;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-void Interpreter::check(d::DAst tree) {
+void Interpreter::check(d::DAst tree){
   symbols= SymTable::make("root");
   tree->visit(this);
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DSymbol Interpreter::search(cstdstr& n) const {
+d::DSymbol Interpreter::search(cstdstr& n) const{
   return s__cast(d::Table,symbols.get())->search(n);
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DSymbol Interpreter::find(cstdstr& n) const {
+d::DSymbol Interpreter::find(cstdstr& n) const{
   return s__cast(d::Table,symbols.get())->find(n);
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DSymbol Interpreter::define(d::DSymbol s) {
+d::DSymbol Interpreter::define(d::DSymbol s){
   symbols->insert(s);
   return s;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DTable Interpreter::pushScope(cstdstr& name) {
+d::DTable Interpreter::pushScope(cstdstr& name){
   symbols = SymTable::make(name, symbols);
   return symbols;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-d::DTable Interpreter::popScope() {
+d::DTable Interpreter::popScope(){
   auto cur= symbols;
   symbols = cur->outer();
   return cur;

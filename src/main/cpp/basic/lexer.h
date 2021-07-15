@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include "../dsl/dsl.h"
 
@@ -19,11 +19,10 @@
 #define PRK(t) DCAST(czlab::dsl::Token,t)->pr_str().c_str()
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::basic {
-namespace d = czlab::dsl;
-
+namespace czlab::basic{
+namespace d= czlab::dsl;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-enum TokenType {
+enum TokenType{
   T_ARRAYINDEX = 1000,
   T_FUNCALL,
   T_REM,
@@ -63,15 +62,13 @@ enum TokenType {
 
   T_EOL
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr typeToString(int type);
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Lexer : public d::IScanner {
+struct Lexer : public d::IScanner{
 
   virtual bool isKeyword(cstdstr&) const;
-  d::Context& ctx() { return _ctx; }
+  d::Context& ctx(){ return _ctx; }
 
   virtual d::DToken getNextToken();
   virtual d::DToken skipComment();
@@ -80,12 +77,13 @@ struct Lexer : public d::IScanner {
   virtual d::DToken string();
 
   Lexer(const Tchar* src);
-  virtual ~Lexer() {}
+  virtual ~Lexer(){}
 
   private:
 
   d::Context _ctx;
 };
+
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

@@ -11,58 +11,51 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include "lexer.h"
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::tiny14e {
-
+namespace czlab::tiny14e{
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace d = czlab::dsl;
-namespace a = czlab::aeon;
-
+namespace d= czlab::dsl;
+namespace a= czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Reader {
+struct Reader{
   virtual stdstr readString()=0;
   virtual double readFloat()=0;
   virtual llong readInt()=0;
-  virtual ~Reader() {}
+  virtual ~Reader(){}
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Writer {
+struct Writer{
   virtual void writeString(cstdstr&)=0;
   virtual void writeFloat(double)=0;
   virtual void writeInt(llong)=0;
   virtual void writeln()=0;
-  virtual ~Writer() {}
+  virtual ~Writer(){}
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 struct EvaluatorAPI : public d::IEvaluator,
-                      public Reader, public Writer {
-  virtual ~EvaluatorAPI() {}
+                      public Reader, public Writer{
+  virtual ~EvaluatorAPI(){}
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct AnalyzerAPI : public d::IAnalyzer {
-  virtual ~AnalyzerAPI() {}
+struct AnalyzerAPI : public d::IAnalyzer{
+  virtual ~AnalyzerAPI(){}
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Ast : public d::Node {
+struct Ast : public d::Node{
 
   virtual d::DValue eval(d::IEvaluator* e)=0;
   virtual void visit(d::IAnalyzer*) = 0;
 
-  d::DToken token() const { return _token; }
+  d::DToken token() const{ return _token; }
 
   virtual stdstr name() const;
 
-  virtual ~Ast() {}
+  virtual ~Ast(){}
 
-  Ast(d::DToken t) { _token=t; }
+  Ast(d::DToken t){ _token=t; }
 
   protected:
 
@@ -73,18 +66,17 @@ struct Ast : public d::Node {
   Ast();
 
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BoolExpr : public Ast {
+struct BoolExpr : public Ast{
 
-  static d::DAst make(d::DToken k, const d::AstVec& a, const d::TokenVec& v) {
+  static d::DAst make(d::DToken k, const d::AstVec& a, const d::TokenVec& v){
     return WRAP_AST(BoolExpr,k,a,v);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
-  virtual ~BoolExpr() {}
+  virtual ~BoolExpr(){}
 
   private:
 
@@ -92,35 +84,33 @@ struct BoolExpr : public Ast {
   d::TokenVec ops;
   d::AstVec terms;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BoolTerm : public Ast {
+struct BoolTerm : public Ast{
 
-  static d::DAst make(d::DToken k,const d::AstVec& v) {
+  static d::DAst make(d::DToken k,const d::AstVec& v){
     return WRAP_AST( BoolTerm,k,v);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
-  virtual ~BoolTerm() {}
+  virtual ~BoolTerm(){}
 
   private:
 
   BoolTerm(d::DToken,const d::AstVec&);
   d::AstVec terms;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct RelationOp : public Ast {
+struct RelationOp : public Ast{
 
-  static d::DAst make(d::DAst left, d::DToken op, d::DAst right) {
+  static d::DAst make(d::DAst left, d::DToken op, d::DAst right){
     return WRAP_AST( RelationOp,left, op, right);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~RelationOp() {}
+  virtual ~RelationOp(){}
 
   private:
 
@@ -128,18 +118,17 @@ struct RelationOp : public Ast {
   d::DAst lhs;
   d::DAst rhs;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct BinOp : public Ast {
+struct BinOp : public Ast{
 
-  static d::DAst make(d::DAst left, d::DToken op, d::DAst right) {
+  static d::DAst make(d::DAst left, d::DToken op, d::DAst right){
     return WRAP_AST( BinOp,left, op, right);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
-  virtual ~BinOp() {}
+  virtual ~BinOp(){}
 
   private:
 
@@ -147,91 +136,86 @@ struct BinOp : public Ast {
   d::DAst lhs;
   d::DAst rhs;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Num : public Ast {
+struct Num : public Ast{
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
-  static d::DAst make(d::DToken t) {
+  static d::DAst make(d::DToken t){
     return WRAP_AST( Num,t);
   }
 
   virtual stdstr name() const;
-  virtual ~Num() {}
+  virtual ~Num(){}
 
   private:
 
   Num(d::DToken);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct String : public Ast {
+struct String : public Ast{
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
-  static d::DAst make(d::DToken t) {
+  static d::DAst make(d::DToken t){
     return WRAP_AST( String,t);
   }
 
-  virtual ~String() {}
+  virtual ~String(){}
   virtual stdstr name() const;
 
   private:
 
   String(d::DToken);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct NotFactor : public Ast {
+struct NotFactor : public Ast{
 
-  static d::DAst make(d::DToken t, d::DAst expr) {
+  static d::DAst make(d::DToken t, d::DAst expr){
     return WRAP_AST( NotFactor,t, expr);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
-  virtual ~NotFactor() {}
+  virtual ~NotFactor(){}
 
   private:
 
   NotFactor(d::DToken, d::DAst);
   d::DAst expr;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct UnaryOp : public Ast {
+struct UnaryOp : public Ast{
 
-  static d::DAst make(d::DToken t, d::DAst expr) {
+  static d::DAst make(d::DToken t, d::DAst expr){
     return WRAP_AST( UnaryOp,t, expr);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
-  virtual ~UnaryOp() {}
+  virtual ~UnaryOp(){}
 
   private:
 
   UnaryOp(d::DToken, d::DAst);
   d::DAst expr;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Compound : public Ast {
+struct Compound : public Ast{
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
-  static d::DAst make(d::DToken t) {
+  static d::DAst make(d::DToken t){
     return WRAP_AST(Compound,t);
   }
 
   virtual stdstr name() const;
-  virtual ~Compound() {}
+  virtual ~Compound(){}
 
   d::AstVec statements;
 
@@ -239,18 +223,17 @@ struct Compound : public Ast {
 
   Compound(d::DToken);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Var : public Ast {
+struct Var : public Ast{
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
-  static d::DAst make(d::DToken t) {
+  static d::DAst make(d::DToken t){
     return WRAP_AST( Var,t);
   }
 
   virtual stdstr name() const;
-  virtual ~Var() {}
+  virtual ~Var(){}
 
   d::DSymbol type_symbol;
 
@@ -258,86 +241,81 @@ struct Var : public Ast {
 
   Var(d::DToken);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct VarInput : public Var {
+struct VarInput : public Var{
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
-  static d::DAst make(d::DToken t) {
+  static d::DAst make(d::DToken t){
     return WRAP_AST( VarInput,t);
   }
 
-  virtual ~VarInput() {}
+  virtual ~VarInput(){}
 
   private:
 
-  VarInput(d::DToken t) : Var(t) {}
+  VarInput(d::DToken t) : Var(t){}
   d::DSymbol type_symbol;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Type : public Ast {
+struct Type : public Ast{
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
 
-  static d::DAst make(d::DToken t) {
+  static d::DAst make(d::DToken t){
     return WRAP_AST( Type,t);
   }
 
   virtual stdstr name() const;
-  virtual ~Type() {}
+  virtual ~Type(){}
 
   private:
   Type(d::DToken);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Write : public Ast {
+struct Write : public Ast{
 
-  static d::DAst make(d::DToken t, const d::AstVec& v) {
+  static d::DAst make(d::DToken t, const d::AstVec& v){
     return WRAP_AST( Write,t, v);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Write() {}
+  virtual ~Write(){}
 
   private:
 
   Write(d::DToken, const d::AstVec&);
   d::AstVec terms;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Read : public Ast {
+struct Read : public Ast{
 
-  static d::DAst make(d::DToken t, d::DAst a) {
+  static d::DAst make(d::DToken t, d::DAst a){
     return WRAP_AST( Read,t, a);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Read() {}
+  virtual ~Read(){}
 
   private:
 
   Read(d::DToken, d::DAst);
   d::DAst var_node;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct WhileLoop : public Ast {
+struct WhileLoop : public Ast{
 
-  static d::DAst make(d::DToken t, d::DAst c, d::DAst a) {
+  static d::DAst make(d::DToken t, d::DAst c, d::DAst a){
     return WRAP_AST( WhileLoop,t, c, a);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~WhileLoop() {}
+  virtual ~WhileLoop(){}
 
   private:
 
@@ -345,17 +323,16 @@ struct WhileLoop : public Ast {
   d::DAst cond;
   d::DAst code;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct ForLoop : public Ast {
+struct ForLoop : public Ast{
 
-  static d::DAst make(d::DToken t, d::DAst v, d::DAst i, d::DAst e, d::DAst s) {
+  static d::DAst make(d::DToken t, d::DAst v, d::DAst i, d::DAst e, d::DAst s){
     return WRAP_AST( ForLoop,t,v,i,e,s);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~ForLoop() {}
+  virtual ~ForLoop(){}
 
   private:
 
@@ -365,21 +342,20 @@ struct ForLoop : public Ast {
   d::DAst code;
   d::DAst var_node;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct IfThenElse : public Ast {
+struct IfThenElse : public Ast{
 
-  static d::DAst make(d::DToken t, d::DAst c, d::DAst n, d::DAst z) {
+  static d::DAst make(d::DToken t, d::DAst c, d::DAst n, d::DAst z){
     return WRAP_AST( IfThenElse,t,c,n,z);
   }
 
-  static d::DAst make(d::DToken t, d::DAst c, d::DAst n) {
+  static d::DAst make(d::DToken t, d::DAst c, d::DAst n){
     return WRAP_AST( IfThenElse,t,c,n);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~IfThenElse() {}
+  virtual ~IfThenElse(){}
 
   private:
 
@@ -390,17 +366,16 @@ struct IfThenElse : public Ast {
   d::DAst then;
   d::DAst elze;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct RepeatUntil : public Ast {
+struct RepeatUntil : public Ast{
 
-  static d::DAst make(d::DToken t, d::DAst c, d::DAst b) {
+  static d::DAst make(d::DToken t, d::DAst c, d::DAst b){
     return WRAP_AST( RepeatUntil,t,c,b);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~RepeatUntil() {}
+  virtual ~RepeatUntil(){}
 
   protected:
 
@@ -409,17 +384,16 @@ struct RepeatUntil : public Ast {
   d::DAst cond;
   d::DAst code;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Assignment : public Ast {
+struct Assignment : public Ast{
 
-  static d::DAst make(d::DAst left, d::DToken op, d::DAst right) {
+  static d::DAst make(d::DAst left, d::DToken op, d::DAst right){
     return WRAP_AST( Assignment,left, op, right);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Assignment() {}
+  virtual ~Assignment(){}
   virtual stdstr name() const;
 
   private:
@@ -428,33 +402,31 @@ struct Assignment : public Ast {
   d::DAst lhs;
   d::DAst rhs;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct NoOp : public Ast {
+struct NoOp : public Ast{
 
-  virtual d::DValue eval(d::IEvaluator*) { return P_NIL; }
-  virtual void visit(d::IAnalyzer*) {}
-  virtual stdstr name() const { return "709394"; }
-  virtual ~NoOp() {}
+  virtual d::DValue eval(d::IEvaluator*){ return P_NIL; }
+  virtual void visit(d::IAnalyzer*){}
+  virtual stdstr name() const{ return "709394"; }
+  virtual ~NoOp(){}
 
-  static d::DAst make() { return WRAP_AST( NoOp); }
+  static d::DAst make(){ return WRAP_AST( NoOp); }
 
   private:
 
-  NoOp() : Ast(P_NIL) {}
+  NoOp() : Ast(P_NIL){}
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct VarDecl : public Ast {
+struct VarDecl : public Ast{
 
-  static d::DAst make(d::DAst v, d::DAst t) {
+  static d::DAst make(d::DAst v, d::DAst t){
     return WRAP_AST( VarDecl,v,t);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
-  virtual ~VarDecl() {}
+  virtual ~VarDecl(){}
 
   d::DAst var_node;
   d::DAst type_node;
@@ -463,17 +435,16 @@ struct VarDecl : public Ast {
 
   VarDecl(d::DAst v, d::DAst t);
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Block : public Ast {
+struct Block : public Ast{
 
-  static d::DAst make(d::DToken k,const d::AstVec& v, d::DAst b) {
+  static d::DAst make(d::DToken k,const d::AstVec& v, d::DAst b){
     return WRAP_AST( Block,k,v,b);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Block() {}
+  virtual ~Block(){}
   virtual stdstr name() const;
 
   private:
@@ -482,16 +453,15 @@ struct Block : public Ast {
   d::DAst compound;
   d::AstVec declarations;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct ProcedureDecl : public Ast {
+struct ProcedureDecl : public Ast{
 
-  static d::DAst make(d::DToken t, const d::AstVec& v, d::DAst b) {
+  static d::DAst make(d::DToken t, const d::AstVec& v, d::DAst b){
     return WRAP_AST( ProcedureDecl,t,v,b);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
-  virtual ~ProcedureDecl() {}
+  virtual ~ProcedureDecl(){}
   virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
 
@@ -501,16 +471,15 @@ struct ProcedureDecl : public Ast {
   d::DAst block;
   d::AstVec params;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct ProcedureCall : public Ast {
+struct ProcedureCall : public Ast{
 
-  static d::DAst make(d::DToken t, const d::AstVec& v) {
+  static d::DAst make(d::DToken t, const d::AstVec& v){
     return WRAP_AST( ProcedureCall,t, v);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
-  virtual ~ProcedureCall() {}
+  virtual ~ProcedureCall(){}
   virtual void visit(d::IAnalyzer*);
   virtual stdstr name() const;
 
@@ -520,17 +489,16 @@ struct ProcedureCall : public Ast {
   d::AstVec args;
   d::DSymbol proc_symbol;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Program : public Ast {
+struct Program : public Ast{
 
-  static d::DAst make(d::DToken t, d::DAst b) {
+  static d::DAst make(d::DToken t, d::DAst b){
     return WRAP_AST( Program,t,b);
   }
 
   virtual d::DValue eval(d::IEvaluator*);
   virtual void visit(d::IAnalyzer*);
-  virtual ~Program() {}
+  virtual ~Program(){}
   virtual stdstr name() const;
 
   private:
@@ -538,14 +506,13 @@ struct Program : public Ast {
   Program(d::DToken, d::DAst);
   d::DAst block;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct CrenshawParser : public d::IParser {
+struct CrenshawParser : public d::IParser{
 
   CrenshawParser(const Tchar* src);
   virtual ~CrenshawParser();
 
-  Lexer* rdr() { return lex; }
+  Lexer* rdr(){ return lex; }
 
   d::DAst parse();
   int cur();

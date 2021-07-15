@@ -11,17 +11,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include "types.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::otto {
-namespace d = czlab::dsl;
+namespace czlab::otto{
+namespace d= czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-enum TokenType {
-  T_SPLICE_UNQUOTE = 100,
+//extending from token defs in dsl.h
+enum TokenType{
+  T_SPLICE_UNQUOTE= 100,
   T_KEYWORD,
   T_ANONFN,
   T_SET,
@@ -30,14 +31,11 @@ enum TokenType {
   T_NIL,
   T_COMMENT
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr typeToString(int type);
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Reader : public d::IScanner {
-
-  // A Lexer.
+//A Lexer.
+struct Reader : public d::IScanner{
 
   virtual bool isKeyword(cstdstr&) const;
   virtual d::DToken getNextToken();
@@ -45,9 +43,9 @@ struct Reader : public d::IScanner {
   virtual d::DToken id();
   virtual d::DToken string();
 
-  d::Context& ctx() { return _ctx; }
+  d::Context& ctx(){ return _ctx; }
   Reader(const Tchar* src);
-  virtual ~Reader() {};
+  virtual ~Reader(){};
 
   private:
 

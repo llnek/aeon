@@ -11,34 +11,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include "parser.h"
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::spi {
+namespace czlab::spi{
 namespace d= czlab::dsl;
-//
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Interpreter : public d::IEvaluator, public d::IAnalyzer {
-
+struct Interpreter : public d::IEvaluator, public d::IAnalyzer{
   //evaluator
   virtual d::DValue setValueEx(cstdstr&, d::DValue);
   virtual d::DValue setValue(cstdstr&, d::DValue);
 
   virtual d::DValue getValue(cstdstr&) const;
-  //virtual bool contains(const stdstr&) const;
   virtual d::DFrame pushFrame(cstdstr& name);
   virtual d::DFrame popFrame();
   virtual d::DFrame peekFrame() const;
 
-  stdstr readString() { return "";}
-  double readFloat() { return 0;}
-  long readInt() { return 0L;}
-  void writeString(cstdstr&) {}
-  void writeFloat(double) {}
-  void writeInt(long) {}
-  void writeln() {}
+  stdstr readString(){ return "";}
+  double readFloat(){ return 0;}
+  long readInt(){ return 0L;}
+  void writeString(cstdstr&){}
+  void writeFloat(double){}
+  void writeInt(long){}
+  void writeln(){}
 
   //analyzer
   virtual d::DSymbol search(cstdstr&) const;
@@ -50,7 +46,7 @@ struct Interpreter : public d::IEvaluator, public d::IAnalyzer {
 
   Interpreter(const Tchar* src);
   d::DValue interpret();
-  virtual ~Interpreter() {}
+  virtual ~Interpreter(){}
 
   private:
 

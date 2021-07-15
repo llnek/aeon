@@ -11,16 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include "parser.h"
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::tiny14e {
+namespace czlab::tiny14e{
 namespace d= czlab::dsl;
-//
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
+struct Interpreter : public EvaluatorAPI, public AnalyzerAPI{
   //evaluator
   virtual d::DValue setValueEx(cstdstr&, d::DValue);
   virtual d::DValue setValue(cstdstr&, d::DValue);
@@ -29,7 +27,6 @@ struct Interpreter : public EvaluatorAPI, public AnalyzerAPI {
   virtual d::DFrame pushFrame(cstdstr& name);
   virtual d::DFrame popFrame();
   virtual d::DFrame peekFrame() const;
-
 
   stdstr readString();
   double readFloat();

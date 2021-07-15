@@ -11,16 +11,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include "../dsl/dsl.h"
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::tiny14e {
+namespace czlab::tiny14e{
 namespace d=czlab::dsl;
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-enum TokenType {
+enum TokenType{
   // keywords
   T_PROGRAM = 100,
   T_INT_DIV,
@@ -42,7 +40,6 @@ enum TokenType {
   T_BEGIN,
   T_END,
 
-  // symbols
   T_WRITELN,
   T_WRITE,
   T_READLN,
@@ -57,12 +54,10 @@ enum TokenType {
   T_ASSIGN
 
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr typeToString(int);
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Lexer : public d::IScanner {
+struct Lexer : public d::IScanner{
 
   virtual bool isKeyword(cstdstr&) const;
   virtual d::DToken getNextToken();
@@ -72,9 +67,9 @@ struct Lexer : public d::IScanner {
   virtual d::DToken string();
 
   Lexer(const Tchar* src);
-  virtual ~Lexer() {};
+  virtual ~Lexer(){};
 
-  d::Context& ctx() { return _ctx; }
+  d::Context& ctx(){ return _ctx; }
 
   private:
 

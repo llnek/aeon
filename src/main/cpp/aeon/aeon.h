@@ -11,7 +11,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 //////////////////////////////////////////////////////////////////////////////
 #include <functional>
@@ -34,27 +34,29 @@
 #include "macros.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::aeon {
+namespace czlab::aeon{
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct Error {
-  const stdstr what() const { return msg; }
+//base exception
+struct Error{
+  cstdstr what() const{ return msg; }
   protected:
-  Error(cstdstr& s) { msg=s; }
+  Error(cstdstr& s){ msg=s; }
   stdstr msg;
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct FileNotFound : public Error {
+struct FileNotFound : public Error{
   FileNotFound(cstdstr&);
 };
-struct FileError : public Error {
+struct FileError : public Error{
   FileError(cstdstr&);
 };
-struct NPError : public Error {
+struct NPError : public Error{
   NPError(cstdstr&);
 };
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct CString {
+//a C style char*
+struct CString{
 
   void copy(const Tchar* src);
   const Tchar* get();
@@ -68,7 +70,6 @@ struct CString {
   size_t z;
   char* s;
 };
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 StrVec tokenize(cstdstr& src, Tchar delim);
 Tchar unescape_char(Tchar c);
@@ -78,12 +79,11 @@ stdstr to_lower(cstdstr&);
 bool fuzzy_equals(double d1, double d2);
 bool fuzzy_zero(double d2);
 int modulo(int, int);
-template <typename T> bool is_even(T x) {
+template <typename T> bool is_even(T x){
   return (x % 2) == 0;
 }
 void rand_seed();
 stdstr read_file(const Tchar* filepath);
-
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 /*
@@ -97,52 +97,50 @@ size_t slice_size(typename std::vector<T>::iterator b, typename std::vector<T>::
 }
 */
 template <typename T>
-int slice_size(typename std::vector<T>::iterator b, typename std::vector<T>::iterator e) {
+int slice_size(typename std::vector<T>::iterator b, typename std::vector<T>::iterator e){
   return std::distance(b,e);
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename T>
-bool equals(const std::vector<T>& a, const std::vector<T>& b) {
-  if (a.size() == b.size()) {
+bool equals(const std::vector<T>& a, const std::vector<T>& b){
+  if(a.size() == b.size()){
     auto i1=a.begin();
     auto i2=b.begin();
-    for (; i1 != a.end(); ++i1, ++i2) {
-      if (*i1 == *i2) {} else { return false; }
+    for(; i1 != a.end(); ++i1, ++i2){
+      if(*i1 == *i2){}else{ return false; }
     }
   }
   return a.size() == b.size();
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename T>
-std::vector<T> slice(std::vector<T>& src, int from, int end) {
+std::vector<T> slice(std::vector<T>& src, int from, int end){
   std::vector<T> out;
   out.insert(out.end(), src.begin()+from, src.begin() + end); return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename T>
-std::vector<T> slice(std::vector<T>& src, int from) {
+std::vector<T> slice(std::vector<T>& src, int from){
   std::vector<T> out;
   out.insert(out.end(), src.begin()+from, src.end()); return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename T>
-std::vector<T> slice(std::vector<T>* src, int from, int end) {
+std::vector<T> slice(std::vector<T>* src, int from, int end){
   std::vector<T> out;
   out.insert(out.end(), src->begin()+from, src->begin() + end); return out;
 }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename T>
-std::vector<T> slice(std::vector<T>* src, int from) {
+std::vector<T> slice(std::vector<T>* src, int from){
   std::vector<T> out;
   out.insert(out.end(), src->begin()+from, src->end()); return out;
 }
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename K, typename V>
-std::map<V,K> map_reflect(const std::map<K,V>& src) {
+std::map<V,K> map_reflect(const std::map<K,V>& src){
   std::map<V,K> res;
-  for (auto& x : src) {
+  for(auto& x : src){
     res[x.second]=x.first;
   }
   return res;

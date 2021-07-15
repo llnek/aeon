@@ -11,38 +11,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include "reader.h"
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::otto {
-namespace d = czlab::dsl;
+namespace czlab::otto{
+namespace d= czlab::dsl;
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 stdstr gensym(cstdstr& prefix);
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-struct SExprParser : public d::IParser {
-  // S-Expression parser.
+//S-Expression parser.
+struct SExprParser : public d::IParser{
   std::pair<int,d::DValue> parse();
+
   SExprParser(const Tchar* src);
   virtual ~SExprParser();
+
   int cur() const;
   Tchar peek() const;
   bool isCur(int) const;
-  bool isEof() const;
-
   d::DToken token() const;
-  d::DToken eat();
-  d::DToken eat(int wanted);
 
-  Reader* rdr() { return lexer; }
+  virtual bool isEof() const;
+  virtual d::DToken eat();
+  virtual d::DToken eat(int wanted);
+
+  Reader* rdr(){ return lexer; }
 
   private:
 
-  SExprParser() { lexer=P_NIL;}
   Reader* lexer;
+  SExprParser(){ lexer=P_NIL;}
 };
 
 

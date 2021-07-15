@@ -11,39 +11,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  *
- * Copyright © 2013-2020, Kenneth Leung. All rights reserved. */
+ * Copyright © 2013-2021, Kenneth Leung. All rights reserved. */
 
 #include "lexer.h"
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace czlab::tiny14e {
+namespace czlab::tiny14e{
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
-namespace d = czlab::dsl;
-namespace a = czlab::aeon;
-//;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+namespace d= czlab::dsl;
+namespace a= czlab::aeon;
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 d::DValue expected(cstdstr&, d::DValue, d::Addr);
 d::DValue expected(cstdstr&, d::DValue);
-
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename T>
-T* vcast(d::DValue v) {
+T* vcast(d::DValue v)
+{
   T obj;
-  if (auto p= v.get(); p &&
-      typeid(obj)==typeid(*p))
-    return s__cast(T,p); else return P_NIL;
-}
-
+  if(auto p= v.get(); p &&
+     typeid(obj)==typeid(*p))
+    return s__cast(T,p); else return P_NIL; }
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 template <typename T>
-T* vcast(d::DValue v, d::Addr mark) {
+T* vcast(d::DValue v, d::Addr mark){
   T obj;
-  if (auto p= v.get(); p &&
-      typeid(obj)==typeid(*p)) return s__cast(T,p);
-  if (_1(mark) == 0 &&
-      _2(mark) == 0)
+
+  if(auto p= v.get(); p &&
+     typeid(obj)==typeid(*p))
+    return s__cast(T,p);
+
+  if(_1(mark) == 0 && _2(mark) == 0)
     expected(obj.rtti(), v);
-  else expected(obj.rtti(), v,mark);
+  else
+    expected(obj.rtti(), v,mark);
+
   return P_NIL;
 }
 
