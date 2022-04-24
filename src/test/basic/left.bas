@@ -1,3 +1,0 @@
-10 A$="BASIC"
-20 B$=LEFT$(A$, 3)
-30 PRINT B$
