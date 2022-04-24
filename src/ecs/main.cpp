@@ -123,7 +123,7 @@ struct Game : public e::Engine {
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 }
-#if 0
+
 using namespace czlab::ecs;
 
 int main(int ac, char** av) {
@@ -148,7 +148,7 @@ int main(int ac, char** av) {
   std::cout << "yo! "    << "\n";
   return 0;
 }
-#endif
+
 
 
 //;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
