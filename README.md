@@ -1,6 +1,6 @@
 # aeon
 
-A basic LISP interpreter.
+A collection of useful libraries for my c++ projects.
 
 [![Build Status](https://travis-ci.org/llnek/aeon.svg?branch=master)](https://travis-ci.org/llnek/aeon)
 
